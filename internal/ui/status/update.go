@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/conjit/internal/ui/commit"
 	"github.com/mhersson/conjit/internal/ui/popup"
 )
 
@@ -87,6 +88,15 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case repoChangedMsg:
 		return m, loadStatusCmd(m.repo, m.cfg)
+
+	case openCommitEditorMsg:
+		// Convert to commit.OpenCommitEditorMsg for the app to handle
+		return m, func() tea.Msg {
+			return commit.OpenCommitEditorMsg{
+				Opts:   msg.opts,
+				Action: msg.action,
+			}
+		}
 	}
 
 	return m, nil
@@ -1135,11 +1145,13 @@ func handlePopupKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	if m.popup.Done() {
 		result := m.popup.Result()
+		kind := m.popupKind
 		m.popup = nil
+		m.popupKind = PopupNone
 
 		// Handle popup result
 		if result.Action != "" {
-			return handlePopupAction(m, result)
+			return handlePopupAction(m, kind, result)
 		}
 	}
 
@@ -1147,11 +1159,72 @@ func handlePopupKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // handlePopupAction processes the action from a closed popup.
-func handlePopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
-	// For now, just show a notification with the action
-	// The actual git operations will be wired up as needed
-	m.notification = "Action: " + result.Action
-	return m, notifyCmd(2 * time.Second)
+func handlePopupAction(m Model, kind PopupKind, result popup.Result) (tea.Model, tea.Cmd) {
+	switch kind {
+	case PopupCommit:
+		return handleCommitPopupAction(m, result)
+	default:
+		// For now, just show a notification with the action
+		// The actual git operations will be wired up as needed
+		m.notification = "Action: " + result.Action
+		return m, notifyCmd(2 * time.Second)
+	}
+}
+
+// handleCommitPopupAction handles actions from the commit popup.
+func handleCommitPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	opts := buildCommitOpts(result)
+
+	switch result.Action {
+	case "c": // Commit
+		return m, openCommitEditorCmd(opts, "commit")
+	case "e": // Extend (amend without editing)
+		opts.Amend = true
+		return m, openCommitEditorCmd(opts, "extend")
+	case "a": // Amend
+		opts.Amend = true
+		return m, openCommitEditorCmd(opts, "amend")
+	case "w": // Reword
+		opts.Amend = true
+		return m, openCommitEditorCmd(opts, "reword")
+	case "f": // Fixup
+		return m, openCommitEditorCmd(opts, "fixup")
+	case "s": // Squash
+		return m, openCommitEditorCmd(opts, "squash")
+	case "A": // Alter
+		return m, openCommitEditorCmd(opts, "alter")
+	case "n": // Augment
+		return m, openCommitEditorCmd(opts, "augment")
+	case "W": // Revise
+		return m, openCommitEditorCmd(opts, "revise")
+	case "F": // Instant Fixup
+		m.notification = "Instant Fixup not yet implemented"
+		return m, notifyCmd(2 * time.Second)
+	case "S": // Instant Squash
+		m.notification = "Instant Squash not yet implemented"
+		return m, notifyCmd(2 * time.Second)
+	case "x": // Absorb
+		m.notification = "Absorb not yet implemented"
+		return m, notifyCmd(2 * time.Second)
+	default:
+		m.notification = "Unknown commit action: " + result.Action
+		return m, notifyCmd(2 * time.Second)
+	}
+}
+
+// buildCommitOpts builds CommitOpts from popup result switches and options.
+func buildCommitOpts(result popup.Result) git.CommitOpts {
+	return git.CommitOpts{
+		All:          result.Switches["all"],
+		AllowEmpty:   result.Switches["allow-empty"],
+		Verbose:      result.Switches["verbose"],
+		NoVerify:     result.Switches["no-verify"],
+		ResetAuthor:  result.Switches["reset-author"],
+		Signoff:      result.Switches["signoff"],
+		Author:       result.Options["author"],
+		GpgSign:      result.Options["gpg-sign"],
+		ReuseMessage: result.Options["reuse-message"],
+	}
 }
 
 // handleOpenCommitPopup opens the commit popup.
@@ -1159,6 +1232,7 @@ func handleOpenCommitPopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewCommitPopup(m.tokens, nil)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupCommit
 	return m, nil
 }
 
@@ -1169,6 +1243,7 @@ func handleOpenBranchPopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewBranchPopup(m.tokens, nil, branch, showConfig)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupBranch
 	return m, nil
 }
 
@@ -1177,6 +1252,7 @@ func handleOpenPushPopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewPushPopup(m.tokens, nil, m.head.Branch, m.head.Detached)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupPush
 	return m, nil
 }
 
@@ -1185,6 +1261,7 @@ func handleOpenPullPopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewPullPopup(m.tokens, nil, m.head.Branch)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupPull
 	return m, nil
 }
 
@@ -1193,6 +1270,7 @@ func handleOpenFetchPopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewFetchPopup(m.tokens, nil)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupFetch
 	return m, nil
 }
 
@@ -1202,6 +1280,7 @@ func handleOpenMergePopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewMergePopup(m.tokens, nil, inMerge)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupMerge
 	return m, nil
 }
 
@@ -1211,6 +1290,7 @@ func handleOpenRebasePopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewRebasePopup(m.tokens, nil, inRebase)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupRebase
 	return m, nil
 }
 
@@ -1220,6 +1300,7 @@ func handleOpenRevertPopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewRevertPopup(m.tokens, nil, inProgress)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupRevert
 	return m, nil
 }
 
@@ -1229,6 +1310,7 @@ func handleOpenCherryPickPopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewCherryPickPopup(m.tokens, nil, inProgress)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupCherryPick
 	return m, nil
 }
 
@@ -1237,6 +1319,7 @@ func handleOpenResetPopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewResetPopup(m.tokens, nil)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupReset
 	return m, nil
 }
 
@@ -1245,6 +1328,7 @@ func handleOpenStashPopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewStashPopup(m.tokens, nil)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupStash
 	return m, nil
 }
 
@@ -1253,6 +1337,7 @@ func handleOpenTagPopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewTagPopup(m.tokens, nil)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupTag
 	return m, nil
 }
 
@@ -1261,6 +1346,7 @@ func handleOpenRemotePopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewRemotePopup(m.tokens, nil, "origin")
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupRemote
 	return m, nil
 }
 
@@ -1269,6 +1355,7 @@ func handleOpenWorktreePopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewWorktreePopup(m.tokens, nil)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupWorktree
 	return m, nil
 }
 
@@ -1278,6 +1365,7 @@ func handleOpenBisectPopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewBisectPopup(m.tokens, nil, inProgress, finished)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupBisect
 	return m, nil
 }
 
@@ -1288,6 +1376,7 @@ func handleOpenIgnorePopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewIgnorePopup(m.tokens, nil, hasGlobalIgnore)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupIgnore
 	return m, nil
 }
 
@@ -1296,6 +1385,7 @@ func handleOpenDiffPopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewDiffPopup(m.tokens, nil)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupDiff
 	return m, nil
 }
 
@@ -1304,6 +1394,7 @@ func handleOpenLogPopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewLogPopup(m.tokens, nil)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupLog
 	return m, nil
 }
 
@@ -1312,6 +1403,7 @@ func handleOpenMarginPopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewMarginPopup(m.tokens, nil)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupMargin
 	return m, nil
 }
 
@@ -1351,6 +1443,7 @@ func handleOpenHelpPopup(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewHelpPopup(m.tokens, keys)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
+	m.popupKind = PopupHelp
 	return m, nil
 }
 

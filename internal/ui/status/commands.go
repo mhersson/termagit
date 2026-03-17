@@ -679,3 +679,16 @@ func renameFileCmd(repo *git.Repository, oldPath, newPath string) tea.Cmd {
 		return operationDoneMsg{err: err}
 	}
 }
+
+// openCommitEditorCmd returns a command to open the commit editor.
+func openCommitEditorCmd(opts git.CommitOpts, action string) tea.Cmd {
+	return func() tea.Msg {
+		return openCommitEditorMsg{opts: opts, action: action}
+	}
+}
+
+// openCommitEditorMsg is sent to open the commit editor.
+type openCommitEditorMsg struct {
+	opts   git.CommitOpts
+	action string
+}

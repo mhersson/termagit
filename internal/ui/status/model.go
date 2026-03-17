@@ -106,6 +106,33 @@ type Cursor struct {
 	Line    int // index into hunk's Lines (-1 = on hunk header)
 }
 
+// PopupKind identifies which popup is active.
+type PopupKind int
+
+const (
+	PopupNone PopupKind = iota
+	PopupCommit
+	PopupBranch
+	PopupPush
+	PopupPull
+	PopupFetch
+	PopupMerge
+	PopupRebase
+	PopupRevert
+	PopupCherryPick
+	PopupReset
+	PopupStash
+	PopupTag
+	PopupRemote
+	PopupWorktree
+	PopupBisect
+	PopupIgnore
+	PopupDiff
+	PopupLog
+	PopupMargin
+	PopupHelp
+)
+
 // Model is the status buffer model.
 type Model struct {
 	repo   *git.Repository
@@ -125,7 +152,8 @@ type Model struct {
 	lastRefresh time.Time //nolint:unused // Phase 4
 
 	// Active popup (nil = none)
-	popup *popup.Popup
+	popup     *popup.Popup
+	popupKind PopupKind
 
 	// Confirmation state
 	confirmMode ConfirmMode //nolint:unused // Phase 4 - used in update.go

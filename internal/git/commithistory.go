@@ -98,3 +98,44 @@ func (c *CommitHistoryCycler) Reset() string {
 	c.idx = -1
 	return c.current
 }
+
+// CommitMessagesForCycling returns full commit messages (not just subjects).
+// Skips merge commits to match Neogit behavior. Returns newest first.
+func (r *Repository) CommitMessagesForCycling(ctx context.Context, n int) ([]string, error) {
+	var messages []string
+
+	_, _, err := r.logOp(ctx, fmt.Sprintf("git log -%d --format=%%B --no-merges", n), func() (string, string, error) {
+		head, err := r.raw.Head()
+		if err != nil {
+			return "", "", fmt.Errorf("get HEAD: %w", err)
+		}
+
+		iter, err := r.raw.Log(&gogit.LogOptions{From: head.Hash()})
+		if err != nil {
+			return "", "", fmt.Errorf("log: %w", err)
+		}
+
+		count := 0
+		err = iter.ForEach(func(c *object.Commit) error {
+			if count >= n {
+				return storer.ErrStop
+			}
+			// Skip merge commits (more than 1 parent)
+			if c.NumParents() > 1 {
+				return nil
+			}
+			// Use full message (trimmed of trailing whitespace)
+			messages = append(messages, strings.TrimSpace(c.Message))
+			count++
+			return nil
+		})
+
+		if err != nil {
+			return "", "", fmt.Errorf("iterate commits: %w", err)
+		}
+
+		return strings.Join(messages, "\x00"), "", nil
+	})
+
+	return messages, err
+}

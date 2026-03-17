@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	gogit "github.com/go-git/go-git/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -115,4 +116,60 @@ func TestCycler_Prev_EmptyMessages(t *testing.T) {
 
 	msg := c.Prev("current")
 	assert.Equal(t, "current", msg, "should return current when no messages")
+}
+
+func TestCommitMessagesForCycling_ReturnsFullMessages(t *testing.T) {
+	r := newMemRepo(t)
+	ctx := context.Background()
+
+	// Create commits with multiline messages
+	addAndCommitMsg(t, r, "a.txt", "a", "First commit\n\nThis is the body of the first commit.")
+	addAndCommitMsg(t, r, "b.txt", "b", "Second commit\n\nThis is the body of the second commit.\n\nWith multiple paragraphs.")
+
+	messages, err := r.CommitMessagesForCycling(ctx, 10)
+	require.NoError(t, err)
+	require.Len(t, messages, 3) // Initial + 2
+
+	// Most recent first
+	assert.Contains(t, messages[0], "Second commit")
+	assert.Contains(t, messages[0], "multiple paragraphs")
+	assert.Contains(t, messages[1], "First commit")
+	assert.Contains(t, messages[1], "body of the first")
+}
+
+func TestCommitMessagesForCycling_LimitsToN(t *testing.T) {
+	r := newMemRepo(t)
+	ctx := context.Background()
+
+	addAndCommit(t, r, "a.txt", "a", "First commit")
+	addAndCommit(t, r, "b.txt", "b", "Second commit")
+	addAndCommit(t, r, "c.txt", "c", "Third commit")
+
+	messages, err := r.CommitMessagesForCycling(ctx, 2)
+	require.NoError(t, err)
+	require.Len(t, messages, 2)
+	assert.Contains(t, messages[0], "Third commit")
+	assert.Contains(t, messages[1], "Second commit")
+}
+
+// addAndCommitMsg creates a file and commits with a custom message (including body).
+func addAndCommitMsg(t *testing.T, r *Repository, name, content, message string) {
+	t.Helper()
+
+	wt, err := r.raw.Worktree()
+	require.NoError(t, err)
+
+	fs := wt.Filesystem
+	f, err := fs.Create(name)
+	require.NoError(t, err)
+	_, err = f.Write([]byte(content))
+	require.NoError(t, err)
+	err = f.Close()
+	require.NoError(t, err)
+
+	_, err = wt.Add(name)
+	require.NoError(t, err)
+
+	_, err = wt.Commit(message, &gogit.CommitOptions{})
+	require.NoError(t, err)
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/conjit/internal/ui/commit"
 	"github.com/mhersson/conjit/internal/ui/status"
 )
 
@@ -23,6 +24,7 @@ const (
 	ScreenDiffView
 	ScreenRebaseEditor
 	ScreenCmdHistory
+	ScreenCommitEditor
 )
 
 // SwitchScreenMsg is sent to switch to a different screen.
@@ -38,8 +40,9 @@ type Model struct {
 	tokens theme.Tokens
 	logger *cmdlog.Logger
 
-	active Screen
-	status status.Model
+	active       Screen
+	status       status.Model
+	commitEditor commit.Model
 
 	width  int
 	height int
@@ -76,12 +79,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			newStatus, cmd := m.status.Update(msg)
 			m.status = newStatus.(status.Model)
 			return m, cmd
+		case ScreenCommitEditor:
+			var cmd tea.Cmd
+			newEditor, cmd := m.commitEditor.Update(msg)
+			m.commitEditor = newEditor.(commit.Model)
+			return m, cmd
 		}
 		return m, nil
 
 	case SwitchScreenMsg:
 		m.active = msg.Screen
 		// Additional screen initialization will be added in future phases
+		return m, nil
+
+	case commit.OpenCommitEditorMsg:
+		m.active = ScreenCommitEditor
+		m.commitEditor = commit.New(m.repo, msg.Opts, m.cfg, m.tokens, msg.Action)
+		m.commitEditor.SetSize(m.width, m.height)
+		return m, m.commitEditor.Init()
+
+	case commit.CommitEditorDoneMsg:
+		// Return to status, reload status after commit
+		m.active = ScreenStatus
+		if msg.Err == nil {
+			// Successfully committed, refresh status
+			return m, m.status.Init()
+		}
+		// TODO: Show error notification
+		return m, m.status.Init()
+
+	case commit.CommitEditorAbortMsg:
+		// Return to status without any changes
+		m.active = ScreenStatus
 		return m, nil
 	}
 
@@ -90,6 +119,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ScreenStatus:
 		newStatus, cmd := m.status.Update(msg)
 		m.status = newStatus.(status.Model)
+		return m, cmd
+	case ScreenCommitEditor:
+		newEditor, cmd := m.commitEditor.Update(msg)
+		m.commitEditor = newEditor.(commit.Model)
 		return m, cmd
 	}
 
@@ -101,6 +134,8 @@ func (m Model) View() string {
 	switch m.active {
 	case ScreenStatus:
 		return m.status.View()
+	case ScreenCommitEditor:
+		return m.commitEditor.View()
 	default:
 		return "Unknown screen"
 	}
