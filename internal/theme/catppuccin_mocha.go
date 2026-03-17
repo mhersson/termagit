@@ -29,8 +29,7 @@ func (t *catppuccinMocha) Raw() RawTokens {
 		CommitDate:   "#bac2de", // subtext1
 
 		// Section headers
-		SectionHeader:   "#cdd6f4",
-		SectionHeaderBg: "#cba6f7", // mauve
+		SectionHeader: "#cba6f7", // mauve
 
 		// Diff colors
 		DiffAdd:        "#a6e3a1", // green
@@ -40,12 +39,12 @@ func (t *catppuccinMocha) Raw() RawTokens {
 		DiffContext:    "#a6adc8", // subtext0
 		DiffHunkHeader: "#94e2d5", // teal
 
-		// Change indicators
-		ChangeModified:  "#f9e2af", // yellow
+		// Change indicators (match Neogit: Modified=blue, Added=green, Deleted=red, Renamed=purple, Copied=cyan)
+		ChangeModified:  "#89b4fa", // blue
 		ChangeAdded:     "#a6e3a1", // green
 		ChangeDeleted:   "#f38ba8", // red
-		ChangeRenamed:   "#89dceb", // sky
-		ChangeCopied:    "#74c7ec", // sapphire
+		ChangeRenamed:   "#cba6f7", // mauve (purple)
+		ChangeCopied:    "#94e2d5", // teal (cyan)
 		ChangeUntracked: "#9399b2", // overlay2
 
 		// Status
@@ -69,8 +68,8 @@ func (t *catppuccinMocha) Raw() RawTokens {
 		NotificationError: "#f38ba8", // red
 
 		// Cursor and selection
-		Cursor:     "#1e1e2e", // base
-		CursorBg:   "#f5e0dc", // rosewater
+		Cursor:     "#cdd6f4", // text (for use elsewhere)
+		CursorBg:   "#313244", // surface0 - subtle highlight
 		Selection:  "#cdd6f4",
 		SelectBg:   "#45475a", // surface0
 		Background: "#1e1e2e", // base

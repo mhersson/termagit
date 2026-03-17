@@ -27,8 +27,7 @@ func (t *everforestDark) Raw() RawTokens {
 		CommitDate:   "#9da9a0", // grey2
 
 		// Section headers
-		SectionHeader:   "#d3c6aa",
-		SectionHeaderBg: "#d699b6", // purple
+		SectionHeader: "#d699b6", // purple
 
 		// Diff colors
 		DiffAdd:        "#a7c080", // green
@@ -38,12 +37,12 @@ func (t *everforestDark) Raw() RawTokens {
 		DiffContext:    "#9da9a0",
 		DiffHunkHeader: "#83c092", // aqua
 
-		// Change indicators
-		ChangeModified:  "#dbbc7f", // yellow
+		// Change indicators (match Neogit: Modified=blue, Added=green, Deleted=red, Renamed=purple, Copied=cyan)
+		ChangeModified:  "#7fbbb3", // blue
 		ChangeAdded:     "#a7c080", // green
 		ChangeDeleted:   "#e67e80", // red
-		ChangeRenamed:   "#7fbbb3", // blue
-		ChangeCopied:    "#7fbbb3",
+		ChangeRenamed:   "#d699b6", // purple
+		ChangeCopied:    "#83c092", // aqua (cyan)
 		ChangeUntracked: "#859289",
 
 		// Status
@@ -67,8 +66,8 @@ func (t *everforestDark) Raw() RawTokens {
 		NotificationError: "#e67e80",
 
 		// Cursor and selection
-		Cursor:     "#2d353b",
-		CursorBg:   "#d3c6aa",
+		Cursor:     "#d3c6aa", // text (for use elsewhere)
+		CursorBg:   "#374145", // bg_visual - subtle highlight
 		Selection:  "#d3c6aa",
 		SelectBg:   "#475258",
 		Background: "#2d353b",

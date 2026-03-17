@@ -20,6 +20,12 @@ func view(m Model) string {
 
 	var b strings.Builder
 
+	// Render hint bar (unless disabled)
+	if m.cfg == nil || !m.cfg.UI.DisableHint {
+		b.WriteString(renderHintBar(m))
+		b.WriteString("\n\n")
+	}
+
 	// Render HEAD bar
 	b.WriteString(renderHeadBar(m))
 	b.WriteString("\n\n")
@@ -36,6 +42,38 @@ func view(m Model) string {
 	if m.notification != "" {
 		b.WriteString("\n")
 		b.WriteString(m.notification)
+	}
+
+	return b.String()
+}
+
+// renderHintBar renders the hint bar at the top of the status buffer.
+// Format: "Hint: <tab> toggle | s stage | u unstage | x discard | c commit | ? help"
+func renderHintBar(m Model) string {
+	var b strings.Builder
+
+	// "Hint:" in subtle style
+	b.WriteString(m.tokens.SubtleText.Render("Hint: "))
+
+	// Key-action pairs with separators
+	hints := []struct {
+		key    string
+		action string
+	}{
+		{"<tab>", "toggle"},
+		{"s", "stage"},
+		{"u", "unstage"},
+		{"x", "discard"},
+		{"c", "commit"},
+		{"?", "help"},
+	}
+
+	for i, h := range hints {
+		if i > 0 {
+			b.WriteString(m.tokens.SubtleText.Render(" | "))
+		}
+		b.WriteString(m.tokens.PopupSection.Render(h.key))
+		b.WriteString(m.tokens.SubtleText.Render(" " + h.action))
 	}
 
 	return b.String()
@@ -131,20 +169,23 @@ func renderSection(m Model, sectionIdx int, s *Section) string {
 		sign = "v"
 	}
 
-	// Format header text
-	var header string
-	if len(s.Items) > 0 {
-		header = fmt.Sprintf("%s %s (%d)", sign, s.Title, len(s.Items))
-	} else {
-		header = fmt.Sprintf("%s %s", sign, s.Title)
-	}
-
-	// Apply section-specific styling
+	// Build header with styled title and normal count
+	style := getSectionHeaderStyle(m.tokens, s.Kind)
 	if onHeader {
+		// When cursor is on header, entire line uses cursor style
+		var header string
+		if len(s.Items) > 0 {
+			header = fmt.Sprintf("%s %s (%d)", sign, s.Title, len(s.Items))
+		} else {
+			header = fmt.Sprintf("%s %s", sign, s.Title)
+		}
 		b.WriteString(m.tokens.Cursor.Render(header))
 	} else {
-		style := getSectionHeaderStyle(m.tokens, s.Kind)
-		b.WriteString(style.Render(header))
+		// Sign and title use section style, count uses normal style
+		b.WriteString(style.Render(fmt.Sprintf("%s %s", sign, s.Title)))
+		if len(s.Items) > 0 {
+			fmt.Fprintf(&b, " (%d)", len(s.Items))
+		}
 	}
 	b.WriteString("\n")
 
@@ -204,13 +245,17 @@ func renderItem(m Model, sectionIdx, itemIdx int, item *Item, sectionKind Sectio
 			sign = "v"
 		}
 
-		line := fmt.Sprintf("  %s %s %s", sign, padRight(modeText, 12), path)
-
 		if onItem {
+			// Cursor: entire line uses cursor style
+			line := fmt.Sprintf("  %s %s %s", sign, padRight(modeText, 12), path)
 			b.WriteString(m.tokens.Cursor.Render(line))
 		} else {
-			// Apply change style based on mode
-			b.WriteString(styleForMode(m.tokens, item.Entry, sectionKind).Render(line))
+			// Normal: mode text colored, file path in default color
+			b.WriteString("  ")
+			b.WriteString(sign)
+			b.WriteString(" ")
+			b.WriteString(styleForMode(m.tokens, item.Entry, sectionKind).Render(padRight(modeText, 12)))
+			b.WriteString(path)
 		}
 		b.WriteString("\n")
 

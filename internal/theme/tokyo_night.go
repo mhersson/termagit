@@ -27,8 +27,7 @@ func (t *tokyoNight) Raw() RawTokens {
 		CommitDate:   "#9aa5ce",
 
 		// Section headers
-		SectionHeader:   "#c0caf5",
-		SectionHeaderBg: "#bb9af7", // magenta
+		SectionHeader: "#bb9af7", // magenta
 
 		// Diff colors
 		DiffAdd:        "#9ece6a", // green
@@ -38,12 +37,12 @@ func (t *tokyoNight) Raw() RawTokens {
 		DiffContext:    "#9aa5ce",
 		DiffHunkHeader: "#7dcfff", // cyan
 
-		// Change indicators
-		ChangeModified:  "#e0af68", // yellow
+		// Change indicators (match Neogit: Modified=blue, Added=green, Deleted=red, Renamed=purple, Copied=cyan)
+		ChangeModified:  "#7aa2f7", // blue
 		ChangeAdded:     "#9ece6a", // green
 		ChangeDeleted:   "#f7768e", // red
-		ChangeRenamed:   "#7aa2f7", // blue
-		ChangeCopied:    "#7aa2f7",
+		ChangeRenamed:   "#bb9af7", // magenta (purple)
+		ChangeCopied:    "#7dcfff", // cyan
 		ChangeUntracked: "#737aa2",
 
 		// Status
@@ -67,8 +66,8 @@ func (t *tokyoNight) Raw() RawTokens {
 		NotificationError: "#f7768e",
 
 		// Cursor and selection
-		Cursor:     "#1a1b26",
-		CursorBg:   "#c0caf5",
+		Cursor:     "#c0caf5", // text (for use elsewhere)
+		CursorBg:   "#292e42", // bg_highlight - subtle highlight
 		Selection:  "#c0caf5",
 		SelectBg:   "#33467c",
 		Background: "#1a1b26",

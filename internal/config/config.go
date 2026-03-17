@@ -22,11 +22,64 @@ type SectionsConfig struct {
 	Bisect             SectionConfig `toml:"bisect"`
 }
 
+// GitConfig holds git-related settings.
+type GitConfig struct {
+	Executable   string `toml:"executable"`
+	SortBranches string `toml:"sort_branches"`
+	CommitOrder  string `toml:"commit_order"`
+	GraphStyle   string `toml:"graph_style"`
+}
+
+// UIConfig holds UI-related settings.
+type UIConfig struct {
+	DisableHint                bool   `toml:"disable_hint"`
+	DisableContextHighlighting bool   `toml:"disable_context_highlighting"`
+	DisableSigns               bool   `toml:"disable_signs"`
+	DisableLineNumbers         bool   `toml:"disable_line_numbers"`
+	ShowHeadCommitHash         bool   `toml:"show_head_commit_hash"`
+	RecentCommitCount          int    `toml:"recent_commit_count"`
+	HEADPadding                int    `toml:"HEAD_padding"`
+	HEADFolded                 bool   `toml:"HEAD_folded"`
+	ModePadding                int    `toml:"mode_padding"`
+	NotificationIcon           string `toml:"notification_icon"`
+	ConsoleTimeout             int    `toml:"console_timeout"`
+	AutoShowConsole            bool   `toml:"auto_show_console"`
+	AutoCloseConsole           bool   `toml:"auto_close_console"`
+}
+
+// CommitEditorConfig holds commit editor settings.
+type CommitEditorConfig struct {
+	ShowStagedDiff      bool   `toml:"show_staged_diff"`
+	StagedDiffSplitKind string `toml:"staged_diff_split_kind"`
+	SpellCheck          bool   `toml:"spell_check"`
+}
+
+// CommitViewConfig holds commit view settings.
+type CommitViewConfig struct {
+	VerifyCommit bool `toml:"verify_commit"`
+}
+
+// FilewatcherConfig holds file watcher settings.
+type FilewatcherConfig struct {
+	Enabled bool `toml:"enabled"`
+}
+
+// KeybindConfig holds keybind overrides.
+type KeybindConfig struct {
+	// Placeholder for future keybind overrides
+}
+
 // Config holds the application configuration.
 type Config struct {
-	Theme    string         `toml:"theme"`
-	Sections SectionsConfig `toml:"sections"`
-	Log      LogConfig      `toml:"log"`
+	Theme        string             `toml:"theme"`
+	Git          GitConfig          `toml:"git"`
+	UI           UIConfig           `toml:"ui"`
+	CommitEditor CommitEditorConfig `toml:"commit_editor"`
+	CommitView   CommitViewConfig   `toml:"commit_view"`
+	Filewatcher  FilewatcherConfig  `toml:"filewatcher"`
+	Sections     SectionsConfig     `toml:"sections"`
+	Keybinds     KeybindConfig      `toml:"keybinds"`
+	Log          LogConfig          `toml:"log"`
 }
 
 // LogConfig holds command log settings.
@@ -39,6 +92,39 @@ type LogConfig struct {
 func defaults() *Config {
 	return &Config{
 		Theme: "catppuccin-mocha",
+		Git: GitConfig{
+			Executable:   "git",
+			SortBranches: "-committerdate",
+			CommitOrder:  "topo",
+			GraphStyle:   "unicode",
+		},
+		UI: UIConfig{
+			DisableHint:                false,
+			DisableContextHighlighting: false,
+			DisableSigns:               false,
+			DisableLineNumbers:         false,
+			ShowHeadCommitHash:         false,
+			RecentCommitCount:          5,
+			HEADPadding:                0,
+			HEADFolded:                 false,
+			ModePadding:                3,
+			NotificationIcon:           "󰐗",
+			ConsoleTimeout:             5000,
+			AutoShowConsole:            true,
+			AutoCloseConsole:           true,
+		},
+		CommitEditor: CommitEditorConfig{
+			ShowStagedDiff:      true,
+			StagedDiffSplitKind: "split",
+			SpellCheck:          false,
+		},
+		CommitView: CommitViewConfig{
+			VerifyCommit: true,
+		},
+		Filewatcher: FilewatcherConfig{
+			Enabled: true,
+		},
+		Keybinds: KeybindConfig{},
 		Sections: SectionsConfig{
 			Sequencer:          SectionConfig{Folded: false, Hidden: false},
 			Untracked:          SectionConfig{Folded: false, Hidden: false},

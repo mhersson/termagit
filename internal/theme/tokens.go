@@ -24,8 +24,7 @@ type RawTokens struct {
 	CommitDate   string `toml:"commit_date"`
 
 	// Section headers
-	SectionHeader   string `toml:"section_header"`
-	SectionHeaderBg string `toml:"section_header_bg"`
+	SectionHeader string `toml:"section_header"`
 
 	// Diff colors
 	DiffAdd        string `toml:"diff_add"`
@@ -185,7 +184,6 @@ func Compile(r RawTokens) Tokens {
 
 		SectionHeader: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(r.SectionHeader)).
-			Background(lipgloss.Color(r.SectionHeaderBg)).
 			Bold(true),
 
 		DiffAdd:        lipgloss.NewStyle().Foreground(lipgloss.Color(r.DiffAdd)).Background(lipgloss.Color(r.DiffAddBg)),
@@ -216,7 +214,7 @@ func Compile(r RawTokens) Tokens {
 		NotificationWarn:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationWarn)),
 		NotificationError: lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationError)).Bold(true),
 
-		Cursor:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.Cursor)).Background(lipgloss.Color(r.CursorBg)),
+		Cursor:    lipgloss.NewStyle().Background(lipgloss.Color(r.CursorBg)),
 		Selection: lipgloss.NewStyle().Foreground(lipgloss.Color(r.Selection)).Background(lipgloss.Color(r.SelectBg)),
 
 		GraphOrange: lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphOrange)),
