@@ -2,6 +2,7 @@ package popup
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -294,6 +295,11 @@ func (p Popup) View() string {
 
 	var b strings.Builder
 
+	// Top border (separates popup from main window)
+	border := strings.Repeat("─", p.width)
+	b.WriteString(p.tokens.PopupBorder.Render(border))
+	b.WriteString("\n")
+
 	// Config items (if any)
 	if len(p.config) > 0 {
 		for _, cfg := range p.config {
@@ -457,6 +463,7 @@ func (p Popup) renderActionsGrid() string {
 	// Render grid row by row
 	var b strings.Builder
 	for row := 0; row < maxRows; row++ {
+		var lineContent strings.Builder
 		for colIdx, col := range columns {
 			var cell columnLine
 			if row < len(col) {
@@ -469,17 +476,44 @@ func (p Popup) renderActionsGrid() string {
 				padding = 0
 			}
 
-			// Write styled content + padding
-			b.WriteString(cell.styled)
-			b.WriteString(strings.Repeat(" ", padding))
+			// For first row (headers), build plain text for cursor rendering
+			// For other rows, use styled content
+			if row == 0 {
+				lineContent.WriteString(cell.text)
+			} else {
+				lineContent.WriteString(cell.styled)
+			}
+			lineContent.WriteString(strings.Repeat(" ", padding))
 
 			// Gap between columns (not after last)
 			if colIdx < len(columns)-1 {
-				b.WriteString(strings.Repeat(" ", gap))
+				lineContent.WriteString(strings.Repeat(" ", gap))
 			}
 		}
-		b.WriteString("\n")
+
+		// First row gets block cursor, others get newline directly
+		if row == 0 {
+			b.WriteString(renderWithBlockCursor(p.tokens, lineContent.String()))
+		} else {
+			b.WriteString(lineContent.String())
+			b.WriteString("\n")
+		}
 	}
 
 	return b.String()
+}
+
+// renderWithBlockCursor renders a line with a block cursor at position 0.
+// Only the first character gets reverse video - no background on the rest.
+func renderWithBlockCursor(tokens theme.Tokens, line string) string {
+	if len(line) == 0 {
+		return tokens.CursorBlock.Render(" ") + "\n"
+	}
+
+	// Get first rune (handles multi-byte UTF-8)
+	firstRune, size := utf8.DecodeRuneInString(line)
+	rest := line[size:]
+
+	// First character: reverse video, rest: no special styling
+	return tokens.CursorBlock.Render(string(firstRune)) + rest + "\n"
 }

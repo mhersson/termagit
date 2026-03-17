@@ -19,6 +19,39 @@ func view(m Model) string {
 		return fmt.Sprintf("Error: %v", m.err)
 	}
 
+	// Overlay popup if active
+	if m.popup != nil {
+		// Re-render content when popup is active to suppress block cursor
+		// (renderCursorLine checks m.popup and shows only cursor line, not block cursor)
+		content, cursorLine := renderContent(m)
+
+		// Apply viewport-like scrolling
+		lines := strings.Split(content, "\n")
+		startLine := m.viewport.YOffset
+		endLine := startLine + m.viewport.Height
+		if endLine > len(lines) {
+			endLine = len(lines)
+		}
+		if startLine > len(lines) {
+			startLine = len(lines)
+		}
+
+		// Ensure cursor is visible
+		if cursorLine < startLine {
+			startLine = cursorLine
+			endLine = startLine + m.viewport.Height
+		} else if cursorLine >= endLine {
+			endLine = cursorLine + 1
+			startLine = endLine - m.viewport.Height
+			if startLine < 0 {
+				startLine = 0
+			}
+		}
+
+		visibleContent := strings.Join(lines[startLine:endLine], "\n")
+		return renderPopupOverlay(m, visibleContent)
+	}
+
 	// If viewport has content, use it; otherwise render directly
 	var content string
 	if m.viewport.Width > 0 && m.viewport.Height > 0 {
@@ -26,11 +59,6 @@ func view(m Model) string {
 	} else {
 		// Fallback to direct rendering (for tests or before WindowSizeMsg)
 		content, _ = renderContent(m)
-	}
-
-	// Overlay popup if active
-	if m.popup != nil {
-		return renderPopupOverlay(m, content)
 	}
 
 	return content
@@ -115,6 +143,17 @@ func renderWithBlockCursor(tokens Tokens, line string) string {
 
 	// First character: reverse video, rest: cursor line background
 	return tokens.CursorBlock.Render(string(firstRune)) + tokens.Cursor.Render(rest) + "\n"
+}
+
+// renderCursorLine renders a line with cursor styling.
+// When popup is active, shows cursor background only (no block cursor).
+// When popup is not active, shows full block cursor on first character.
+func renderCursorLine(m Model, line string) string {
+	if m.popup != nil {
+		// Popup has focus - show cursor line background but no block cursor
+		return m.tokens.Cursor.Render(line) + "\n"
+	}
+	return renderWithBlockCursor(m.tokens, line)
 }
 
 // renderHeadBar renders the HEAD information bar.
@@ -224,7 +263,7 @@ func renderSequencerItem(m Model, item *Item, onItem bool) string {
 
 	if onItem {
 		line := fmt.Sprintf("  %s %s %s", action, hash, subject)
-		return renderWithBlockCursor(m.tokens, line)
+		return renderCursorLine(m, line)
 	}
 
 	var b strings.Builder
@@ -256,7 +295,7 @@ func renderRebaseItem(m Model, item *Item, onItem bool) string {
 
 	if onItem {
 		line := fmt.Sprintf("%s%s %s %s", prefix, action, hash, subject)
-		return renderWithBlockCursor(m.tokens, line)
+		return renderCursorLine(m, line)
 	}
 
 	var b strings.Builder
@@ -294,7 +333,7 @@ func renderBisectItem(m Model, item *Item, onItem bool) string {
 
 	if onItem {
 		line := fmt.Sprintf("%s%s %s %s", prefix, action, hash, subject)
-		return renderWithBlockCursor(m.tokens, line)
+		return renderCursorLine(m, line)
 	}
 
 	var b strings.Builder
@@ -325,7 +364,7 @@ func renderBisectItem(m Model, item *Item, onItem bool) string {
 func renderStashItem(m Model, item *Item, onItem bool) string {
 	line := fmt.Sprintf("  %s: %s", item.Stash.Name, item.Stash.Message)
 	if onItem {
-		return renderWithBlockCursor(m.tokens, line)
+		return renderCursorLine(m, line)
 	}
 
 	var b strings.Builder
@@ -345,7 +384,7 @@ func renderCommitItem(m Model, item *Item, onItem bool) string {
 
 	if onItem {
 		line := fmt.Sprintf("  %s %s", hash, subject)
-		return renderWithBlockCursor(m.tokens, line)
+		return renderCursorLine(m, line)
 	}
 
 	var b strings.Builder
@@ -529,7 +568,7 @@ func renderSectionWithLineTracking(m Model, sectionIdx int, s *Section, startLin
 		} else {
 			header = fmt.Sprintf("%s %s", sign, s.Title)
 		}
-		b.WriteString(renderWithBlockCursor(m.tokens, header))
+		b.WriteString(renderCursorLine(m, header))
 	} else {
 		b.WriteString(style.Render(fmt.Sprintf("%s %s", sign, s.Title)))
 		if len(s.Items) > 0 {
@@ -588,7 +627,7 @@ func renderItemWithLineTracking(m Model, sectionIdx, itemIdx int, item *Item, se
 
 		if onItem {
 			line := fmt.Sprintf("  %s %s %s", sign, padRight(modeText, 12), path)
-			b.WriteString(renderWithBlockCursor(m.tokens, line))
+			b.WriteString(renderCursorLine(m, line))
 		} else {
 			b.WriteString("  ")
 			b.WriteString(sign)
@@ -649,7 +688,7 @@ func renderHunkWithLineTracking(m Model, sectionIdx, itemIdx, hunkIdx int, hunk 
 	}
 	header := "    " + sign + " " + hunk.Header
 	if onHunk {
-		b.WriteString(renderWithBlockCursor(m.tokens, header))
+		b.WriteString(renderCursorLine(m, header))
 	} else {
 		b.WriteString(m.tokens.DiffHunkHeader.Render(header))
 		b.WriteString("\n")
@@ -673,7 +712,7 @@ func renderHunkWithLineTracking(m Model, sectionIdx, itemIdx, hunkIdx int, hunk 
 			case git.DiffOpAdd:
 				lineStr = "      +" + line.Content
 				if onLine {
-					b.WriteString(renderWithBlockCursor(m.tokens, lineStr))
+					b.WriteString(renderCursorLine(m, lineStr))
 				} else {
 					b.WriteString(m.tokens.DiffAdd.Render(lineStr))
 					b.WriteString("\n")
@@ -681,7 +720,7 @@ func renderHunkWithLineTracking(m Model, sectionIdx, itemIdx, hunkIdx int, hunk 
 			case git.DiffOpDelete:
 				lineStr = "      -" + line.Content
 				if onLine {
-					b.WriteString(renderWithBlockCursor(m.tokens, lineStr))
+					b.WriteString(renderCursorLine(m, lineStr))
 				} else {
 					b.WriteString(m.tokens.DiffDelete.Render(lineStr))
 					b.WriteString("\n")
@@ -689,7 +728,7 @@ func renderHunkWithLineTracking(m Model, sectionIdx, itemIdx, hunkIdx int, hunk 
 			case git.DiffOpContext:
 				lineStr = "       " + line.Content
 				if onLine {
-					b.WriteString(renderWithBlockCursor(m.tokens, lineStr))
+					b.WriteString(renderCursorLine(m, lineStr))
 				} else {
 					b.WriteString(m.tokens.DiffContext.Render(lineStr))
 					b.WriteString("\n")

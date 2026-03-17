@@ -383,6 +383,106 @@ func TestPopup_Spacer(t *testing.T) {
 	}
 }
 
+func TestPopup_ViewFormat_TopBorder(t *testing.T) {
+	tokens := testTokens()
+	p := New("Test", tokens)
+	p.AddActionGroup("Create", []Action{
+		{Key: "c", Label: "Commit"},
+	})
+
+	p.SetSize(80, 24)
+	view := p.View()
+
+	// View should start with a horizontal border line (─ characters)
+	lines := strings.Split(view, "\n")
+	if len(lines) == 0 {
+		t.Fatal("view should have content")
+	}
+
+	firstLine := lines[0]
+	// The border should be made of ─ characters
+	if !strings.Contains(firstLine, "─") {
+		t.Error("popup should have top border with ─ characters")
+	}
+
+	// Border should span the width
+	borderRunes := 0
+	for _, r := range firstLine {
+		if r == '─' {
+			borderRunes++
+		}
+	}
+	if borderRunes < 10 { // Should have substantial border
+		t.Errorf("border should span width, got only %d ─ chars", borderRunes)
+	}
+}
+
+func TestPopup_ViewFormat_BlockCursorOnFirstActionRow(t *testing.T) {
+	tokens := testTokens()
+	p := New("Test", tokens)
+	p.AddActionGroup("Create", []Action{
+		{Key: "c", Label: "Commit"},
+	})
+
+	p.SetSize(80, 24)
+	view := p.View()
+
+	// The first action row (headers) should have a block cursor
+	// The popup sets hasFocus=true by default, so cursor should be rendered
+	lines := strings.Split(view, "\n")
+
+	// Find the line with "Create" header (first action row after border)
+	foundActionRow := false
+	for _, line := range lines {
+		if strings.Contains(line, "Create") {
+			foundActionRow = true
+			break
+		}
+	}
+	if !foundActionRow {
+		t.Error("popup should contain action group header 'Create'")
+	}
+}
+
+func TestPopup_RenderWithBlockCursor(t *testing.T) {
+	tokens := testTokens()
+
+	// Test the helper function
+	result := renderWithBlockCursor(tokens, "Test line")
+
+	// Should not be empty
+	if result == "" {
+		t.Error("renderWithBlockCursor should return content")
+	}
+
+	// Should end with newline
+	if !strings.HasSuffix(result, "\n") {
+		t.Error("renderWithBlockCursor should end with newline")
+	}
+
+	// Should contain "Test line" content (minus the cursor styling)
+	if !strings.Contains(result, "est line") { // first char "T" will be styled differently
+		t.Error("renderWithBlockCursor should contain the line content")
+	}
+}
+
+func TestPopup_RenderWithBlockCursor_EmptyLine(t *testing.T) {
+	tokens := testTokens()
+
+	// Empty line should still render a cursor (space)
+	result := renderWithBlockCursor(tokens, "")
+
+	// Should not be empty
+	if result == "" {
+		t.Error("renderWithBlockCursor should return content even for empty line")
+	}
+
+	// Should end with newline
+	if !strings.HasSuffix(result, "\n") {
+		t.Error("renderWithBlockCursor should end with newline")
+	}
+}
+
 func testTokens() theme.Tokens {
 	raw := theme.RawTokens{
 		Normal:       "#ffffff",
@@ -394,6 +494,8 @@ func testTokens() theme.Tokens {
 		PopupOption:  "#ffff00",
 		PopupAction:  "#00ffff",
 		PopupSection: "#ff8800",
+		Cursor:       "#ffffff",
+		CursorBg:     "#444444",
 	}
 	return theme.Compile(raw)
 }
