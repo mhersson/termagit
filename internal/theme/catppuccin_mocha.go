@@ -55,8 +55,8 @@ func (t *catppuccinMocha) Raw() RawTokens {
 		// Popup
 		PopupBorder:  "#585b70", // surface2
 		PopupTitle:   "#cdd6f4",
-		PopupKey:     "#1e1e2e", // base
-		PopupKeyBg:   "#89b4fa", // blue
+		PopupKey:     "#89b4fa", // blue
+		PopupKeyBg:   "#89b4fa", // blue (unused now)
 		PopupSwitch:  "#89dceb", // sky
 		PopupOption:  "#f9e2af", // yellow
 		PopupAction:  "#cdd6f4",

@@ -8,6 +8,7 @@ import (
 	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/conjit/internal/ui/popup"
 )
 
 // Tokens is an alias for theme.Tokens used in this package.
@@ -124,7 +125,7 @@ type Model struct {
 	lastRefresh time.Time //nolint:unused // Phase 4
 
 	// Active popup (nil = none)
-	popup tea.Model //nolint:unused // Phase 6
+	popup *popup.Popup
 
 	// Confirmation state
 	confirmMode ConfirmMode //nolint:unused // Phase 4 - used in update.go

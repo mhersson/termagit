@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/conjit/internal/ui/popup"
 )
 
 // update handles messages for the status model.
@@ -93,6 +94,11 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKeyMsg handles keyboard input.
 func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// If popup is active, delegate to it
+	if m.popup != nil {
+		return handlePopupKey(m, msg)
+	}
+
 	// Handle confirmation mode first
 	if m.confirmMode != ConfirmNone {
 		return handleConfirmKey(m, msg)
@@ -224,29 +230,66 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.OpenTree):
 		return handleOpenTree(m)
 
-	// All popup keys - stub with notification
-	case key.Matches(msg, m.keys.HelpPopup),
-		key.Matches(msg, m.keys.CherryPickPopup),
-		key.Matches(msg, m.keys.DiffPopup),
-		key.Matches(msg, m.keys.RemotePopup),
-		key.Matches(msg, m.keys.PushPopup),
-		key.Matches(msg, m.keys.ResetPopup),
-		key.Matches(msg, m.keys.StashPopup),
-		key.Matches(msg, m.keys.IgnorePopup),
-		key.Matches(msg, m.keys.TagPopup),
-		key.Matches(msg, m.keys.BranchPopup),
-		key.Matches(msg, m.keys.BisectPopup),
-		key.Matches(msg, m.keys.WorktreePopup),
-		key.Matches(msg, m.keys.CommitPopup),
-		key.Matches(msg, m.keys.FetchPopup),
-		key.Matches(msg, m.keys.LogPopup),
-		key.Matches(msg, m.keys.MarginPopup),
-		key.Matches(msg, m.keys.MergePopup),
-		key.Matches(msg, m.keys.PullPopup),
-		key.Matches(msg, m.keys.RebasePopup),
-		key.Matches(msg, m.keys.RevertPopup):
-		m.notification = "Popups not yet implemented (Phase 6)"
-		return m, notifyCmd(3 * time.Second)
+	// Popup keys - create real popups
+	case key.Matches(msg, m.keys.CommitPopup):
+		return handleOpenCommitPopup(m)
+
+	case key.Matches(msg, m.keys.BranchPopup):
+		return handleOpenBranchPopup(m)
+
+	case key.Matches(msg, m.keys.PushPopup):
+		return handleOpenPushPopup(m)
+
+	case key.Matches(msg, m.keys.PullPopup):
+		return handleOpenPullPopup(m)
+
+	case key.Matches(msg, m.keys.FetchPopup):
+		return handleOpenFetchPopup(m)
+
+	case key.Matches(msg, m.keys.MergePopup):
+		return handleOpenMergePopup(m)
+
+	case key.Matches(msg, m.keys.RebasePopup):
+		return handleOpenRebasePopup(m)
+
+	case key.Matches(msg, m.keys.RevertPopup):
+		return handleOpenRevertPopup(m)
+
+	case key.Matches(msg, m.keys.CherryPickPopup):
+		return handleOpenCherryPickPopup(m)
+
+	case key.Matches(msg, m.keys.ResetPopup):
+		return handleOpenResetPopup(m)
+
+	case key.Matches(msg, m.keys.StashPopup):
+		return handleOpenStashPopup(m)
+
+	case key.Matches(msg, m.keys.TagPopup):
+		return handleOpenTagPopup(m)
+
+	case key.Matches(msg, m.keys.RemotePopup):
+		return handleOpenRemotePopup(m)
+
+	case key.Matches(msg, m.keys.WorktreePopup):
+		return handleOpenWorktreePopup(m)
+
+	case key.Matches(msg, m.keys.BisectPopup):
+		return handleOpenBisectPopup(m)
+
+	case key.Matches(msg, m.keys.IgnorePopup):
+		return handleOpenIgnorePopup(m)
+
+	case key.Matches(msg, m.keys.DiffPopup):
+		return handleOpenDiffPopup(m)
+
+	case key.Matches(msg, m.keys.LogPopup):
+		return handleOpenLogPopup(m)
+
+	case key.Matches(msg, m.keys.MarginPopup):
+		return handleOpenMarginPopup(m)
+
+	case key.Matches(msg, m.keys.HelpPopup):
+		return handleOpenHelpPopup(m)
 
 	// Other stub keys
 	case key.Matches(msg, m.keys.ShowRefs),
@@ -1082,4 +1125,282 @@ func handleGoToBottom(m Model) (tea.Model, tea.Cmd) {
 	ensureCursorVisible(&m, cursorLine)
 
 	return m, nil
+}
+
+// handlePopupKey delegates key handling to the active popup.
+func handlePopupKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	p := *m.popup
+	newPopup, cmd := p.Update(msg)
+	m.popup = &newPopup
+
+	if m.popup.Done() {
+		result := m.popup.Result()
+		m.popup = nil
+
+		// Handle popup result
+		if result.Action != "" {
+			return handlePopupAction(m, result)
+		}
+	}
+
+	return m, cmd
+}
+
+// handlePopupAction processes the action from a closed popup.
+func handlePopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	// For now, just show a notification with the action
+	// The actual git operations will be wired up as needed
+	m.notification = "Action: " + result.Action
+	return m, notifyCmd(2 * time.Second)
+}
+
+// handleOpenCommitPopup opens the commit popup.
+func handleOpenCommitPopup(m Model) (tea.Model, tea.Cmd) {
+	p := popup.NewCommitPopup(m.tokens, nil)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenBranchPopup opens the branch popup.
+func handleOpenBranchPopup(m Model) (tea.Model, tea.Cmd) {
+	branch := m.head.Branch
+	showConfig := branch != "" && !m.head.Detached
+	p := popup.NewBranchPopup(m.tokens, nil, branch, showConfig)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenPushPopup opens the push popup.
+func handleOpenPushPopup(m Model) (tea.Model, tea.Cmd) {
+	p := popup.NewPushPopup(m.tokens, nil, m.head.Branch, m.head.Detached)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenPullPopup opens the pull popup.
+func handleOpenPullPopup(m Model) (tea.Model, tea.Cmd) {
+	p := popup.NewPullPopup(m.tokens, nil, m.head.Branch)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenFetchPopup opens the fetch popup.
+func handleOpenFetchPopup(m Model) (tea.Model, tea.Cmd) {
+	p := popup.NewFetchPopup(m.tokens, nil)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenMergePopup opens the merge popup.
+func handleOpenMergePopup(m Model) (tea.Model, tea.Cmd) {
+	inMerge := isInMerge(m.sections)
+	p := popup.NewMergePopup(m.tokens, nil, inMerge)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenRebasePopup opens the rebase popup.
+func handleOpenRebasePopup(m Model) (tea.Model, tea.Cmd) {
+	inRebase := isInRebase(m.sections)
+	p := popup.NewRebasePopup(m.tokens, nil, inRebase)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenRevertPopup opens the revert popup.
+func handleOpenRevertPopup(m Model) (tea.Model, tea.Cmd) {
+	inProgress := isInSequencer(m.sections, "revert")
+	p := popup.NewRevertPopup(m.tokens, nil, inProgress)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenCherryPickPopup opens the cherry-pick popup.
+func handleOpenCherryPickPopup(m Model) (tea.Model, tea.Cmd) {
+	inProgress := isInSequencer(m.sections, "pick")
+	p := popup.NewCherryPickPopup(m.tokens, nil, inProgress)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenResetPopup opens the reset popup.
+func handleOpenResetPopup(m Model) (tea.Model, tea.Cmd) {
+	p := popup.NewResetPopup(m.tokens, nil)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenStashPopup opens the stash popup.
+func handleOpenStashPopup(m Model) (tea.Model, tea.Cmd) {
+	p := popup.NewStashPopup(m.tokens, nil)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenTagPopup opens the tag popup.
+func handleOpenTagPopup(m Model) (tea.Model, tea.Cmd) {
+	p := popup.NewTagPopup(m.tokens, nil)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenRemotePopup opens the remote popup.
+func handleOpenRemotePopup(m Model) (tea.Model, tea.Cmd) {
+	p := popup.NewRemotePopup(m.tokens, nil, "origin")
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenWorktreePopup opens the worktree popup.
+func handleOpenWorktreePopup(m Model) (tea.Model, tea.Cmd) {
+	p := popup.NewWorktreePopup(m.tokens, nil)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenBisectPopup opens the bisect popup.
+func handleOpenBisectPopup(m Model) (tea.Model, tea.Cmd) {
+	inProgress, finished := getBisectState(m.sections)
+	p := popup.NewBisectPopup(m.tokens, nil, inProgress, finished)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenIgnorePopup opens the ignore popup.
+func handleOpenIgnorePopup(m Model) (tea.Model, tea.Cmd) {
+	// Check if global gitignore exists
+	hasGlobalIgnore := false // Could check git config core.excludesfile
+	p := popup.NewIgnorePopup(m.tokens, nil, hasGlobalIgnore)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenDiffPopup opens the diff popup.
+func handleOpenDiffPopup(m Model) (tea.Model, tea.Cmd) {
+	p := popup.NewDiffPopup(m.tokens, nil)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenLogPopup opens the log popup.
+func handleOpenLogPopup(m Model) (tea.Model, tea.Cmd) {
+	p := popup.NewLogPopup(m.tokens, nil)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenMarginPopup opens the margin popup.
+func handleOpenMarginPopup(m Model) (tea.Model, tea.Cmd) {
+	p := popup.NewMarginPopup(m.tokens, nil)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// handleOpenHelpPopup opens the help popup.
+func handleOpenHelpPopup(m Model) (tea.Model, tea.Cmd) {
+	keys := popup.HelpKeys{
+		CommitPopup:     "c",
+		BranchPopup:     "b",
+		PushPopup:       "P",
+		PullPopup:       "p",
+		FetchPopup:      "f",
+		MergePopup:      "m",
+		RebasePopup:     "r",
+		RevertPopup:     "v",
+		CherryPickPopup: "A",
+		ResetPopup:      "X",
+		StashPopup:      "Z",
+		TagPopup:        "t",
+		RemotePopup:     "M",
+		WorktreePopup:   "w",
+		BisectPopup:     "B",
+		IgnorePopup:     "i",
+		DiffPopup:       "d",
+		LogPopup:        "l",
+		MarginPopup:     "L",
+		Stage:           "s",
+		Unstage:         "u",
+		Discard:         "x",
+		MoveDown:        "j",
+		MoveUp:          "k",
+		Close:           "q",
+		Refresh:         "C-r",
+		NextSection:     "C-n",
+		PrevSection:     "C-p",
+		ToggleFold:      "tab",
+	}
+	p := popup.NewHelpPopup(m.tokens, keys)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	return m, nil
+}
+
+// isInMerge checks if there's an active merge.
+func isInMerge(sections []Section) bool {
+	for _, s := range sections {
+		if s.Kind == SectionSequencer && len(s.Items) > 0 {
+			for _, item := range s.Items {
+				if item.Action == "merge" {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// isInRebase checks if there's an active rebase.
+func isInRebase(sections []Section) bool {
+	for _, s := range sections {
+		if s.Kind == SectionRebase && len(s.Items) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// isInSequencer checks if there's an active sequencer operation of the given type.
+func isInSequencer(sections []Section, action string) bool {
+	for _, s := range sections {
+		if s.Kind == SectionSequencer && len(s.Items) > 0 {
+			for _, item := range s.Items {
+				if item.Action == action {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// getBisectState returns whether bisect is in progress and if it's finished.
+func getBisectState(sections []Section) (inProgress, finished bool) {
+	for _, s := range sections {
+		if s.Kind == SectionBisect && len(s.Items) > 0 {
+			inProgress = true
+			// Check if finished (implementation would check git bisect state)
+			finished = false
+			return
+		}
+	}
+	return false, false
 }

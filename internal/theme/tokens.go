@@ -205,7 +205,7 @@ func Compile(r RawTokens) Tokens {
 
 		PopupBorder:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.PopupBorder)),
 		PopupTitle:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.PopupTitle)).Bold(true),
-		PopupKey:     lipgloss.NewStyle().Foreground(lipgloss.Color(r.PopupKey)).Background(lipgloss.Color(r.PopupKeyBg)).Bold(true),
+		PopupKey:     lipgloss.NewStyle().Foreground(lipgloss.Color(r.PopupKey)).Bold(true),
 		PopupSwitch:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.PopupSwitch)),
 		PopupOption:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.PopupOption)),
 		PopupAction:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.PopupAction)),

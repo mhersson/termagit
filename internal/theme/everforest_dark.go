@@ -53,8 +53,8 @@ func (t *everforestDark) Raw() RawTokens {
 		// Popup
 		PopupBorder:  "#4f585e",
 		PopupTitle:   "#d3c6aa",
-		PopupKey:     "#2d353b",
-		PopupKeyBg:   "#7fbbb3",
+		PopupKey:     "#7fbbb3", // blue
+		PopupKeyBg:   "#7fbbb3", // blue (unused now)
 		PopupSwitch:  "#7fbbb3",
 		PopupOption:  "#dbbc7f",
 		PopupAction:  "#d3c6aa",

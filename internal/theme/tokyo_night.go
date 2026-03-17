@@ -53,8 +53,8 @@ func (t *tokyoNight) Raw() RawTokens {
 		// Popup
 		PopupBorder:  "#3b4261",
 		PopupTitle:   "#c0caf5",
-		PopupKey:     "#1a1b26",
-		PopupKeyBg:   "#7aa2f7",
+		PopupKey:     "#7aa2f7", // blue
+		PopupKeyBg:   "#7aa2f7", // blue (unused now)
 		PopupSwitch:  "#7dcfff",
 		PopupOption:  "#e0af68",
 		PopupAction:  "#a9b1d6",

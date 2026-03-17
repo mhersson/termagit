@@ -20,13 +20,54 @@ func view(m Model) string {
 	}
 
 	// If viewport has content, use it; otherwise render directly
+	var content string
 	if m.viewport.Width > 0 && m.viewport.Height > 0 {
-		return m.viewport.View()
+		content = m.viewport.View()
+	} else {
+		// Fallback to direct rendering (for tests or before WindowSizeMsg)
+		content, _ = renderContent(m)
 	}
 
-	// Fallback to direct rendering (for tests or before WindowSizeMsg)
-	content, _ := renderContent(m)
+	// Overlay popup if active
+	if m.popup != nil {
+		return renderPopupOverlay(m, content)
+	}
+
 	return content
+}
+
+// renderPopupOverlay renders the popup on top of the status buffer.
+func renderPopupOverlay(m Model, statusContent string) string {
+	popupView := m.popup.View()
+
+	// Split status content into lines
+	statusLines := strings.Split(statusContent, "\n")
+
+	// Split popup content into lines
+	popupLines := strings.Split(popupView, "\n")
+
+	// Calculate popup position (bottom-anchored)
+	popupHeight := len(popupLines)
+	statusHeight := m.height
+
+	// Position popup at bottom, render status above it
+	startLine := statusHeight - popupHeight
+	if startLine < 0 {
+		startLine = 0
+	}
+
+	var b strings.Builder
+
+	// Render status lines that appear above the popup
+	for i := 0; i < startLine && i < len(statusLines); i++ {
+		b.WriteString(statusLines[i])
+		b.WriteString("\n")
+	}
+
+	// Render popup
+	b.WriteString(popupView)
+
+	return b.String()
 }
 
 // renderHintBar renders the hint bar at the top of the status buffer.
