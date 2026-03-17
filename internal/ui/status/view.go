@@ -3,6 +3,7 @@ package status
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mhersson/conjit/internal/git"
@@ -18,33 +19,14 @@ func view(m Model) string {
 		return fmt.Sprintf("Error: %v", m.err)
 	}
 
-	var b strings.Builder
-
-	// Render hint bar (unless disabled)
-	if m.cfg == nil || !m.cfg.UI.DisableHint {
-		b.WriteString(renderHintBar(m))
-		b.WriteString("\n\n")
+	// If viewport has content, use it; otherwise render directly
+	if m.viewport.Width > 0 && m.viewport.Height > 0 {
+		return m.viewport.View()
 	}
 
-	// Render HEAD bar
-	b.WriteString(renderHeadBar(m))
-	b.WriteString("\n\n")
-
-	// Render sections
-	for i, s := range m.sections {
-		if s.Hidden {
-			continue
-		}
-		b.WriteString(renderSection(m, i, &s))
-	}
-
-	// Render notification if present
-	if m.notification != "" {
-		b.WriteString("\n")
-		b.WriteString(m.notification)
-	}
-
-	return b.String()
+	// Fallback to direct rendering (for tests or before WindowSizeMsg)
+	content, _ := renderContent(m)
+	return content
 }
 
 // renderHintBar renders the hint bar at the top of the status buffer.
@@ -77,6 +59,21 @@ func renderHintBar(m Model) string {
 	}
 
 	return b.String()
+}
+
+// renderWithBlockCursor renders a line with a block cursor at position 0.
+// The first character is shown with reverse video, rest has cursor line background.
+func renderWithBlockCursor(tokens Tokens, line string) string {
+	if len(line) == 0 {
+		return tokens.CursorBlock.Render(" ") + "\n"
+	}
+
+	// Get first rune (handles multi-byte UTF-8)
+	firstRune, size := utf8.DecodeRuneInString(line)
+	rest := line[size:]
+
+	// First character: reverse video, rest: cursor line background
+	return tokens.CursorBlock.Render(string(firstRune)) + tokens.Cursor.Render(rest) + "\n"
 }
 
 // renderHeadBar renders the HEAD information bar.
@@ -158,47 +155,6 @@ func renderHeadBar(m Model) string {
 	return b.String()
 }
 
-// renderSection renders a single section.
-func renderSection(m Model, sectionIdx int, s *Section) string {
-	var b strings.Builder
-
-	// Section header
-	onHeader := m.cursor.Section == sectionIdx && m.cursor.Item == -1
-	sign := ">"
-	if !s.Folded {
-		sign = "v"
-	}
-
-	// Build header with styled title and normal count
-	style := getSectionHeaderStyle(m.tokens, s.Kind)
-	if onHeader {
-		// When cursor is on header, entire line uses cursor style
-		var header string
-		if len(s.Items) > 0 {
-			header = fmt.Sprintf("%s %s (%d)", sign, s.Title, len(s.Items))
-		} else {
-			header = fmt.Sprintf("%s %s", sign, s.Title)
-		}
-		b.WriteString(m.tokens.Cursor.Render(header))
-	} else {
-		// Sign and title use section style, count uses normal style
-		b.WriteString(style.Render(fmt.Sprintf("%s %s", sign, s.Title)))
-		if len(s.Items) > 0 {
-			fmt.Fprintf(&b, " (%d)", len(s.Items))
-		}
-	}
-	b.WriteString("\n")
-
-	// Items (only if not folded)
-	if !s.Folded {
-		for i, item := range s.Items {
-			b.WriteString(renderItem(m, sectionIdx, i, &item, s.Kind))
-		}
-	}
-
-	return b.String() + "\n"
-}
-
 // getSectionHeaderStyle returns the appropriate style for a section header.
 func getSectionHeaderStyle(tokens Tokens, kind SectionKind) lipgloss.Style {
 	switch kind {
@@ -215,77 +171,6 @@ func getSectionHeaderStyle(tokens Tokens, kind SectionKind) lipgloss.Style {
 	}
 }
 
-// renderItem renders a single item based on its type.
-func renderItem(m Model, sectionIdx, itemIdx int, item *Item, sectionKind SectionKind) string {
-	var b strings.Builder
-
-	onItem := m.cursor.Section == sectionIdx && m.cursor.Item == itemIdx && m.cursor.Hunk == -1
-
-	// Sequencer/Rebase/Bisect items (have Action)
-	if item.Action != "" {
-		switch sectionKind {
-		case SectionRebase:
-			b.WriteString(renderRebaseItem(m, item, onItem))
-		case SectionBisect:
-			b.WriteString(renderBisectItem(m, item, onItem))
-		default:
-			b.WriteString(renderSequencerItem(m, item, onItem))
-		}
-		return b.String()
-	}
-
-	// File entry
-	if item.Entry != nil {
-		modeText := getModeText(item.Entry, sectionKind)
-		path := item.Entry.Path()
-
-		// Item sign
-		sign := ">"
-		if item.Expanded {
-			sign = "v"
-		}
-
-		if onItem {
-			// Cursor: entire line uses cursor style
-			line := fmt.Sprintf("  %s %s %s", sign, padRight(modeText, 12), path)
-			b.WriteString(m.tokens.Cursor.Render(line))
-		} else {
-			// Normal: mode text colored, file path in default color
-			b.WriteString("  ")
-			b.WriteString(sign)
-			b.WriteString(" ")
-			b.WriteString(styleForMode(m.tokens, item.Entry, sectionKind).Render(padRight(modeText, 12)))
-			b.WriteString(path)
-		}
-		b.WriteString("\n")
-
-		// Inline diff (if expanded)
-		if item.Expanded && len(item.Hunks) > 0 {
-			for hunkIdx, hunk := range item.Hunks {
-				isFolded := len(item.HunksFolded) > hunkIdx && item.HunksFolded[hunkIdx]
-				b.WriteString(renderHunk(m, sectionIdx, itemIdx, hunkIdx, &hunk, isFolded))
-			}
-		} else if item.Expanded && item.HunksLoading {
-			b.WriteString("      Loading diff...\n")
-		}
-		return b.String()
-	}
-
-	// Stash entry
-	if item.Stash != nil {
-		b.WriteString(renderStashItem(m, item, onItem))
-		return b.String()
-	}
-
-	// Commit entry
-	if item.Commit != nil {
-		b.WriteString(renderCommitItem(m, item, onItem))
-		return b.String()
-	}
-
-	return b.String()
-}
-
 // renderSequencerItem renders a cherry-pick or revert item.
 // Format: action (6 chars) + hash (7 chars) + subject
 func renderSequencerItem(m Model, item *Item, onItem bool) string {
@@ -298,7 +183,7 @@ func renderSequencerItem(m Model, item *Item, onItem bool) string {
 
 	if onItem {
 		line := fmt.Sprintf("  %s %s %s", action, hash, subject)
-		return m.tokens.Cursor.Render(line) + "\n"
+		return renderWithBlockCursor(m.tokens, line)
 	}
 
 	var b strings.Builder
@@ -330,7 +215,7 @@ func renderRebaseItem(m Model, item *Item, onItem bool) string {
 
 	if onItem {
 		line := fmt.Sprintf("%s%s %s %s", prefix, action, hash, subject)
-		return m.tokens.Cursor.Render(line) + "\n"
+		return renderWithBlockCursor(m.tokens, line)
 	}
 
 	var b strings.Builder
@@ -368,7 +253,7 @@ func renderBisectItem(m Model, item *Item, onItem bool) string {
 
 	if onItem {
 		line := fmt.Sprintf("%s%s %s %s", prefix, action, hash, subject)
-		return m.tokens.Cursor.Render(line) + "\n"
+		return renderWithBlockCursor(m.tokens, line)
 	}
 
 	var b strings.Builder
@@ -399,7 +284,7 @@ func renderBisectItem(m Model, item *Item, onItem bool) string {
 func renderStashItem(m Model, item *Item, onItem bool) string {
 	line := fmt.Sprintf("  %s: %s", item.Stash.Name, item.Stash.Message)
 	if onItem {
-		return m.tokens.Cursor.Render(line) + "\n"
+		return renderWithBlockCursor(m.tokens, line)
 	}
 
 	var b strings.Builder
@@ -419,7 +304,7 @@ func renderCommitItem(m Model, item *Item, onItem bool) string {
 
 	if onItem {
 		line := fmt.Sprintf("  %s %s", hash, subject)
-		return m.tokens.Cursor.Render(line) + "\n"
+		return renderWithBlockCursor(m.tokens, line)
 	}
 
 	var b strings.Builder
@@ -460,67 +345,6 @@ func renderRefs(m Model, refs []git.Ref) string {
 	}
 
 	return "(" + strings.Join(parts, ", ") + ")"
-}
-
-// renderHunk renders a diff hunk.
-func renderHunk(m Model, sectionIdx, itemIdx, hunkIdx int, hunk *git.Hunk, folded bool) string {
-	var b strings.Builder
-
-	onHunk := m.cursor.Section == sectionIdx &&
-		m.cursor.Item == itemIdx &&
-		m.cursor.Hunk == hunkIdx &&
-		m.cursor.Line == -1 // Only on hunk header if Line == -1
-
-	// Hunk header with fold indicator
-	sign := "v"
-	if folded {
-		sign = ">"
-	}
-	header := "    " + sign + " " + hunk.Header
-	if onHunk {
-		b.WriteString(m.tokens.Cursor.Render(header))
-	} else {
-		b.WriteString(m.tokens.DiffHunkHeader.Render(header))
-	}
-	b.WriteString("\n")
-
-	// Diff lines (only if not folded)
-	if !folded {
-		for lineIdx, line := range hunk.Lines {
-			onLine := m.cursor.Section == sectionIdx &&
-				m.cursor.Item == itemIdx &&
-				m.cursor.Hunk == hunkIdx &&
-				m.cursor.Line == lineIdx
-
-			var lineStr string
-			switch line.Op {
-			case git.DiffOpAdd:
-				lineStr = "      +" + line.Content
-				if onLine {
-					b.WriteString(m.tokens.Cursor.Render(lineStr))
-				} else {
-					b.WriteString(m.tokens.DiffAdd.Render(lineStr))
-				}
-			case git.DiffOpDelete:
-				lineStr = "      -" + line.Content
-				if onLine {
-					b.WriteString(m.tokens.Cursor.Render(lineStr))
-				} else {
-					b.WriteString(m.tokens.DiffDelete.Render(lineStr))
-				}
-			case git.DiffOpContext:
-				lineStr = "       " + line.Content
-				if onLine {
-					b.WriteString(m.tokens.Cursor.Render(lineStr))
-				} else {
-					b.WriteString(m.tokens.DiffContext.Render(lineStr))
-				}
-			}
-			b.WriteString("\n")
-		}
-	}
-
-	return b.String()
 }
 
 // getModeText returns the mode text for a file entry.
@@ -581,4 +405,278 @@ func padRight(s string, width int) string {
 		return s
 	}
 	return s + strings.Repeat(" ", width-len(s))
+}
+
+// renderContent renders the status buffer and returns the content along with
+// the visual line number where the cursor is positioned (0-indexed).
+func renderContent(m Model) (content string, cursorLine int) {
+	if m.loading {
+		return "Loading...", 0
+	}
+
+	if m.err != nil {
+		return fmt.Sprintf("Error: %v", m.err), 0
+	}
+
+	var b strings.Builder
+	lineNum := 0
+	cursorLine = 0
+
+	// Render hint bar (unless disabled)
+	if m.cfg == nil || !m.cfg.UI.DisableHint {
+		b.WriteString(renderHintBar(m))
+		b.WriteString("\n")
+		lineNum++
+		b.WriteString("\n")
+		lineNum++
+	}
+
+	// Render HEAD bar - count lines
+	headBar := renderHeadBar(m)
+	b.WriteString(headBar)
+	lineNum += strings.Count(headBar, "\n")
+	b.WriteString("\n\n")
+	lineNum += 2
+
+	// Render sections
+	for i, s := range m.sections {
+		if s.Hidden {
+			continue
+		}
+
+		// Track if cursor is on this section header
+		if m.cursor.Section == i && m.cursor.Item == -1 {
+			cursorLine = lineNum
+		}
+
+		sectionContent := renderSectionWithLineTracking(m, i, &s, lineNum, &cursorLine)
+		b.WriteString(sectionContent)
+		lineNum += strings.Count(sectionContent, "\n")
+	}
+
+	// Render notification if present
+	if m.notification != "" {
+		b.WriteString("\n")
+		b.WriteString(m.notification)
+	}
+
+	return b.String(), cursorLine
+}
+
+// renderSectionWithLineTracking renders a section and updates cursorLine if cursor is within.
+func renderSectionWithLineTracking(m Model, sectionIdx int, s *Section, startLine int, cursorLine *int) string {
+	var b strings.Builder
+	lineNum := startLine
+
+	// Section header
+	onHeader := m.cursor.Section == sectionIdx && m.cursor.Item == -1
+	sign := ">"
+	if !s.Folded {
+		sign = "v"
+	}
+
+	if onHeader {
+		*cursorLine = lineNum
+	}
+
+	// Build header with styled title and normal count
+	style := getSectionHeaderStyle(m.tokens, s.Kind)
+	if onHeader {
+		var header string
+		if len(s.Items) > 0 {
+			header = fmt.Sprintf("%s %s (%d)", sign, s.Title, len(s.Items))
+		} else {
+			header = fmt.Sprintf("%s %s", sign, s.Title)
+		}
+		b.WriteString(renderWithBlockCursor(m.tokens, header))
+	} else {
+		b.WriteString(style.Render(fmt.Sprintf("%s %s", sign, s.Title)))
+		if len(s.Items) > 0 {
+			fmt.Fprintf(&b, " (%d)", len(s.Items))
+		}
+		b.WriteString("\n")
+	}
+	lineNum++
+
+	// Items (only if not folded)
+	if !s.Folded {
+		for i, item := range s.Items {
+			itemContent := renderItemWithLineTracking(m, sectionIdx, i, &item, s.Kind, lineNum, cursorLine)
+			b.WriteString(itemContent)
+			lineNum += strings.Count(itemContent, "\n")
+		}
+	}
+
+	b.WriteString("\n")
+	return b.String()
+}
+
+// renderItemWithLineTracking renders an item and updates cursorLine if cursor is on this item.
+func renderItemWithLineTracking(m Model, sectionIdx, itemIdx int, item *Item, sectionKind SectionKind, startLine int, cursorLine *int) string {
+	var b strings.Builder
+	lineNum := startLine
+
+	onItem := m.cursor.Section == sectionIdx && m.cursor.Item == itemIdx && m.cursor.Hunk == -1
+
+	if onItem {
+		*cursorLine = lineNum
+	}
+
+	// Sequencer/Rebase/Bisect items (have Action)
+	if item.Action != "" {
+		switch sectionKind {
+		case SectionRebase:
+			b.WriteString(renderRebaseItem(m, item, onItem))
+		case SectionBisect:
+			b.WriteString(renderBisectItem(m, item, onItem))
+		default:
+			b.WriteString(renderSequencerItem(m, item, onItem))
+		}
+		return b.String()
+	}
+
+	// File entry
+	if item.Entry != nil {
+		modeText := getModeText(item.Entry, sectionKind)
+		path := item.Entry.Path()
+
+		sign := ">"
+		if item.Expanded {
+			sign = "v"
+		}
+
+		if onItem {
+			line := fmt.Sprintf("  %s %s %s", sign, padRight(modeText, 12), path)
+			b.WriteString(renderWithBlockCursor(m.tokens, line))
+		} else {
+			b.WriteString("  ")
+			b.WriteString(sign)
+			b.WriteString(" ")
+			b.WriteString(styleForMode(m.tokens, item.Entry, sectionKind).Render(padRight(modeText, 12)))
+			b.WriteString(path)
+			b.WriteString("\n")
+		}
+		lineNum++
+
+		// Inline diff (if expanded)
+		if item.Expanded && len(item.Hunks) > 0 {
+			for hunkIdx, hunk := range item.Hunks {
+				isFolded := len(item.HunksFolded) > hunkIdx && item.HunksFolded[hunkIdx]
+				hunkContent := renderHunkWithLineTracking(m, sectionIdx, itemIdx, hunkIdx, &hunk, isFolded, lineNum, cursorLine)
+				b.WriteString(hunkContent)
+				lineNum += strings.Count(hunkContent, "\n")
+			}
+		} else if item.Expanded && item.HunksLoading {
+			b.WriteString("      Loading diff...\n")
+		}
+		return b.String()
+	}
+
+	// Stash entry
+	if item.Stash != nil {
+		b.WriteString(renderStashItem(m, item, onItem))
+		return b.String()
+	}
+
+	// Commit entry
+	if item.Commit != nil {
+		b.WriteString(renderCommitItem(m, item, onItem))
+		return b.String()
+	}
+
+	return b.String()
+}
+
+// renderHunkWithLineTracking renders a hunk and updates cursorLine if cursor is within.
+func renderHunkWithLineTracking(m Model, sectionIdx, itemIdx, hunkIdx int, hunk *git.Hunk, folded bool, startLine int, cursorLine *int) string {
+	var b strings.Builder
+	lineNum := startLine
+
+	onHunk := m.cursor.Section == sectionIdx &&
+		m.cursor.Item == itemIdx &&
+		m.cursor.Hunk == hunkIdx &&
+		m.cursor.Line == -1
+
+	if onHunk {
+		*cursorLine = lineNum
+	}
+
+	// Hunk header with fold indicator
+	sign := "v"
+	if folded {
+		sign = ">"
+	}
+	header := "    " + sign + " " + hunk.Header
+	if onHunk {
+		b.WriteString(renderWithBlockCursor(m.tokens, header))
+	} else {
+		b.WriteString(m.tokens.DiffHunkHeader.Render(header))
+		b.WriteString("\n")
+	}
+	lineNum++
+
+	// Diff lines (only if not folded)
+	if !folded {
+		for lineIdx, line := range hunk.Lines {
+			onLine := m.cursor.Section == sectionIdx &&
+				m.cursor.Item == itemIdx &&
+				m.cursor.Hunk == hunkIdx &&
+				m.cursor.Line == lineIdx
+
+			if onLine {
+				*cursorLine = lineNum
+			}
+
+			var lineStr string
+			switch line.Op {
+			case git.DiffOpAdd:
+				lineStr = "      +" + line.Content
+				if onLine {
+					b.WriteString(renderWithBlockCursor(m.tokens, lineStr))
+				} else {
+					b.WriteString(m.tokens.DiffAdd.Render(lineStr))
+					b.WriteString("\n")
+				}
+			case git.DiffOpDelete:
+				lineStr = "      -" + line.Content
+				if onLine {
+					b.WriteString(renderWithBlockCursor(m.tokens, lineStr))
+				} else {
+					b.WriteString(m.tokens.DiffDelete.Render(lineStr))
+					b.WriteString("\n")
+				}
+			case git.DiffOpContext:
+				lineStr = "       " + line.Content
+				if onLine {
+					b.WriteString(renderWithBlockCursor(m.tokens, lineStr))
+				} else {
+					b.WriteString(m.tokens.DiffContext.Render(lineStr))
+					b.WriteString("\n")
+				}
+			}
+			lineNum++
+		}
+	}
+
+	return b.String()
+}
+
+// ensureCursorVisible scrolls the viewport minimally to keep cursor in view.
+// Use for normal cursor movement.
+func ensureCursorVisible(m *Model, cursorLine int) {
+	if cursorLine < m.viewport.YOffset {
+		m.viewport.YOffset = cursorLine
+	} else if cursorLine >= m.viewport.YOffset+m.viewport.Height {
+		m.viewport.YOffset = cursorLine - m.viewport.Height + 1
+	}
+}
+
+// preserveScreenPosition adjusts viewport so cursor stays at same screen row.
+// Call this when expanding content (diff toggle) to prevent jarring jumps.
+// screenRow is the cursor's position relative to viewport top (cursorLine - yOffset).
+func preserveScreenPosition(m *Model, newCursorLine int, screenRow int) {
+	m.viewport.YOffset = newCursorLine - screenRow
+	if m.viewport.YOffset < 0 {
+		m.viewport.YOffset = 0
+	}
 }

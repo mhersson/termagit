@@ -26,6 +26,14 @@ type KeyMap struct {
 	PeekDown        key.Binding // <c-j>
 	PeekUp          key.Binding // <c-k>
 
+	// Scroll navigation
+	PageUp       key.Binding // <c-b>
+	PageDown     key.Binding // <c-f>
+	HalfPageUp   key.Binding // <c-u>
+	HalfPageDown key.Binding // <c-d>
+	GoToTop      key.Binding // gg (via g prefix)
+	GoToBottom   key.Binding // G
+
 	// Actions
 	Stage         key.Binding // s
 	StageUnstaged key.Binding // S
@@ -144,6 +152,32 @@ func DefaultKeyMap() KeyMap {
 		PeekUp: key.NewBinding(
 			key.WithKeys("ctrl+k"),
 			key.WithHelp("C-k", "peek up"),
+		),
+
+		// Scroll navigation
+		PageUp: key.NewBinding(
+			key.WithKeys("ctrl+b"),
+			key.WithHelp("C-b", "page up"),
+		),
+		PageDown: key.NewBinding(
+			key.WithKeys("ctrl+f"),
+			key.WithHelp("C-f", "page down"),
+		),
+		HalfPageUp: key.NewBinding(
+			key.WithKeys("ctrl+u"),
+			key.WithHelp("C-u", "half page up"),
+		),
+		HalfPageDown: key.NewBinding(
+			key.WithKeys("ctrl+d"),
+			key.WithHelp("C-d", "half page down"),
+		),
+		GoToTop: key.NewBinding(
+			key.WithKeys("g"),
+			key.WithHelp("gg", "go to top"),
+		),
+		GoToBottom: key.NewBinding(
+			key.WithKeys("G"),
+			key.WithHelp("G", "go to bottom"),
 		),
 
 		// Actions

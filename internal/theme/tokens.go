@@ -143,8 +143,9 @@ type Tokens struct {
 	NotificationError lipgloss.Style
 
 	// Cursor and selection styles
-	Cursor    lipgloss.Style
-	Selection lipgloss.Style
+	Cursor      lipgloss.Style
+	CursorBlock lipgloss.Style // Reverse video for block cursor character
+	Selection   lipgloss.Style
 
 	// Graph/sequencer styles
 	GraphOrange lipgloss.Style
@@ -214,8 +215,9 @@ func Compile(r RawTokens) Tokens {
 		NotificationWarn:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationWarn)),
 		NotificationError: lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationError)).Bold(true),
 
-		Cursor:    lipgloss.NewStyle().Background(lipgloss.Color(r.CursorBg)),
-		Selection: lipgloss.NewStyle().Foreground(lipgloss.Color(r.Selection)).Background(lipgloss.Color(r.SelectBg)),
+		Cursor:      lipgloss.NewStyle().Background(lipgloss.Color(r.CursorBg)),
+		CursorBlock: lipgloss.NewStyle().Reverse(true),
+		Selection:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.Selection)).Background(lipgloss.Color(r.SelectBg)),
 
 		GraphOrange: lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphOrange)),
 		GraphGreen:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphGreen)),

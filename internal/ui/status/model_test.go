@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/mhersson/conjit/internal/git"
 )
 
@@ -1000,4 +1001,436 @@ func TestHandleConfirmKey_CancelsOnEsc(t *testing.T) {
 
 func keyMsg(s string) tea.KeyMsg {
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
+}
+
+// === Viewport and Scroll Tests ===
+
+func TestRenderContent_ReturnsCursorLine(t *testing.T) {
+	// When rendering content, we should be able to determine
+	// which visual line the cursor is on
+	m := Model{
+		head: HeadState{Branch: "main", AbbrevOid: "abc1234"},
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Untracked files", Folded: false, Items: []Item{{}, {}, {}}},
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Folded: false, Items: []Item{{}, {}}},
+		},
+		cursor: Cursor{Section: 1, Item: 0, Hunk: -1, Line: -1}, // First item of second section
+	}
+
+	_, cursorLine := renderContent(m)
+
+	// Cursor should be on a line > 0 (after HEAD bar and first section)
+	if cursorLine <= 0 {
+		t.Errorf("expected cursorLine > 0, got %d", cursorLine)
+	}
+}
+
+func TestRenderContent_CursorLineOnSectionHeader(t *testing.T) {
+	m := Model{
+		head: HeadState{Branch: "main"},
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Untracked files", Folded: false, Items: []Item{{}}},
+		},
+		cursor: Cursor{Section: 0, Item: -1, Hunk: -1, Line: -1}, // On section header
+	}
+
+	content, cursorLine := renderContent(m)
+
+	// Cursor line should be where the section header is
+	lines := strings.Split(content, "\n")
+	if cursorLine >= len(lines) {
+		t.Errorf("cursorLine %d out of range (content has %d lines)", cursorLine, len(lines))
+		return
+	}
+
+	// The line at cursorLine should contain the section title
+	if !strings.Contains(lines[cursorLine], "Untracked") {
+		t.Errorf("expected cursor line to contain section title, got: %q", lines[cursorLine])
+	}
+}
+
+func TestModel_ViewportInitialized(t *testing.T) {
+	// Viewport should be initialized with dimensions after WindowSizeMsg
+	m := New(nil, nil, Tokens{}, DefaultKeyMap())
+	m.loading = false
+	m.sections = []Section{{Kind: SectionUntracked, Title: "Test"}}
+
+	// Send WindowSizeMsg
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	resultModel := result.(Model)
+
+	if resultModel.viewport.Width != 80 {
+		t.Errorf("expected viewport.Width=80, got %d", resultModel.viewport.Width)
+	}
+	if resultModel.viewport.Height != 24 {
+		t.Errorf("expected viewport.Height=24, got %d", resultModel.viewport.Height)
+	}
+}
+
+func TestEnsureCursorVisible_ScrollsDownWhenNeeded(t *testing.T) {
+	// When cursor is below visible area, viewport should scroll down
+	m := Model{
+		width:  80,
+		height: 10,
+		head:   HeadState{Branch: "main"},
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Test", Items: []Item{}},
+		},
+		cursor: Cursor{Section: 0, Item: -1},
+	}
+	// Initialize viewport
+	m.viewport.Width = 80
+	m.viewport.Height = 10
+	m.viewport.YOffset = 0
+
+	// Simulate cursor being at line 15 (below visible area of 10 lines)
+	cursorLine := 15
+	ensureCursorVisible(&m, cursorLine)
+
+	// Viewport should have scrolled so cursorLine is visible
+	// cursorLine should be within [YOffset, YOffset+Height)
+	if cursorLine < m.viewport.YOffset || cursorLine >= m.viewport.YOffset+m.viewport.Height {
+		t.Errorf("cursor at line %d should be visible with YOffset=%d, Height=%d",
+			cursorLine, m.viewport.YOffset, m.viewport.Height)
+	}
+}
+
+func TestEnsureCursorVisible_ScrollsUpWhenNeeded(t *testing.T) {
+	// When cursor is above visible area, viewport should scroll up
+	m := Model{
+		width:  80,
+		height: 10,
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 10
+	m.viewport.YOffset = 20 // Scrolled down
+
+	// Simulate cursor being at line 5 (above visible area starting at 20)
+	cursorLine := 5
+	ensureCursorVisible(&m, cursorLine)
+
+	// Viewport should have scrolled up
+	if m.viewport.YOffset != 5 {
+		t.Errorf("expected YOffset=5, got %d", m.viewport.YOffset)
+	}
+}
+
+func TestPreserveScreenPosition_MaintainsCursorRow(t *testing.T) {
+	// When expanding content, cursor should stay at same screen position
+	m := Model{
+		width:  80,
+		height: 20,
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 20
+	m.viewport.YOffset = 10
+
+	// Cursor was at visual line 15, which is screen row 5 (15 - 10)
+	oldCursorLine := 15
+	screenRow := oldCursorLine - m.viewport.YOffset // 5
+
+	// After expansion, cursor moved to visual line 25
+	newCursorLine := 25
+
+	preserveScreenPosition(&m, newCursorLine, screenRow)
+
+	// New YOffset should keep cursor at same screen row
+	// newCursorLine - YOffset should equal screenRow
+	expectedYOffset := newCursorLine - screenRow // 25 - 5 = 20
+	if m.viewport.YOffset != expectedYOffset {
+		t.Errorf("expected YOffset=%d, got %d", expectedYOffset, m.viewport.YOffset)
+	}
+}
+
+func TestDefaultKeyMap_ScrollBindings(t *testing.T) {
+	km := DefaultKeyMap()
+
+	// Test scroll navigation keys
+	tests := []struct {
+		name    string
+		binding key.Binding
+		keys    []string
+	}{
+		{"PageUp", km.PageUp, []string{"ctrl+b"}},
+		{"PageDown", km.PageDown, []string{"ctrl+f"}},
+		{"HalfPageUp", km.HalfPageUp, []string{"ctrl+u"}},
+		{"HalfPageDown", km.HalfPageDown, []string{"ctrl+d"}},
+		{"GoToTop", km.GoToTop, []string{"g"}},
+		{"GoToBottom", km.GoToBottom, []string{"G"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keys := tt.binding.Keys()
+			if len(keys) == 0 {
+				t.Errorf("%s: expected keys to be set", tt.name)
+				return
+			}
+			found := false
+			for _, k := range keys {
+				if k == tt.keys[0] {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("%s: expected key %q, got %v", tt.name, tt.keys[0], keys)
+			}
+		})
+	}
+}
+
+func TestHandlePageDown_ScrollsViewport(t *testing.T) {
+	// Create a model with enough items to scroll through
+	m := Model{
+		width:  80,
+		height: 20,
+		keys:   DefaultKeyMap(),
+		head:   HeadState{Branch: "main"},
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Test", Folded: false, Items: make([]Item, 50)},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 20
+	m.viewport.YOffset = 0
+
+	// Initialize viewport content
+	content, _ := renderContent(m)
+	m.viewport.SetContent(content)
+
+	result, _ := handlePageDown(m)
+	resultModel := result.(Model)
+
+	// Cursor should have moved down
+	if resultModel.cursor.Item <= 0 {
+		t.Errorf("expected cursor to move down, got Item=%d", resultModel.cursor.Item)
+	}
+}
+
+func TestHandlePageUp_ScrollsViewport(t *testing.T) {
+	// Create a model with enough items and cursor in middle
+	m := Model{
+		width:  80,
+		height: 20,
+		keys:   DefaultKeyMap(),
+		head:   HeadState{Branch: "main"},
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Test", Folded: false, Items: make([]Item, 50)},
+		},
+		cursor: Cursor{Section: 0, Item: 30, Hunk: -1, Line: -1}, // Start in middle
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 20
+	m.viewport.YOffset = 20 // Scrolled down
+
+	// Initialize viewport content
+	content, _ := renderContent(m)
+	m.viewport.SetContent(content)
+
+	result, _ := handlePageUp(m)
+	resultModel := result.(Model)
+
+	// Cursor should have moved up (wrapping is ok, just shouldn't be at 30)
+	if resultModel.cursor.Item == 30 {
+		t.Errorf("expected cursor to move up from Item=30, but it stayed at %d", resultModel.cursor.Item)
+	}
+}
+
+func TestHandleGoToTop_MovesToFirstSection(t *testing.T) {
+	m := Model{
+		keys: DefaultKeyMap(),
+		head: HeadState{Branch: "main"},
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Untracked", Items: []Item{{}}},
+			{Kind: SectionUnstaged, Title: "Unstaged", Items: []Item{{}}},
+		},
+		cursor: Cursor{Section: 1, Item: 0, Hunk: -1, Line: -1}, // On second section item
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 20
+	m.viewport.YOffset = 10
+
+	result, _ := handleGoToTop(m)
+	resultModel := result.(Model)
+
+	// Cursor should be on first section header
+	if resultModel.cursor.Section != 0 || resultModel.cursor.Item != -1 {
+		t.Errorf("expected cursor on first section header, got Section=%d, Item=%d",
+			resultModel.cursor.Section, resultModel.cursor.Item)
+	}
+	// Viewport should scroll to top
+	if resultModel.viewport.YOffset != 0 {
+		t.Errorf("expected YOffset=0, got %d", resultModel.viewport.YOffset)
+	}
+}
+
+func TestHandleGoToBottom_MovesToLastItem(t *testing.T) {
+	m := Model{
+		keys: DefaultKeyMap(),
+		head: HeadState{Branch: "main"},
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Untracked", Items: []Item{{}}},
+			{Kind: SectionUnstaged, Title: "Unstaged", Folded: false, Items: []Item{{}, {}, {}}},
+		},
+		cursor: Cursor{Section: 0, Item: -1, Hunk: -1, Line: -1}, // On first section header
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 20
+
+	result, _ := handleGoToBottom(m)
+	resultModel := result.(Model)
+
+	// Cursor should be on last item of last section
+	if resultModel.cursor.Section != 1 || resultModel.cursor.Item != 2 {
+		t.Errorf("expected cursor on last item (Section=1, Item=2), got Section=%d, Item=%d",
+			resultModel.cursor.Section, resultModel.cursor.Item)
+	}
+}
+
+func TestView_UsesViewport(t *testing.T) {
+	// After initialization, View() should return viewport content
+	m := Model{
+		width:  80,
+		height: 20,
+		head:   HeadState{Branch: "main", AbbrevOid: "abc1234"},
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Untracked files", Items: []Item{}},
+		},
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 20
+
+	// Render content and set it in viewport
+	content, _ := renderContent(m)
+	m.viewport.SetContent(content)
+
+	output := m.View()
+
+	// Output should contain the HEAD bar content
+	if !strings.Contains(output, "main") {
+		t.Error("expected viewport output to contain branch name")
+	}
+}
+
+func TestGGSequence_GoesToTop(t *testing.T) {
+	// Test that pressing "g" twice triggers GoToTop
+	m := Model{
+		keys: DefaultKeyMap(),
+		head: HeadState{Branch: "main"},
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Untracked", Items: []Item{{}}},
+			{Kind: SectionUnstaged, Title: "Unstaged", Items: []Item{{}}},
+		},
+		cursor: Cursor{Section: 1, Item: 0, Hunk: -1, Line: -1}, // Start on second section
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 20
+
+	// First "g" press - should set pending key
+	result, _ := handleKeyMsg(m, keyMsg("g"))
+	resultModel := result.(Model)
+
+	if resultModel.pendingKey != "g" {
+		t.Errorf("expected pendingKey='g' after first g press, got %q", resultModel.pendingKey)
+	}
+	// Cursor should not have moved yet
+	if resultModel.cursor.Section != 1 {
+		t.Errorf("expected cursor to stay at Section=1 after first g, got Section=%d", resultModel.cursor.Section)
+	}
+
+	// Second "g" press - should trigger GoToTop
+	result, _ = handleKeyMsg(resultModel, keyMsg("g"))
+	resultModel = result.(Model)
+
+	// Pending key should be cleared
+	if resultModel.pendingKey != "" {
+		t.Errorf("expected pendingKey='' after gg, got %q", resultModel.pendingKey)
+	}
+	// Cursor should be on first section header
+	if resultModel.cursor.Section != 0 || resultModel.cursor.Item != -1 {
+		t.Errorf("expected cursor at Section=0, Item=-1 after gg, got Section=%d, Item=%d",
+			resultModel.cursor.Section, resultModel.cursor.Item)
+	}
+}
+
+// === Block Cursor Tests ===
+
+func TestRenderWithBlockCursor_EmptyLine(t *testing.T) {
+	tokens := Tokens{
+		CursorBlock: lipgloss.NewStyle().Reverse(true),
+		Cursor:      lipgloss.NewStyle().Background(lipgloss.Color("#333333")),
+	}
+
+	result := renderWithBlockCursor(tokens, "")
+
+	// Empty line should render a single space with the CursorBlock style
+	// Note: In test environment without TTY, ANSI codes may not be emitted
+	// Should end with newline
+	if !strings.HasSuffix(result, "\n") {
+		t.Error("expected result to end with newline")
+	}
+	// Should contain at least a space (the block cursor)
+	if len(result) < 2 { // minimum: " " + "\n"
+		t.Errorf("expected result to contain at least space+newline, got len=%d", len(result))
+	}
+}
+
+func TestRenderWithBlockCursor_SingleChar(t *testing.T) {
+	tokens := Tokens{
+		CursorBlock: lipgloss.NewStyle().Reverse(true),
+		Cursor:      lipgloss.NewStyle().Background(lipgloss.Color("#333333")),
+	}
+
+	result := renderWithBlockCursor(tokens, "X")
+
+	// Should contain the character
+	if !strings.Contains(result, "X") {
+		t.Error("expected character X in output")
+	}
+	// Should end with newline
+	if !strings.HasSuffix(result, "\n") {
+		t.Error("expected result to end with newline")
+	}
+}
+
+func TestRenderWithBlockCursor_MultiCharLine(t *testing.T) {
+	tokens := Tokens{
+		CursorBlock: lipgloss.NewStyle().Reverse(true),
+		Cursor:      lipgloss.NewStyle().Background(lipgloss.Color("#333333")),
+	}
+
+	result := renderWithBlockCursor(tokens, "Hello")
+
+	// Should contain 'H' (first char)
+	if !strings.Contains(result, "H") {
+		t.Error("expected first character H in output")
+	}
+	// Should contain 'ello' (rest of line)
+	if !strings.Contains(result, "ello") {
+		t.Error("expected rest of line in output")
+	}
+	// Should end with newline
+	if !strings.HasSuffix(result, "\n") {
+		t.Error("expected result to end with newline")
+	}
+}
+
+func TestRenderWithBlockCursor_UTF8Rune(t *testing.T) {
+	tokens := Tokens{
+		CursorBlock: lipgloss.NewStyle().Reverse(true),
+		Cursor:      lipgloss.NewStyle().Background(lipgloss.Color("#333333")),
+	}
+
+	result := renderWithBlockCursor(tokens, "世界")
+
+	// Should handle multi-byte UTF-8 runes correctly
+	// First rune is "世" which is 3 bytes
+	if !strings.Contains(result, "世") {
+		t.Error("expected first UTF-8 rune in output")
+	}
+	if !strings.Contains(result, "界") {
+		t.Error("expected second UTF-8 rune in output")
+	}
 }

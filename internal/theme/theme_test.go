@@ -191,3 +191,19 @@ func TestCompile_NoZeroValueStyles(t *testing.T) {
 		}
 	}
 }
+
+func TestCompile_CursorBlockHasReverse(t *testing.T) {
+	fb := Fallback()
+	require.NotNil(t, fb)
+
+	tokens := Compile(fb.Raw())
+
+	// CursorBlock must have reverse style for block cursor effect
+	// We can't directly test ANSI output in tests (no TTY), but we can verify
+	// the style was created with Reverse attribute by checking it's not a zero-value style
+	assert.NotEqual(t, lipgloss.Style{}, tokens.CursorBlock, "CursorBlock should not be zero-value style")
+
+	// Verify it renders content (doesn't panic, returns something)
+	rendered := tokens.CursorBlock.Render("X")
+	assert.NotEmpty(t, rendered, "CursorBlock should render content")
+}

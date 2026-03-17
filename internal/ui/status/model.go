@@ -141,6 +141,9 @@ type Model struct {
 	notification string
 	notifyExpiry time.Time //nolint:unused // Phase 4
 
+	// Pending key for multi-key sequences (e.g., "gg")
+	pendingKey string
+
 	err error
 }
 

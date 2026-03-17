@@ -14,6 +14,15 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.viewport.Width = msg.Width
+		m.viewport.Height = msg.Height
+
+		// Re-render content and update viewport
+		if !m.loading {
+			content, cursorLine := renderContent(m)
+			m.viewport.SetContent(content)
+			ensureCursorVisible(&m, cursorLine)
+		}
 		return m, nil
 
 	case tea.KeyMsg:
@@ -29,6 +38,13 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sections = msg.sections
 		// Position cursor on first non-empty, non-hidden section
 		m.cursor = findFirstValidCursor(m.sections)
+
+		// Update viewport content
+		if m.viewport.Width > 0 {
+			content, cursorLine := renderContent(m)
+			m.viewport.SetContent(content)
+			ensureCursorVisible(&m, cursorLine)
+		}
 		return m, nil
 
 	case hunksLoadedMsg:
@@ -36,12 +52,24 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 			return m, nil
 		}
+
+		// Save current screen position before updating
+		_, oldCursorLine := renderContent(m)
+		screenRow := oldCursorLine - m.viewport.YOffset
+
 		if msg.sectionIdx < len(m.sections) {
 			s := &m.sections[msg.sectionIdx]
 			if msg.itemIdx < len(s.Items) {
 				s.Items[msg.itemIdx].Hunks = msg.hunks
 				s.Items[msg.itemIdx].HunksLoading = false
 			}
+		}
+
+		// Update viewport content and preserve screen position
+		if m.viewport.Width > 0 {
+			content, newCursorLine := renderContent(m)
+			m.viewport.SetContent(content)
+			preserveScreenPosition(&m, newCursorLine, screenRow)
 		}
 		return m, nil
 
@@ -70,16 +98,39 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return handleConfirmKey(m, msg)
 	}
 
+	// Handle pending key sequences (e.g., "gg")
+	if m.pendingKey == "g" {
+		m.pendingKey = "" // Clear pending key
+		if msg.String() == "g" {
+			// "gg" - go to top
+			return handleGoToTop(m)
+		}
+		// "g" followed by something else - ignore the g prefix for now
+		// (could handle "gp" for GoToParentRepo here if needed)
+	}
+
 	switch {
 	case key.Matches(msg, m.keys.Close):
 		return m, tea.Quit
 
 	case key.Matches(msg, m.keys.MoveDown):
 		m.cursor = moveCursor(m.sections, m.cursor, 1)
+		// Update viewport to keep cursor visible
+		if m.viewport.Width > 0 {
+			content, cursorLine := renderContent(m)
+			m.viewport.SetContent(content)
+			ensureCursorVisible(&m, cursorLine)
+		}
 		return m, nil
 
 	case key.Matches(msg, m.keys.MoveUp):
 		m.cursor = moveCursor(m.sections, m.cursor, -1)
+		// Update viewport to keep cursor visible
+		if m.viewport.Width > 0 {
+			content, cursorLine := renderContent(m)
+			m.viewport.SetContent(content)
+			ensureCursorVisible(&m, cursorLine)
+		}
 		return m, nil
 
 	case key.Matches(msg, m.keys.Toggle):
@@ -143,6 +194,27 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, m.keys.PrevHunkHeader):
 		return handlePrevHunk(m)
+
+	// Scroll navigation
+	case key.Matches(msg, m.keys.PageUp):
+		return handlePageUp(m)
+
+	case key.Matches(msg, m.keys.PageDown):
+		return handlePageDown(m)
+
+	case key.Matches(msg, m.keys.HalfPageUp):
+		return handleHalfPageUp(m)
+
+	case key.Matches(msg, m.keys.HalfPageDown):
+		return handleHalfPageDown(m)
+
+	case key.Matches(msg, m.keys.GoToTop):
+		// First "g" press - set pending key and wait for second key
+		m.pendingKey = "g"
+		return m, nil
+
+	case key.Matches(msg, m.keys.GoToBottom):
+		return handleGoToBottom(m)
 
 	// Yank to clipboard
 	case key.Matches(msg, m.keys.YankSelected):
@@ -514,6 +586,10 @@ func handleToggle(m Model) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Save current screen position before toggling
+	_, oldCursorLine := renderContent(m)
+	screenRow := oldCursorLine - m.viewport.YOffset
+
 	s := &m.sections[m.cursor.Section]
 
 	if m.cursor.Item == -1 {
@@ -534,6 +610,13 @@ func handleToggle(m Model) (tea.Model, tea.Cmd) {
 			if m.cursor.Line >= 0 {
 				m.cursor.Line = -1
 			}
+
+			// Update viewport with preserved screen position
+			if m.viewport.Width > 0 {
+				content, newCursorLine := renderContent(m)
+				m.viewport.SetContent(content)
+				preserveScreenPosition(&m, newCursorLine, screenRow)
+			}
 			return m, nil
 		}
 
@@ -544,8 +627,22 @@ func handleToggle(m Model) (tea.Model, tea.Cmd) {
 		if item.Expanded && item.Hunks == nil && item.Entry != nil && !item.HunksLoading {
 			item.HunksLoading = true
 			kind := diffKindForSection(s.Kind)
+
+			// Update viewport with preserved screen position
+			if m.viewport.Width > 0 {
+				content, newCursorLine := renderContent(m)
+				m.viewport.SetContent(content)
+				preserveScreenPosition(&m, newCursorLine, screenRow)
+			}
 			return m, loadHunksCmd(m.repo, m.cursor.Section, m.cursor.Item, item.Entry, kind)
 		}
+	}
+
+	// Update viewport with preserved screen position
+	if m.viewport.Width > 0 {
+		content, newCursorLine := renderContent(m)
+		m.viewport.SetContent(content)
+		preserveScreenPosition(&m, newCursorLine, screenRow)
 	}
 
 	return m, nil
@@ -835,4 +932,154 @@ func diffKindForSection(kind SectionKind) git.DiffKind {
 	default:
 		return git.DiffUnstaged
 	}
+}
+
+// handlePageUp scrolls the viewport up by a full page.
+func handlePageUp(m Model) (tea.Model, tea.Cmd) {
+	m.viewport.YOffset -= m.viewport.Height
+	if m.viewport.YOffset < 0 {
+		m.viewport.YOffset = 0
+	}
+
+	// Move cursor up to stay visible and re-render
+	if m.viewport.Width > 0 {
+		// Move cursor up by approximately a page worth of items
+		for i := 0; i < m.viewport.Height; i++ {
+			m.cursor = moveCursor(m.sections, m.cursor, -1)
+		}
+		content, cursorLine := renderContent(m)
+		m.viewport.SetContent(content)
+		ensureCursorVisible(&m, cursorLine)
+	}
+
+	return m, nil
+}
+
+// handlePageDown scrolls the viewport down by a full page.
+func handlePageDown(m Model) (tea.Model, tea.Cmd) {
+	maxOffset := m.viewport.TotalLineCount() - m.viewport.Height
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+
+	m.viewport.YOffset += m.viewport.Height
+	if m.viewport.YOffset > maxOffset {
+		m.viewport.YOffset = maxOffset
+	}
+
+	// Move cursor down to stay visible and re-render
+	if m.viewport.Width > 0 {
+		// Move cursor down by approximately a page worth of items
+		for i := 0; i < m.viewport.Height; i++ {
+			m.cursor = moveCursor(m.sections, m.cursor, 1)
+		}
+		content, cursorLine := renderContent(m)
+		m.viewport.SetContent(content)
+		ensureCursorVisible(&m, cursorLine)
+	}
+
+	return m, nil
+}
+
+// handleHalfPageUp scrolls the viewport up by half a page.
+func handleHalfPageUp(m Model) (tea.Model, tea.Cmd) {
+	m.viewport.YOffset -= m.viewport.Height / 2
+	if m.viewport.YOffset < 0 {
+		m.viewport.YOffset = 0
+	}
+
+	// Move cursor up to stay visible and re-render
+	if m.viewport.Width > 0 {
+		// Move cursor up by approximately half a page worth of items
+		for i := 0; i < m.viewport.Height/2; i++ {
+			m.cursor = moveCursor(m.sections, m.cursor, -1)
+		}
+		content, cursorLine := renderContent(m)
+		m.viewport.SetContent(content)
+		ensureCursorVisible(&m, cursorLine)
+	}
+
+	return m, nil
+}
+
+// handleHalfPageDown scrolls the viewport down by half a page.
+func handleHalfPageDown(m Model) (tea.Model, tea.Cmd) {
+	maxOffset := m.viewport.TotalLineCount() - m.viewport.Height
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+
+	m.viewport.YOffset += m.viewport.Height / 2
+	if m.viewport.YOffset > maxOffset {
+		m.viewport.YOffset = maxOffset
+	}
+
+	// Move cursor down to stay visible and re-render
+	if m.viewport.Width > 0 {
+		// Move cursor down by approximately half a page worth of items
+		for i := 0; i < m.viewport.Height/2; i++ {
+			m.cursor = moveCursor(m.sections, m.cursor, 1)
+		}
+		content, cursorLine := renderContent(m)
+		m.viewport.SetContent(content)
+		ensureCursorVisible(&m, cursorLine)
+	}
+
+	return m, nil
+}
+
+// handleGoToTop moves cursor to the first section header and scrolls to top.
+func handleGoToTop(m Model) (tea.Model, tea.Cmd) {
+	// Move cursor to first visible section header
+	m.cursor = findFirstValidCursor(m.sections)
+
+	// Scroll viewport to top
+	m.viewport.YOffset = 0
+
+	// Re-render content to update cursor highlighting
+	if m.viewport.Width > 0 {
+		content, _ := renderContent(m)
+		m.viewport.SetContent(content)
+	}
+
+	return m, nil
+}
+
+// handleGoToBottom moves cursor to the last item and scrolls to show it.
+func handleGoToBottom(m Model) (tea.Model, tea.Cmd) {
+	// Find last visible section with items
+	visible := visibleSections(m.sections)
+	if len(visible) == 0 {
+		return m, nil
+	}
+
+	// Start from last visible section and find last item
+	for i := len(visible) - 1; i >= 0; i-- {
+		s := &m.sections[visible[i]]
+		if !s.Folded && len(s.Items) > 0 {
+			// Go to last item in this section
+			m.cursor = Cursor{
+				Section: visible[i],
+				Item:    len(s.Items) - 1,
+				Hunk:    -1,
+				Line:    -1,
+			}
+			break
+		} else if i == 0 {
+			// All sections are folded or empty, go to last section header
+			m.cursor = Cursor{
+				Section: visible[len(visible)-1],
+				Item:    -1,
+				Hunk:    -1,
+				Line:    -1,
+			}
+		}
+	}
+
+	// Re-render to get cursor line, then scroll to show it
+	content, cursorLine := renderContent(m)
+	m.viewport.SetContent(content)
+	ensureCursorVisible(&m, cursorLine)
+
+	return m, nil
 }
