@@ -49,7 +49,7 @@ func defaults() *Config {
 			UnmergedUpstream:   SectionConfig{Folded: false, Hidden: false},
 			UnpulledPushRemote: SectionConfig{Folded: true, Hidden: false},
 			UnmergedPushRemote: SectionConfig{Folded: false, Hidden: false},
-			Recent:             SectionConfig{Folded: true, Hidden: false},
+			Recent:             SectionConfig{Folded: false, Hidden: false},
 			Rebase:             SectionConfig{Folded: false, Hidden: false},
 			Bisect:             SectionConfig{Folded: false, Hidden: false},
 		},

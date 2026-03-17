@@ -527,6 +527,51 @@ func (r *Repository) runGit(ctx context.Context, args ...string) (string, error)
 	return stdout, err
 }
 
+// runGitWithEnv executes a git command with extra environment variables.
+func (r *Repository) runGitWithEnv(ctx context.Context, env []string, args ...string) (string, error) {
+	start := time.Now()
+
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = r.path
+	cmd.Env = append(os.Environ(), env...)
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+
+	cmdErr := cmd.Run()
+	duration := time.Since(start)
+
+	stdout := stdoutBuf.String()
+	stderr := stderrBuf.String()
+
+	if r.logger != nil {
+		exitCode := 0
+		if cmdErr != nil {
+			if exitErr, ok := cmdErr.(*exec.ExitError); ok {
+				exitCode = exitErr.ExitCode()
+			} else {
+				exitCode = -1
+			}
+		}
+		_ = r.logger.Append(cmdlog.Entry{
+			Timestamp:  start,
+			Command:    "git " + strings.Join(args, " "),
+			Dir:        r.path,
+			ExitCode:   exitCode,
+			Stdout:     stdout,
+			Stderr:     stderr,
+			DurationMs: duration.Milliseconds(),
+		})
+	}
+
+	if cmdErr != nil {
+		return stdout, fmt.Errorf("git %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(stderr), cmdErr)
+	}
+
+	return stdout, nil
+}
+
 // runGitFull executes a git command and returns stdout, stderr, and error.
 // The output is returned even when there's an error (for commands like diff --no-index).
 func (r *Repository) runGitFull(ctx context.Context, args ...string) (stdout, stderr string, err error) {

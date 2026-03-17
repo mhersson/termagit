@@ -55,6 +55,103 @@ func (r *Repository) ListStashes(ctx context.Context) ([]StashEntry, error) {
 	return entries, nil
 }
 
+// StashOpts configures a git stash push operation.
+type StashOpts struct {
+	Message          string
+	IncludeUntracked bool // -u / --include-untracked
+	All              bool // -a / --all (includes ignored files, incompatible with -u)
+	KeepIndex        bool // --keep-index
+}
+
+// Stash creates a new stash entry from the current working tree state.
+func (r *Repository) Stash(ctx context.Context, opts StashOpts) error {
+	args := []string{"stash", "push"}
+	if opts.Message != "" {
+		args = append(args, "-m", opts.Message)
+	}
+	if opts.IncludeUntracked {
+		args = append(args, "--include-untracked")
+	}
+	if opts.All {
+		args = append(args, "--all")
+	}
+	if opts.KeepIndex {
+		args = append(args, "--keep-index")
+	}
+	_, err := r.runGit(ctx, args...)
+	if err != nil {
+		return fmt.Errorf("stash push: %w", err)
+	}
+	return nil
+}
+
+// StashPop applies a stash entry and removes it from the stash list.
+func (r *Repository) StashPop(ctx context.Context, index int) error {
+	ref := fmt.Sprintf("stash@{%d}", index)
+	_, err := r.runGit(ctx, "stash", "pop", ref)
+	if err != nil {
+		return fmt.Errorf("stash pop %s: %w", ref, err)
+	}
+	return nil
+}
+
+// StashApply applies a stash entry without removing it from the stash list.
+func (r *Repository) StashApply(ctx context.Context, index int) error {
+	ref := fmt.Sprintf("stash@{%d}", index)
+	_, err := r.runGit(ctx, "stash", "apply", ref)
+	if err != nil {
+		return fmt.Errorf("stash apply %s: %w", ref, err)
+	}
+	return nil
+}
+
+// StashDrop removes a stash entry from the stash list without applying it.
+func (r *Repository) StashDrop(ctx context.Context, index int) error {
+	ref := fmt.Sprintf("stash@{%d}", index)
+	_, err := r.runGit(ctx, "stash", "drop", ref)
+	if err != nil {
+		return fmt.Errorf("stash drop %s: %w", ref, err)
+	}
+	return nil
+}
+
+// StashBranch creates a new branch from a stash entry and drops the stash.
+func (r *Repository) StashBranch(ctx context.Context, name string, index int) error {
+	ref := fmt.Sprintf("stash@{%d}", index)
+	_, err := r.runGit(ctx, "stash", "branch", name, ref)
+	if err != nil {
+		return fmt.Errorf("stash branch %s %s: %w", name, ref, err)
+	}
+	return nil
+}
+
+// StashRename renames a stash entry by dropping it and re-storing with a new message.
+// WARNING: This is not atomic. If the store fails after the drop, the stash is lost.
+func (r *Repository) StashRename(ctx context.Context, index int, newName string) error {
+	ref := fmt.Sprintf("stash@{%d}", index)
+
+	// Get the stash commit hash before dropping
+	out, err := r.runGit(ctx, "rev-parse", ref)
+	if err != nil {
+		return fmt.Errorf("stash rename: resolve %s: %w", ref, err)
+	}
+	hash := strings.TrimSpace(out)
+
+	// Drop the old entry
+	_, err = r.runGit(ctx, "stash", "drop", ref)
+	if err != nil {
+		return fmt.Errorf("stash rename: drop %s: %w", ref, err)
+	}
+
+	// Store the commit back with the new message
+	_, err = r.runGit(ctx, "stash", "store", "-m", newName, hash)
+	if err != nil {
+		return fmt.Errorf("stash rename: store as %q: %w", newName, err)
+	}
+
+	return nil
+}
+
 // parseStashLine parses a line from git stash list output.
 // Format: stash@{N}:HASH:message
 func parseStashLine(line string) (StashEntry, error) {
