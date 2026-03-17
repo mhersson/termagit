@@ -32,6 +32,7 @@ type Editor struct {
 	selEnd   int  // Visual line selection end
 
 	width, height int
+	viewportTop   int // First visible line in the viewport
 }
 
 // NewEditor creates a new vim editor in insert mode (for commit editor UX).
@@ -62,10 +63,11 @@ func (e *Editor) Content() string {
 	return e.buffer.Content()
 }
 
-// SetContent sets the buffer content.
+// SetContent sets the buffer content and resets viewport to top.
 func (e *Editor) SetContent(content string) {
 	e.buffer.SetContent(content)
 	e.cursor.Clamp(e.buffer)
+	e.viewportTop = 0 // Reset viewport to show from the beginning
 }
 
 // Line returns the current cursor line.
@@ -82,6 +84,13 @@ func (e *Editor) Col() int {
 func (e *Editor) SetCursor(line, col int) {
 	e.cursor.Line = line
 	e.cursor.Col = col
+	// Reset viewport to show from cursor line when explicitly setting cursor
+	e.viewportTop = line
+}
+
+// ResetViewport resets the viewport to show from line 0.
+func (e *Editor) ResetViewport() {
+	e.viewportTop = 0
 }
 
 // LineCount returns the number of lines.

@@ -1,6 +1,7 @@
 package vim
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -130,4 +131,46 @@ func TestRender_WidthConstraint(t *testing.T) {
 	// Should not panic with narrow width
 	assert.NotPanics(t, func() { _ = e.View() })
 	_ = view
+}
+
+func TestRender_ViewportShowsTopAfterSetContent(t *testing.T) {
+	e := NewEditor(testTokens())
+	e.SetSize(80, 5) // Small height to force viewport
+
+	// Create content with many lines
+	var lines []string
+	for i := 0; i < 100; i++ {
+		lines = append(lines, "line content")
+	}
+	content := strings.Join(lines, "\n")
+
+	e.SetContent(content)
+	e.SetCursor(0, 0)
+
+	view := e.View()
+
+	// The view should start with line 0 content, not show lines from the end
+	assert.True(t, strings.HasPrefix(view, "line content"), "viewport should show line 0 at top")
+}
+
+func TestRender_ViewportScrollsWithCursor(t *testing.T) {
+	e := NewEditor(testTokens())
+	e.SetSize(80, 3) // Only 3 visible lines
+
+	e.SetContent("line0\nline1\nline2\nline3\nline4\nline5")
+	e.SetCursor(0, 0)
+
+	// Initially should show lines 0-2
+	view := e.View()
+	assert.Contains(t, view, "line0")
+	assert.Contains(t, view, "line1")
+	assert.Contains(t, view, "line2")
+	assert.NotContains(t, view, "line5")
+
+	// Move cursor to line 5
+	e.SetCursor(5, 0)
+	view = e.View()
+
+	// Now should show lines including line5
+	assert.Contains(t, view, "line5")
 }

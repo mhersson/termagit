@@ -107,7 +107,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.vimEditor.SetSize(msg.Width-4, msg.Height-12)
+		// Reserve 3 lines: title line + 2 blank lines before editor
+		m.vimEditor.SetSize(msg.Width-4, msg.Height-3)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -325,7 +326,8 @@ func (m Model) Aborted() bool {
 func (m *Model) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	m.vimEditor.SetSize(width-4, height-12)
+	// Reserve 3 lines: title line + 2 blank lines before editor
+	m.vimEditor.SetSize(width-4, height-3)
 }
 
 // loadCommitHistoryCmd loads commit messages for history cycling.
@@ -389,6 +391,8 @@ func (m Model) maybeInitializeContent() (tea.Model, tea.Cmd) {
 	m.contentInitialized = true
 	content := m.buildInitialContent()
 	m.vimEditor.SetContent(content)
+	// Ensure cursor is at the top of the buffer (first line where user types message)
+	m.vimEditor.SetCursor(0, 0)
 
 	return m, nil
 }

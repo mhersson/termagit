@@ -590,3 +590,39 @@ func TestBuildInitialContent_OmitsDiffWhenDisabled(t *testing.T) {
 	assert.NotContains(t, content, ">8")
 	assert.NotContains(t, content, "diff content")
 }
+
+func TestMaybeInitializeContent_CursorAtTop(t *testing.T) {
+	m := newTestModel(t)
+	m.commentChar = "#"
+	m.branch = "main"
+	m.commentCharLoaded = true
+	m.statusLoaded = true
+	m.diffLoaded = true
+	m.status = &git.StatusResult{
+		Staged: []git.StatusEntry{
+			git.NewStatusEntry("file1.go", git.FileStatusModified, git.FileStatusNone),
+			git.NewStatusEntry("file2.go", git.FileStatusModified, git.FileStatusNone),
+		},
+	}
+	// Add a large diff to simulate content that could push cursor down
+	m.diff = []git.FileDiff{
+		{
+			Path: "test.go",
+			Hunks: []git.Hunk{
+				{
+					OldStart: 1, OldCount: 100,
+					NewStart: 1, NewCount: 100,
+					Lines: make([]git.DiffLine, 100), // 100 lines of diff
+				},
+			},
+		},
+	}
+	m.showDiff = true
+
+	newModel, _ := m.maybeInitializeContent()
+	m = newModel.(Model)
+
+	// Cursor should be at line 0, col 0 (top of buffer)
+	assert.Equal(t, 0, m.vimEditor.Line(), "cursor should be at line 0")
+	assert.Equal(t, 0, m.vimEditor.Col(), "cursor should be at col 0")
+}

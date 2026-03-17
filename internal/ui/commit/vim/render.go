@@ -12,10 +12,20 @@ func (e *Editor) View() string {
 		return ""
 	}
 
+	// Ensure cursor is visible within viewport
+	e.ensureCursorVisible()
+
 	var b strings.Builder
 	lineCount := e.buffer.LineCount()
 
-	for i := 0; i < lineCount; i++ {
+	// Calculate visible line range
+	startLine := e.viewportTop
+	endLine := e.viewportTop + e.height
+	if endLine > lineCount {
+		endLine = lineCount
+	}
+
+	for i := startLine; i < endLine; i++ {
 		line := e.buffer.Line(i)
 
 		if e.mode == ModeVisualLine && e.isLineSelected(i) {
@@ -29,12 +39,29 @@ func (e *Editor) View() string {
 			b.WriteString(e.tokens.Normal.Render(line))
 		}
 
-		if i < lineCount-1 {
+		if i < endLine-1 {
 			b.WriteString("\n")
 		}
 	}
 
 	return b.String()
+}
+
+// ensureCursorVisible scrolls the viewport if needed to keep cursor visible.
+func (e *Editor) ensureCursorVisible() {
+	if e.height == 0 {
+		return
+	}
+
+	// Scroll up if cursor is above viewport
+	if e.cursor.Line < e.viewportTop {
+		e.viewportTop = e.cursor.Line
+	}
+
+	// Scroll down if cursor is below viewport
+	if e.cursor.Line >= e.viewportTop+e.height {
+		e.viewportTop = e.cursor.Line - e.height + 1
+	}
 }
 
 // isLineSelected returns true if the line is part of the visual selection.
