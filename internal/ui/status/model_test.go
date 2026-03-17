@@ -263,7 +263,7 @@ func TestMoveCursor_UpFromHeaderGoesToPreviousSectionLastItem(t *testing.T) {
 	}
 }
 
-func TestMoveCursor_WrapFromBottomToTop(t *testing.T) {
+func TestMoveCursor_StayAtBottomBoundary(t *testing.T) {
 	sections := []Section{
 		{Kind: SectionUntracked, Title: "Untracked", Folded: false, Items: []Item{{}}},
 		{Kind: SectionUnstaged, Title: "Unstaged", Folded: false, Items: []Item{{}}},
@@ -272,12 +272,13 @@ func TestMoveCursor_WrapFromBottomToTop(t *testing.T) {
 
 	result := moveCursor(sections, cursor, 1)
 
-	if result.Section != 0 || result.Item != -1 {
-		t.Errorf("expected wrap to Section=0, Item=-1, got Section=%d, Item=%d", result.Section, result.Item)
+	// Should stay at boundary, not wrap
+	if result.Section != 1 || result.Item != 0 {
+		t.Errorf("expected to stay at Section=1, Item=0, got Section=%d, Item=%d", result.Section, result.Item)
 	}
 }
 
-func TestMoveCursor_WrapFromTopToBottom(t *testing.T) {
+func TestMoveCursor_StayAtTopBoundary(t *testing.T) {
 	sections := []Section{
 		{Kind: SectionUntracked, Title: "Untracked", Folded: false, Items: []Item{{}}},
 		{Kind: SectionUnstaged, Title: "Unstaged", Folded: false, Items: []Item{{}}},
@@ -286,9 +287,9 @@ func TestMoveCursor_WrapFromTopToBottom(t *testing.T) {
 
 	result := moveCursor(sections, cursor, -1)
 
-	// Should wrap to last item of last section
-	if result.Section != 1 || result.Item != 0 {
-		t.Errorf("expected wrap to Section=1, Item=0, got Section=%d, Item=%d", result.Section, result.Item)
+	// Should stay at boundary, not wrap
+	if result.Section != 0 || result.Item != -1 {
+		t.Errorf("expected to stay at Section=0, Item=-1, got Section=%d, Item=%d", result.Section, result.Item)
 	}
 }
 

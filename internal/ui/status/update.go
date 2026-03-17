@@ -754,7 +754,7 @@ func moveCursor(sections []Section, cursor Cursor, dir int) Cursor {
 			// Go to next section
 			nextVisIdx := visIdx + 1
 			if nextVisIdx >= len(visible) {
-				nextVisIdx = 0 // Wrap
+				return cursor // Stay at boundary
 			}
 			return Cursor{Section: visible[nextVisIdx], Item: -1, Hunk: -1, Line: -1}
 		}
@@ -785,7 +785,7 @@ func moveCursor(sections []Section, cursor Cursor, dir int) Cursor {
 			// Go to next section
 			nextVisIdx := visIdx + 1
 			if nextVisIdx >= len(visible) {
-				nextVisIdx = 0 // Wrap
+				return cursor // Stay at boundary
 			}
 			return Cursor{Section: visible[nextVisIdx], Item: -1, Hunk: -1, Line: -1}
 		}
@@ -808,7 +808,7 @@ func moveCursor(sections []Section, cursor Cursor, dir int) Cursor {
 			// Go to next section
 			nextVisIdx := visIdx + 1
 			if nextVisIdx >= len(visible) {
-				nextVisIdx = 0 // Wrap
+				return cursor // Stay at boundary
 			}
 			return Cursor{Section: visible[nextVisIdx], Item: -1, Hunk: -1, Line: -1}
 		}
@@ -821,7 +821,7 @@ func moveCursor(sections []Section, cursor Cursor, dir int) Cursor {
 		// Go to next section
 		nextVisIdx := visIdx + 1
 		if nextVisIdx >= len(visible) {
-			nextVisIdx = 0 // Wrap
+			return cursor // Stay at boundary
 		}
 		return Cursor{Section: visible[nextVisIdx], Item: -1, Hunk: -1, Line: -1}
 	}
@@ -881,7 +881,7 @@ func moveCursor(sections []Section, cursor Cursor, dir int) Cursor {
 	// On section header, go to previous section
 	prevVisIdx := visIdx - 1
 	if prevVisIdx < 0 {
-		prevVisIdx = len(visible) - 1 // Wrap
+		return cursor // Stay at boundary
 	}
 	prevSection := &sections[visible[prevVisIdx]]
 	if !prevSection.Folded && len(prevSection.Items) > 0 {
