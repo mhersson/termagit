@@ -19,6 +19,14 @@ type Tokens struct {
 	Normal      lipgloss.Style
 	CursorBlock lipgloss.Style
 	Selection   lipgloss.Style
+	Comment     lipgloss.Style // For comment lines (# ...)
+
+	// Diff syntax highlighting
+	DiffAdd        lipgloss.Style // Lines starting with +
+	DiffDelete     lipgloss.Style // Lines starting with -
+	DiffContext    lipgloss.Style // Context lines (space prefix)
+	DiffHunkHeader lipgloss.Style // @@ ... @@ lines
+	DiffHeader     lipgloss.Style // diff --git, ---, +++ lines
 }
 
 // Editor is a vim-like text editor component.
@@ -184,6 +192,26 @@ func (e *Editor) handleNormalMode(msg tea.KeyMsg) bool {
 		e.pending = 0
 		return true
 
+	case tea.KeyCtrlF:
+		// Page down
+		e.pageDown()
+		return true
+
+	case tea.KeyCtrlB:
+		// Page up
+		e.pageUp()
+		return true
+
+	case tea.KeyCtrlD:
+		// Half page down
+		e.halfPageDown()
+		return true
+
+	case tea.KeyCtrlU:
+		// Half page up
+		e.halfPageUp()
+		return true
+
 	case tea.KeyRunes:
 		if len(msg.Runes) == 0 {
 			return false
@@ -191,6 +219,78 @@ func (e *Editor) handleNormalMode(msg tea.KeyMsg) bool {
 		return e.handleNormalRune(msg.Runes[0])
 	}
 	return false
+}
+
+// pageDown moves cursor down by a full page.
+func (e *Editor) pageDown() {
+	if e.height == 0 {
+		return
+	}
+	lines := e.height - 1 // Leave one line overlap for context
+	if lines < 1 {
+		lines = 1
+	}
+	e.cursor.Line += lines
+	lineCount := e.buffer.LineCount()
+	if e.cursor.Line >= lineCount {
+		e.cursor.Line = lineCount - 1
+	}
+	if e.cursor.Line < 0 {
+		e.cursor.Line = 0
+	}
+	e.cursor.Clamp(e.buffer)
+}
+
+// pageUp moves cursor up by a full page.
+func (e *Editor) pageUp() {
+	if e.height == 0 {
+		return
+	}
+	lines := e.height - 1 // Leave one line overlap for context
+	if lines < 1 {
+		lines = 1
+	}
+	e.cursor.Line -= lines
+	if e.cursor.Line < 0 {
+		e.cursor.Line = 0
+	}
+	e.cursor.Clamp(e.buffer)
+}
+
+// halfPageDown moves cursor down by half a page.
+func (e *Editor) halfPageDown() {
+	if e.height == 0 {
+		return
+	}
+	lines := e.height / 2
+	if lines < 1 {
+		lines = 1
+	}
+	e.cursor.Line += lines
+	lineCount := e.buffer.LineCount()
+	if e.cursor.Line >= lineCount {
+		e.cursor.Line = lineCount - 1
+	}
+	if e.cursor.Line < 0 {
+		e.cursor.Line = 0
+	}
+	e.cursor.Clamp(e.buffer)
+}
+
+// halfPageUp moves cursor up by half a page.
+func (e *Editor) halfPageUp() {
+	if e.height == 0 {
+		return
+	}
+	lines := e.height / 2
+	if lines < 1 {
+		lines = 1
+	}
+	e.cursor.Line -= lines
+	if e.cursor.Line < 0 {
+		e.cursor.Line = 0
+	}
+	e.cursor.Clamp(e.buffer)
 }
 
 // handleNormalRune handles a single rune in normal mode.

@@ -1,6 +1,7 @@
 package vim
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -230,11 +231,88 @@ func TestVimEditor_VisualLine_ESC_ReturnsToNormal(t *testing.T) {
 	assert.Equal(t, ModeNormal, e.Mode())
 }
 
+func TestVimEditor_CtrlF_PageDown(t *testing.T) {
+	e := NewEditor(testTokens())
+	// Create 20 lines
+	var lines []string
+	for i := 0; i < 20; i++ {
+		lines = append(lines, "line")
+	}
+	e.SetContent(strings.Join(lines, "\n"))
+	e.SetSize(80, 10) // 10 line viewport
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlF})
+
+	// Should move down by height-1 (9 lines)
+	assert.Equal(t, 9, e.Line())
+}
+
+func TestVimEditor_CtrlB_PageUp(t *testing.T) {
+	e := NewEditor(testTokens())
+	var lines []string
+	for i := 0; i < 20; i++ {
+		lines = append(lines, "line")
+	}
+	e.SetContent(strings.Join(lines, "\n"))
+	e.SetSize(80, 10)
+	e.SetCursor(15, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlB})
+
+	// Should move up by height-1 (9 lines)
+	assert.Equal(t, 6, e.Line())
+}
+
+func TestVimEditor_CtrlD_HalfPageDown(t *testing.T) {
+	e := NewEditor(testTokens())
+	var lines []string
+	for i := 0; i < 20; i++ {
+		lines = append(lines, "line")
+	}
+	e.SetContent(strings.Join(lines, "\n"))
+	e.SetSize(80, 10)
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlD})
+
+	// Should move down by height/2 (5 lines)
+	assert.Equal(t, 5, e.Line())
+}
+
+func TestVimEditor_CtrlU_HalfPageUp(t *testing.T) {
+	e := NewEditor(testTokens())
+	var lines []string
+	for i := 0; i < 20; i++ {
+		lines = append(lines, "line")
+	}
+	e.SetContent(strings.Join(lines, "\n"))
+	e.SetSize(80, 10)
+	e.SetCursor(15, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlU})
+
+	// Should move up by height/2 (5 lines)
+	assert.Equal(t, 10, e.Line())
+}
+
 // testTokens creates minimal tokens for testing
 func testTokens() Tokens {
 	return Tokens{
 		Normal:      lipgloss.NewStyle(),
 		CursorBlock: lipgloss.NewStyle().Reverse(true),
 		Selection:   lipgloss.NewStyle().Background(lipgloss.Color("#444444")),
+		Comment:     lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")),
+
+		// Diff styles
+		DiffAdd:        lipgloss.NewStyle().Foreground(lipgloss.Color("#00ff00")),
+		DiffDelete:     lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000")),
+		DiffContext:    lipgloss.NewStyle().Foreground(lipgloss.Color("#888888")),
+		DiffHunkHeader: lipgloss.NewStyle().Foreground(lipgloss.Color("#00ffff")),
+		DiffHeader:     lipgloss.NewStyle().Foreground(lipgloss.Color("#888888")),
 	}
 }

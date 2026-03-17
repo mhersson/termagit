@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // View renders the editor content.
@@ -35,8 +36,8 @@ func (e *Editor) View() string {
 			// Render line with cursor
 			b.WriteString(e.renderLineWithCursor(line))
 		} else {
-			// Normal line rendering
-			b.WriteString(e.tokens.Normal.Render(line))
+			// Syntax-highlighted line rendering
+			b.WriteString(e.renderStyledLine(line))
 		}
 
 		if i < endLine-1 {
@@ -45,6 +46,52 @@ func (e *Editor) View() string {
 	}
 
 	return b.String()
+}
+
+// lineStyle returns the appropriate style for a line based on its content.
+func (e *Editor) lineStyle(line string) lipgloss.Style {
+	if len(line) == 0 {
+		return e.tokens.Normal
+	}
+
+	// Check for diff patterns
+	if strings.HasPrefix(line, "diff --git") ||
+		strings.HasPrefix(line, "---") ||
+		strings.HasPrefix(line, "+++") ||
+		strings.HasPrefix(line, "new file") ||
+		strings.HasPrefix(line, "deleted file") ||
+		strings.HasPrefix(line, "index ") {
+		return e.tokens.DiffHeader
+	}
+
+	if strings.HasPrefix(line, "@@") {
+		return e.tokens.DiffHunkHeader
+	}
+
+	// Check first character for diff lines
+	firstChar := line[0]
+	switch firstChar {
+	case '+':
+		// Make sure it's not +++ (file header)
+		if !strings.HasPrefix(line, "+++") {
+			return e.tokens.DiffAdd
+		}
+	case '-':
+		// Make sure it's not --- (file header)
+		if !strings.HasPrefix(line, "---") {
+			return e.tokens.DiffDelete
+		}
+	case '#':
+		return e.tokens.Comment
+	}
+
+	return e.tokens.Normal
+}
+
+// renderStyledLine renders a line with syntax highlighting.
+func (e *Editor) renderStyledLine(line string) string {
+	style := e.lineStyle(line)
+	return style.Render(line)
 }
 
 // ensureCursorVisible scrolls the viewport if needed to keep cursor visible.

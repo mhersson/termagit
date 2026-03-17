@@ -53,6 +53,14 @@ func New(repo *git.Repository, opts git.CommitOpts, cfg *config.Config, tokens t
 		Normal:      tokens.Normal,
 		CursorBlock: tokens.CursorBlock,
 		Selection:   tokens.Selection,
+		Comment:     tokens.Comment,
+
+		// Diff syntax highlighting
+		DiffAdd:        tokens.DiffAdd,
+		DiffDelete:     tokens.DiffDelete,
+		DiffContext:    tokens.DiffContext,
+		DiffHunkHeader: tokens.DiffHunkHeader,
+		DiffHeader:     tokens.Dim, // Use dim for diff headers (diff --git, ---, +++)
 	}
 
 	editor := vim.NewEditor(vimTokens)
@@ -513,6 +521,15 @@ func (m Model) formatFileDiff(fd git.FileDiff) string {
 	for _, hunk := range fd.Hunks {
 		fmt.Fprintf(&b, "@@ -%d,%d +%d,%d @@\n", hunk.OldStart, hunk.OldCount, hunk.NewStart, hunk.NewCount)
 		for _, line := range hunk.Lines {
+			// Format line with operation prefix (like git diff output)
+			switch line.Op {
+			case git.DiffOpAdd:
+				b.WriteString("+")
+			case git.DiffOpDelete:
+				b.WriteString("-")
+			case git.DiffOpContext:
+				b.WriteString(" ")
+			}
 			b.WriteString(line.Content)
 			if !strings.HasSuffix(line.Content, "\n") {
 				b.WriteString("\n")
