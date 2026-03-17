@@ -19,6 +19,37 @@ import (
 // ErrNotARepo is returned when the path is not inside a git repository.
 var ErrNotARepo = errors.New("not a git repository")
 
+// BisectItem represents a single entry in the bisect log.
+type BisectItem struct {
+	Action     string // "good", "bad", "skip", "start"
+	Hash       string // Full commit hash
+	AbbrevHash string // Abbreviated hash (7 chars)
+	Subject    string // Commit message subject
+	Finished   bool   // True for the final identified commit
+}
+
+// BisectState represents the current state of a git bisect operation.
+type BisectState struct {
+	Items    []BisectItem // Bisect log entries
+	Current  *LogEntry    // Current commit being tested
+	Finished bool         // True if bisect has finished
+}
+
+// SequencerItem represents a single entry in the sequencer todo.
+type SequencerItem struct {
+	Action     string // "pick" or "revert"
+	Hash       string // Full commit hash
+	AbbrevHash string // Abbreviated hash
+	Subject    string // Commit message subject
+}
+
+// SequencerState represents the current state of a cherry-pick or revert operation.
+type SequencerState struct {
+	Operation string          // "cherry-pick" or "revert"
+	Items     []SequencerItem // Todo entries
+	Current   *SequencerItem  // Currently stopped on
+}
+
 // Repository wraps a go-git repository with logging and convenience methods.
 type Repository struct {
 	raw    *git.Repository
@@ -259,6 +290,234 @@ func (r *Repository) SequencerOperation() string {
 		}
 	}
 	return ""
+}
+
+// ReadMergeState returns merge information when a merge is in progress.
+// Returns (head, subject, branch, error):
+// - head: the commit hash being merged (from MERGE_HEAD)
+// - subject: the first line of the merge message (from MERGE_MSG)
+// - branch: the branch name being merged (extracted from MERGE_MSG)
+// Returns empty strings when no merge is in progress.
+func (r *Repository) ReadMergeState() (head, subject, branch string, err error) {
+	// Read MERGE_HEAD
+	mergeHeadPath := filepath.Join(r.gitDir, "MERGE_HEAD")
+	data, err := os.ReadFile(mergeHeadPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", "", "", nil // No merge in progress
+		}
+		return "", "", "", fmt.Errorf("read MERGE_HEAD: %w", err)
+	}
+	head = strings.TrimSpace(string(data))
+
+	// Read MERGE_MSG
+	mergeMsgPath := filepath.Join(r.gitDir, "MERGE_MSG")
+	msgData, err := os.ReadFile(mergeMsgPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return head, "", "", fmt.Errorf("read MERGE_MSG: %w", err)
+		}
+		// MERGE_MSG doesn't exist, just return head
+		return head, "", "", nil
+	}
+
+	msg := string(msgData)
+	lines := strings.Split(msg, "\n")
+	if len(lines) > 0 {
+		subject = strings.TrimSpace(lines[0])
+	}
+
+	// Extract branch name from subject
+	// Format: "Merge branch 'feature'" or "Merge branch 'feature' into main"
+	if strings.HasPrefix(subject, "Merge branch '") {
+		rest := strings.TrimPrefix(subject, "Merge branch '")
+		if idx := strings.Index(rest, "'"); idx > 0 {
+			branch = rest[:idx]
+		}
+	}
+
+	return head, subject, branch, nil
+}
+
+// BisectState returns the current state of a git bisect operation.
+// Returns empty state if no bisect is in progress.
+func (r *Repository) BisectState(ctx context.Context) (BisectState, error) {
+	bisectLogPath := filepath.Join(r.gitDir, "BISECT_LOG")
+	data, err := os.ReadFile(bisectLogPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return BisectState{}, nil // No bisect in progress
+		}
+		return BisectState{}, fmt.Errorf("read BISECT_LOG: %w", err)
+	}
+
+	state := BisectState{}
+	lines := strings.Split(string(data), "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Parse comment lines: # good: HASH subject
+		if strings.HasPrefix(line, "# ") {
+			item := parseBisectComment(line)
+			if item != nil {
+				state.Items = append(state.Items, *item)
+			}
+			continue
+		}
+
+		// Check for "first bad commit" marker
+		if strings.Contains(line, "first bad commit") {
+			state.Finished = true
+		}
+	}
+
+	return state, nil
+}
+
+// parseBisectComment parses a bisect log comment line.
+// Format: # action: HASH subject
+func parseBisectComment(line string) *BisectItem {
+	line = strings.TrimPrefix(line, "# ")
+
+	// Skip "first bad commit" lines
+	if strings.HasPrefix(line, "first bad commit") {
+		return nil
+	}
+
+	// Find the colon that separates action from the rest
+	colonIdx := strings.Index(line, ":")
+	if colonIdx < 0 {
+		return nil
+	}
+
+	action := strings.TrimSpace(line[:colonIdx])
+	rest := strings.TrimSpace(line[colonIdx+1:])
+
+	// Valid actions
+	switch action {
+	case "good", "bad", "skip", "start":
+		// OK
+	default:
+		return nil
+	}
+
+	if rest == "" {
+		return &BisectItem{Action: action}
+	}
+
+	// Split into hash and subject
+	parts := strings.SplitN(rest, " ", 2)
+	hash := parts[0]
+	subject := ""
+	if len(parts) > 1 {
+		subject = parts[1]
+	}
+
+	abbrev := hash
+	if len(hash) >= 7 {
+		abbrev = hash[:7]
+	}
+
+	return &BisectItem{
+		Action:     action,
+		Hash:       hash,
+		AbbrevHash: abbrev,
+		Subject:    subject,
+	}
+}
+
+// SequencerState returns the current state of a cherry-pick or revert operation.
+// Returns empty state if no sequencer operation is in progress.
+func (r *Repository) SequencerState(ctx context.Context) (SequencerState, error) {
+	state := SequencerState{}
+
+	// Determine operation type
+	if r.CherryPickInProgress() {
+		state.Operation = "cherry-pick"
+	} else if r.RevertInProgress() {
+		state.Operation = "revert"
+	} else {
+		return state, nil // No sequencer operation
+	}
+
+	// Read sequencer/todo if it exists
+	todoPath := filepath.Join(r.gitDir, "sequencer", "todo")
+	data, err := os.ReadFile(todoPath)
+	if err != nil {
+		// Single cherry-pick/revert without sequencer
+		// Read the HEAD file for current operation
+		var headPath string
+		if state.Operation == "cherry-pick" {
+			headPath = filepath.Join(r.gitDir, "CHERRY_PICK_HEAD")
+		} else {
+			headPath = filepath.Join(r.gitDir, "REVERT_HEAD")
+		}
+
+		headData, err := os.ReadFile(headPath)
+		if err != nil {
+			return state, nil
+		}
+
+		hash := strings.TrimSpace(string(headData))
+		abbrev := hash
+		if len(hash) >= 7 {
+			abbrev = hash[:7]
+		}
+
+		item := SequencerItem{
+			Action:     state.Operation[:1], // "p" or "r"
+			Hash:       hash,
+			AbbrevHash: abbrev,
+		}
+		state.Items = []SequencerItem{item}
+		state.Current = &state.Items[0]
+
+		return state, nil
+	}
+
+	// Parse sequencer/todo
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Format: pick HASH subject
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue
+		}
+
+		action := parts[0]
+		hash := parts[1]
+		subject := ""
+		if len(parts) > 2 {
+			subject = strings.Join(parts[2:], " ")
+		}
+
+		abbrev := hash
+		if len(hash) >= 7 {
+			abbrev = hash[:7]
+		}
+
+		state.Items = append(state.Items, SequencerItem{
+			Action:     action,
+			Hash:       hash,
+			AbbrevHash: abbrev,
+			Subject:    subject,
+		})
+	}
+
+	if len(state.Items) > 0 {
+		state.Current = &state.Items[0]
+	}
+
+	return state, nil
 }
 
 // runGit executes a git command and returns stdout.

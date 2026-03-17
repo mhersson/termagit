@@ -131,11 +131,20 @@ func renderSection(m Model, sectionIdx int, s *Section) string {
 		sign = "v"
 	}
 
-	header := fmt.Sprintf("%s %s (%d)", sign, s.Title, len(s.Items))
+	// Format header text
+	var header string
+	if len(s.Items) > 0 {
+		header = fmt.Sprintf("%s %s (%d)", sign, s.Title, len(s.Items))
+	} else {
+		header = fmt.Sprintf("%s %s", sign, s.Title)
+	}
+
+	// Apply section-specific styling
 	if onHeader {
 		b.WriteString(m.tokens.Cursor.Render(header))
 	} else {
-		b.WriteString(m.tokens.SectionHeader.Render(header))
+		style := getSectionHeaderStyle(m.tokens, s.Kind)
+		b.WriteString(style.Render(header))
 	}
 	b.WriteString("\n")
 
@@ -149,11 +158,40 @@ func renderSection(m Model, sectionIdx int, s *Section) string {
 	return b.String() + "\n"
 }
 
-// renderItem renders a single item (file entry).
+// getSectionHeaderStyle returns the appropriate style for a section header.
+func getSectionHeaderStyle(tokens Tokens, kind SectionKind) lipgloss.Style {
+	switch kind {
+	case SectionSequencer:
+		return tokens.Picking // Will be overridden by actual operation type
+	case SectionRebase:
+		return tokens.Rebasing
+	case SectionBisect:
+		return tokens.Bisecting
+	case SectionStashes:
+		return tokens.Stashes
+	default:
+		return tokens.SectionHeader
+	}
+}
+
+// renderItem renders a single item based on its type.
 func renderItem(m Model, sectionIdx, itemIdx int, item *Item, sectionKind SectionKind) string {
 	var b strings.Builder
 
 	onItem := m.cursor.Section == sectionIdx && m.cursor.Item == itemIdx && m.cursor.Hunk == -1
+
+	// Sequencer/Rebase/Bisect items (have Action)
+	if item.Action != "" {
+		switch sectionKind {
+		case SectionRebase:
+			b.WriteString(renderRebaseItem(m, item, onItem))
+		case SectionBisect:
+			b.WriteString(renderBisectItem(m, item, onItem))
+		default:
+			b.WriteString(renderSequencerItem(m, item, onItem))
+		}
+		return b.String()
+	}
 
 	// File entry
 	if item.Entry != nil {
@@ -185,33 +223,198 @@ func renderItem(m Model, sectionIdx, itemIdx int, item *Item, sectionKind Sectio
 		} else if item.Expanded && item.HunksLoading {
 			b.WriteString("      Loading diff...\n")
 		}
+		return b.String()
 	}
 
 	// Stash entry
 	if item.Stash != nil {
-		line := fmt.Sprintf("  %s: %s", item.Stash.Name, item.Stash.Message)
-		if onItem {
-			b.WriteString(m.tokens.Cursor.Render(line))
-		} else {
-			b.WriteString(line)
-		}
-		b.WriteString("\n")
+		b.WriteString(renderStashItem(m, item, onItem))
+		return b.String()
 	}
 
 	// Commit entry
 	if item.Commit != nil {
-		line := fmt.Sprintf("  %s %s", item.Commit.AbbreviatedHash, item.Commit.Subject)
-		if onItem {
-			b.WriteString(m.tokens.Cursor.Render(line))
-		} else {
-			b.WriteString(m.tokens.Hash.Render(item.Commit.AbbreviatedHash))
-			b.WriteString(" ")
-			b.WriteString(item.Commit.Subject)
-		}
-		b.WriteString("\n")
+		b.WriteString(renderCommitItem(m, item, onItem))
+		return b.String()
 	}
 
 	return b.String()
+}
+
+// renderSequencerItem renders a cherry-pick or revert item.
+// Format: action (6 chars) + hash (7 chars) + subject
+func renderSequencerItem(m Model, item *Item, onItem bool) string {
+	action := padRight(item.Action, 6)
+	hash := item.ActionHash
+	if len(hash) > 7 {
+		hash = hash[:7]
+	}
+	subject := item.ActionSubject
+
+	if onItem {
+		line := fmt.Sprintf("  %s %s %s", action, hash, subject)
+		return m.tokens.Cursor.Render(line) + "\n"
+	}
+
+	var b strings.Builder
+	b.WriteString("  ")
+	b.WriteString(m.tokens.GraphOrange.Render(action))
+	b.WriteString(" ")
+	b.WriteString(m.tokens.Hash.Render(hash))
+	b.WriteString(" ")
+	b.WriteString(subject)
+	b.WriteString("\n")
+	return b.String()
+}
+
+// renderRebaseItem renders a rebase todo item.
+// Format: [>] action (6 chars) + hash (7 chars) + subject
+// > prefix for stopped item, done items in RebaseDone style
+func renderRebaseItem(m Model, item *Item, onItem bool) string {
+	prefix := "  "
+	if item.ActionStopped {
+		prefix = "> "
+	}
+
+	action := padRight(item.Action, 6)
+	hash := item.ActionHash
+	if len(hash) > 7 {
+		hash = hash[:7]
+	}
+	subject := item.ActionSubject
+
+	if onItem {
+		line := fmt.Sprintf("%s%s %s %s", prefix, action, hash, subject)
+		return m.tokens.Cursor.Render(line) + "\n"
+	}
+
+	var b strings.Builder
+	b.WriteString(prefix)
+	if item.ActionDone {
+		b.WriteString(m.tokens.RebaseDone.Render(action))
+		b.WriteString(" ")
+		b.WriteString(m.tokens.RebaseDone.Render(hash))
+		b.WriteString(" ")
+		b.WriteString(m.tokens.RebaseDone.Render(subject))
+	} else {
+		b.WriteString(m.tokens.GraphOrange.Render(action))
+		b.WriteString(" ")
+		b.WriteString(m.tokens.Hash.Render(hash))
+		b.WriteString(" ")
+		b.WriteString(subject)
+	}
+	b.WriteString("\n")
+	return b.String()
+}
+
+// renderBisectItem renders a bisect log item.
+// Format: [>] action (5 chars) + hash (7 chars) + subject
+// > prefix for current, good=green, bad=red
+func renderBisectItem(m Model, item *Item, onItem bool) string {
+	prefix := "  "
+	// Could mark current but bisect log doesn't typically have a current marker
+
+	action := padRight(item.Action, 5)
+	hash := item.ActionHash
+	if len(hash) > 7 {
+		hash = hash[:7]
+	}
+	subject := item.ActionSubject
+
+	if onItem {
+		line := fmt.Sprintf("%s%s %s %s", prefix, action, hash, subject)
+		return m.tokens.Cursor.Render(line) + "\n"
+	}
+
+	var b strings.Builder
+	b.WriteString(prefix)
+
+	// Color action based on type
+	switch item.Action {
+	case "good":
+		b.WriteString(m.tokens.GraphGreen.Render(action))
+	case "bad":
+		b.WriteString(m.tokens.GraphRed.Render(action))
+	case "skip":
+		b.WriteString(m.tokens.GraphBlue.Render(action))
+	default:
+		b.WriteString(m.tokens.GraphOrange.Render(action))
+	}
+
+	b.WriteString(" ")
+	b.WriteString(m.tokens.Hash.Render(hash))
+	b.WriteString(" ")
+	b.WriteString(subject)
+	b.WriteString("\n")
+	return b.String()
+}
+
+// renderStashItem renders a stash entry.
+// Format: stash@{N}: message
+func renderStashItem(m Model, item *Item, onItem bool) string {
+	line := fmt.Sprintf("  %s: %s", item.Stash.Name, item.Stash.Message)
+	if onItem {
+		return m.tokens.Cursor.Render(line) + "\n"
+	}
+
+	var b strings.Builder
+	b.WriteString("  ")
+	b.WriteString(m.tokens.SubtleText.Render(item.Stash.Name))
+	b.WriteString(": ")
+	b.WriteString(item.Stash.Message)
+	b.WriteString("\n")
+	return b.String()
+}
+
+// renderCommitItem renders a commit entry.
+// Format: hash (7 chars) + [refs] + subject
+func renderCommitItem(m Model, item *Item, onItem bool) string {
+	hash := item.Commit.AbbreviatedHash
+	subject := item.Commit.Subject
+
+	if onItem {
+		line := fmt.Sprintf("  %s %s", hash, subject)
+		return m.tokens.Cursor.Render(line) + "\n"
+	}
+
+	var b strings.Builder
+	b.WriteString("  ")
+	b.WriteString(m.tokens.Hash.Render(hash))
+
+	// Render refs if present
+	if len(item.Commit.Refs) > 0 {
+		b.WriteString(" ")
+		b.WriteString(renderRefs(m, item.Commit.Refs))
+	}
+
+	b.WriteString(" ")
+	b.WriteString(subject)
+	b.WriteString("\n")
+	return b.String()
+}
+
+// renderRefs renders commit ref decorations.
+func renderRefs(m Model, refs []git.Ref) string {
+	if len(refs) == 0 {
+		return ""
+	}
+
+	var parts []string
+	for _, ref := range refs {
+		switch ref.Kind {
+		case git.RefKindLocal:
+			parts = append(parts, m.tokens.Branch.Render(ref.Name))
+		case git.RefKindRemote:
+			remoteName := ref.Remote + "/" + ref.Name
+			parts = append(parts, m.tokens.Remote.Render(remoteName))
+		case git.RefKindTag:
+			parts = append(parts, m.tokens.Tag.Render(ref.Name))
+		case git.RefKindHead:
+			parts = append(parts, m.tokens.Bold.Render("HEAD"))
+		}
+	}
+
+	return "(" + strings.Join(parts, ", ") + ")"
 }
 
 // renderHunk renders a diff hunk.

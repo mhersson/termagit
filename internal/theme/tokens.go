@@ -69,6 +69,24 @@ type RawTokens struct {
 	Selection  string `toml:"selection"`
 	SelectBg   string `toml:"select_bg"`
 	Background string `toml:"background"`
+
+	// Graph/sequencer colors (from Neogit hl.lua)
+	GraphOrange string `toml:"graph_orange"`
+	GraphGreen  string `toml:"graph_green"`
+	GraphRed    string `toml:"graph_red"`
+	GraphBlue   string `toml:"graph_blue"`
+
+	// Sequencer section headers
+	Merging   string `toml:"merging"`
+	Rebasing  string `toml:"rebasing"`
+	Picking   string `toml:"picking"`
+	Reverting string `toml:"reverting"`
+	Bisecting string `toml:"bisecting"`
+
+	// Misc
+	RebaseDone string `toml:"rebase_done"`
+	SubtleText string `toml:"subtle_text"`
+	Stashes    string `toml:"stashes"`
 }
 
 // Tokens holds compiled lipgloss.Style values for rendering.
@@ -128,6 +146,24 @@ type Tokens struct {
 	// Cursor and selection styles
 	Cursor    lipgloss.Style
 	Selection lipgloss.Style
+
+	// Graph/sequencer styles
+	GraphOrange lipgloss.Style
+	GraphGreen  lipgloss.Style
+	GraphRed    lipgloss.Style
+	GraphBlue   lipgloss.Style
+
+	// Sequencer section header styles
+	Merging   lipgloss.Style
+	Rebasing  lipgloss.Style
+	Picking   lipgloss.Style
+	Reverting lipgloss.Style
+	Bisecting lipgloss.Style
+
+	// Misc styles
+	RebaseDone lipgloss.Style
+	SubtleText lipgloss.Style
+	Stashes    lipgloss.Style
 }
 
 // Compile converts RawTokens to compiled Tokens.
@@ -182,5 +218,20 @@ func Compile(r RawTokens) Tokens {
 
 		Cursor:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.Cursor)).Background(lipgloss.Color(r.CursorBg)),
 		Selection: lipgloss.NewStyle().Foreground(lipgloss.Color(r.Selection)).Background(lipgloss.Color(r.SelectBg)),
+
+		GraphOrange: lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphOrange)),
+		GraphGreen:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphGreen)),
+		GraphRed:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphRed)),
+		GraphBlue:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphBlue)),
+
+		Merging:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.Merging)).Bold(true),
+		Rebasing:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.Rebasing)).Bold(true),
+		Picking:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.Picking)).Bold(true),
+		Reverting: lipgloss.NewStyle().Foreground(lipgloss.Color(r.Reverting)).Bold(true),
+		Bisecting: lipgloss.NewStyle().Foreground(lipgloss.Color(r.Bisecting)).Bold(true),
+
+		RebaseDone: lipgloss.NewStyle().Foreground(lipgloss.Color(r.RebaseDone)),
+		SubtleText: lipgloss.NewStyle().Foreground(lipgloss.Color(r.SubtleText)),
+		Stashes:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.Stashes)).Bold(true),
 	}
 }

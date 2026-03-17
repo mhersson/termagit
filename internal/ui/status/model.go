@@ -13,6 +13,16 @@ import (
 // Tokens is an alias for theme.Tokens used in this package.
 type Tokens = theme.Tokens
 
+// ConfirmMode indicates what type of confirmation is pending.
+type ConfirmMode int
+
+const (
+	ConfirmNone        ConfirmMode = iota // No confirmation pending
+	ConfirmDiscard                        // Discard changes to a file
+	ConfirmDiscardHunk                    // Discard a single hunk
+	ConfirmUntrack                        // Untrack a file
+)
+
 // SectionKind is the type of a status buffer section.
 // All 12 Neogit sections are defined here.
 type SectionKind int
@@ -115,6 +125,17 @@ type Model struct {
 
 	// Active popup (nil = none)
 	popup tea.Model //nolint:unused // Phase 6
+
+	// Confirmation state
+	confirmMode ConfirmMode //nolint:unused // Phase 4 - used in update.go
+	confirmPath string      //nolint:unused // Phase 4 - used in view.go
+	confirmHunk int         //nolint:unused // Phase 4 - hunk index for ConfirmDiscardHunk
+
+	// Peek file preview state
+	peekActive   bool            //nolint:unused // Phase 4 - used in view.go
+	peekPath     string          //nolint:unused // Phase 4 - used in view.go
+	peekContent  string          //nolint:unused // Phase 4 - used in view.go
+	peekViewport viewport.Model  //nolint:unused // Phase 4 - used in view.go
 
 	// Notification bar
 	notification string

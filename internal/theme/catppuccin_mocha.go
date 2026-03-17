@@ -74,5 +74,23 @@ func (t *catppuccinMocha) Raw() RawTokens {
 		Selection:  "#cdd6f4",
 		SelectBg:   "#45475a", // surface0
 		Background: "#1e1e2e", // base
+
+		// Graph/sequencer colors
+		GraphOrange: "#fab387", // peach
+		GraphGreen:  "#a6e3a1", // green
+		GraphRed:    "#f38ba8", // red
+		GraphBlue:   "#89b4fa", // blue
+
+		// Sequencer section headers
+		Merging:   "#f5c2e7", // pink
+		Rebasing:  "#94e2d5", // teal
+		Picking:   "#a6e3a1", // green
+		Reverting: "#f38ba8", // red
+		Bisecting: "#f9e2af", // yellow
+
+		// Misc
+		RebaseDone: "#6c7086", // overlay0
+		SubtleText: "#6c7086", // overlay0
+		Stashes:    "#cba6f7", // mauve
 	}
 }

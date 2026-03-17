@@ -29,3 +29,33 @@ type notificationExpiredMsg struct{}
 
 // repoChangedMsg is sent by the file watcher when the repo changes.
 type repoChangedMsg struct{}
+
+// confirmDiscardMsg is sent when the user presses x on a file or hunk.
+//
+//nolint:unused // Phase 4 - used in update.go
+type confirmDiscardMsg struct {
+	path    string
+	isHunk  bool
+	hunkIdx int
+}
+
+// confirmResultMsg is sent when user confirms or cancels a confirmation prompt.
+//
+//nolint:unused // Phase 4 - used in update.go
+type confirmResultMsg struct {
+	confirmed bool
+}
+
+// peekFileMsg is sent when file content is loaded for peek preview.
+//
+//nolint:unused // Phase 4 - used in update.go
+type peekFileMsg struct {
+	path    string
+	content string
+	err     error
+}
+
+// closePeekMsg is sent when the peek pane should be closed.
+//
+//nolint:unused // Phase 4 - used in update.go
+type closePeekMsg struct{}

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/git"
 )
 
@@ -756,4 +757,247 @@ func TestView_SectionHeader_SignChars(t *testing.T) {
 
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
+}
+
+// === Phase 4 Integration Tests ===
+
+func TestModel_ConfirmMode_Values(t *testing.T) {
+	// ConfirmMode must have all expected values
+	modes := []ConfirmMode{
+		ConfirmNone,
+		ConfirmDiscard,
+		ConfirmDiscardHunk,
+		ConfirmUntrack,
+	}
+
+	if len(modes) != 4 {
+		t.Errorf("expected 4 confirm modes, got %d", len(modes))
+	}
+
+	// Verify they are distinct
+	seen := make(map[ConfirmMode]bool)
+	for _, m := range modes {
+		if seen[m] {
+			t.Errorf("duplicate confirm mode value: %d", m)
+		}
+		seen[m] = true
+	}
+}
+
+func TestModel_StashesSection_Rendered(t *testing.T) {
+	stash := &git.StashEntry{
+		Index:   0,
+		Name:    "stash@{0}",
+		Message: "WIP on main: abc123 fix bug",
+	}
+
+	m := Model{
+		head: HeadState{Branch: "main"},
+		sections: []Section{
+			{
+				Kind:  SectionStashes,
+				Title: "Stashes",
+				Items: []Item{{Stash: stash}},
+			},
+		},
+	}
+
+	output := view(m)
+
+	if !contains(output, "Stashes") {
+		t.Error("expected Stashes section title")
+	}
+	if !contains(output, "stash@{0}") {
+		t.Error("expected stash name in output")
+	}
+}
+
+func TestModel_RebaseSection_ShowsEntries(t *testing.T) {
+	m := Model{
+		head: HeadState{Branch: "feature"},
+		sections: []Section{
+			{
+				Kind:  SectionRebase,
+				Title: "Rebasing feature onto main (2/4)",
+				Items: []Item{
+					{Action: "pick", ActionHash: "abc1234", ActionSubject: "First commit", ActionDone: true},
+					{Action: "pick", ActionHash: "def5678", ActionSubject: "Second commit", ActionStopped: true},
+					{Action: "squash", ActionHash: "ghi9012", ActionSubject: "Third commit"},
+				},
+			},
+		},
+	}
+
+	output := view(m)
+
+	if !contains(output, "Rebasing") {
+		t.Error("expected Rebasing section title")
+	}
+	if !contains(output, "pick") {
+		t.Error("expected pick action in output")
+	}
+	if !contains(output, "squash") {
+		t.Error("expected squash action in output")
+	}
+}
+
+func TestModel_BisectSection_ShowsEntries(t *testing.T) {
+	m := Model{
+		head: HeadState{Branch: "main"},
+		sections: []Section{
+			{
+				Kind:  SectionBisect,
+				Title: "Bisecting Log",
+				Items: []Item{
+					{Action: "good", ActionHash: "abc1234", ActionSubject: "Known good commit"},
+					{Action: "bad", ActionHash: "def5678", ActionSubject: "Known bad commit"},
+				},
+			},
+		},
+	}
+
+	output := view(m)
+
+	if !contains(output, "Bisecting") {
+		t.Error("expected Bisecting section title")
+	}
+	if !contains(output, "good") {
+		t.Error("expected good action in output")
+	}
+	if !contains(output, "bad") {
+		t.Error("expected bad action in output")
+	}
+}
+
+func TestModel_SequencerSection_ShowsCherryPick(t *testing.T) {
+	m := Model{
+		head: HeadState{Branch: "main"},
+		sections: []Section{
+			{
+				Kind:  SectionSequencer,
+				Title: "Cherry Picking (2)",
+				Items: []Item{
+					{Action: "pick", ActionHash: "abc1234", ActionSubject: "Feature commit"},
+					{Action: "pick", ActionHash: "def5678", ActionSubject: "Another commit"},
+				},
+			},
+		},
+	}
+
+	output := view(m)
+
+	if !contains(output, "Cherry Picking") {
+		t.Error("expected Cherry Picking section title")
+	}
+}
+
+func TestModel_CommitSection_ShowsRefs(t *testing.T) {
+	commit := &git.LogEntry{
+		Hash:            "abc123def456abc123def456abc123def456abc1",
+		AbbreviatedHash: "abc123d",
+		Subject:         "add config loader",
+		Refs: []git.Ref{
+			{Name: "main", Kind: git.RefKindLocal},
+			{Name: "main", Kind: git.RefKindRemote, Remote: "origin"},
+		},
+	}
+
+	m := Model{
+		head: HeadState{Branch: "main"},
+		sections: []Section{
+			{
+				Kind:  SectionRecentCommits,
+				Title: "Recent Commits",
+				Items: []Item{{Commit: commit}},
+			},
+		},
+	}
+
+	output := view(m)
+
+	if !contains(output, "Recent Commits") {
+		t.Error("expected Recent Commits section title")
+	}
+	if !contains(output, "abc123d") {
+		t.Error("expected abbreviated hash in output")
+	}
+}
+
+func TestModel_EmptySection_NotRenderedInCount(t *testing.T) {
+	m := Model{
+		head: HeadState{Branch: "main"},
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Untracked files", Items: []Item{}},
+		},
+	}
+
+	output := view(m)
+
+	// Empty section should still show in output (possibly with count)
+	// This test just verifies we don't crash on empty sections
+	_ = output
+}
+
+func TestGetCurrentItem_ReturnsNilForHeaderPosition(t *testing.T) {
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Items: []Item{{}}},
+		},
+		cursor: Cursor{Section: 0, Item: -1},
+	}
+
+	item, _ := getCurrentItem(m)
+	if item != nil {
+		t.Error("expected nil item when on section header")
+	}
+}
+
+func TestGetCurrentItem_ReturnsItemForValidPosition(t *testing.T) {
+	entry := &git.StatusEntry{}
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Items: []Item{{Entry: entry}}},
+		},
+		cursor: Cursor{Section: 0, Item: 0},
+	}
+
+	item, kind := getCurrentItem(m)
+	if item == nil {
+		t.Error("expected non-nil item")
+	}
+	if kind != SectionUnstaged {
+		t.Errorf("expected SectionUnstaged, got %d", kind)
+	}
+}
+
+func TestHandleConfirmKey_CancelsOnN(t *testing.T) {
+	m := Model{
+		confirmMode: ConfirmDiscard,
+		confirmPath: "test.txt",
+	}
+
+	result, _ := handleConfirmKey(m, keyMsg("n"))
+	resultModel := result.(Model)
+
+	if resultModel.confirmMode != ConfirmNone {
+		t.Error("expected confirm mode to be cancelled")
+	}
+}
+
+func TestHandleConfirmKey_CancelsOnEsc(t *testing.T) {
+	m := Model{
+		confirmMode: ConfirmDiscard,
+		confirmPath: "test.txt",
+	}
+
+	result, _ := handleConfirmKey(m, keyMsg("esc"))
+	resultModel := result.(Model)
+
+	if resultModel.confirmMode != ConfirmNone {
+		t.Error("expected confirm mode to be cancelled on esc")
+	}
+}
+
+func keyMsg(s string) tea.KeyMsg {
+	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
 }

@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -232,4 +233,170 @@ func TestRunGit_ReturnsError_OnFailure(t *testing.T) {
 
 	_, err := r.runGit(ctx, "invalid-command")
 	assert.Error(t, err)
+}
+
+func TestReadMergeState_NoMerge_ReturnsEmpty(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+
+	head, subject, branch, err := r.ReadMergeState()
+	require.NoError(t, err)
+	require.Empty(t, head)
+	require.Empty(t, subject)
+	require.Empty(t, branch)
+}
+
+func TestReadMergeState_ActiveMerge_ReturnsState(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+
+	// Create a branch with a commit
+	cmd := exec.Command("git", "checkout", "-b", "feature")
+	cmd.Dir = r.path
+	require.NoError(t, cmd.Run())
+
+	filePath := filepath.Join(r.path, "feature.txt")
+	require.NoError(t, os.WriteFile(filePath, []byte("feature content\n"), 0o644))
+
+	cmd = exec.Command("git", "add", "feature.txt")
+	cmd.Dir = r.path
+	require.NoError(t, cmd.Run())
+
+	cmd = exec.Command("git", "commit", "-m", "Add feature")
+	cmd.Dir = r.path
+	require.NoError(t, cmd.Run())
+
+	// Go back to master and make a conflicting change
+	cmd = exec.Command("git", "checkout", "master")
+	cmd.Dir = r.path
+	require.NoError(t, cmd.Run())
+
+	require.NoError(t, os.WriteFile(filePath, []byte("master content\n"), 0o644))
+
+	cmd = exec.Command("git", "add", "feature.txt")
+	cmd.Dir = r.path
+	require.NoError(t, cmd.Run())
+
+	cmd = exec.Command("git", "commit", "-m", "Add master version")
+	cmd.Dir = r.path
+	require.NoError(t, cmd.Run())
+
+	// Start a merge that will conflict
+	cmd = exec.Command("git", "merge", "feature", "--no-commit")
+	cmd.Dir = r.path
+	_ = cmd.Run() // This will return an error due to conflict, that's expected
+
+	// Now check merge state
+	head, subject, branch, err := r.ReadMergeState()
+	require.NoError(t, err)
+	require.NotEmpty(t, head)          // MERGE_HEAD should exist
+	require.Contains(t, subject, "feature") // Subject from MERGE_MSG
+	require.Equal(t, "feature", branch) // Branch being merged
+}
+
+func TestBisectState_NoBisect_ReturnsEmpty(t *testing.T) {
+	r := newTempRepo(t)
+
+	state, err := r.BisectState(context.Background())
+	require.NoError(t, err)
+	require.Empty(t, state.Items)
+}
+
+func TestBisectState_ActiveBisect_ReturnsItems(t *testing.T) {
+	r := newTempRepo(t)
+
+	// Create BISECT_LOG to simulate active bisect
+	bisectLog := `# first bad commit: abc1234567890123456789012345678901234567890
+git bisect start
+# good: def1234567890123456789012345678901234567890 Initial commit
+git bisect good def1234567890123456789012345678901234567890
+# bad: abc1234567890123456789012345678901234567890 Bug introduced
+git bisect bad abc1234567890123456789012345678901234567890
+# skip: 111223344556677889900aabbccddeeff00112233 Unrelated change
+git bisect skip 111223344556677889900aabbccddeeff00112233
+`
+	bisectLogPath := filepath.Join(r.gitDir, "BISECT_LOG")
+	require.NoError(t, os.WriteFile(bisectLogPath, []byte(bisectLog), 0o644))
+
+	state, err := r.BisectState(context.Background())
+	require.NoError(t, err)
+
+	// Should have 3 items: good, bad, skip
+	require.Len(t, state.Items, 3)
+
+	// First item should be good
+	require.Equal(t, "good", state.Items[0].Action)
+	require.Equal(t, "def1234567890123456789012345678901234567890", state.Items[0].Hash)
+	require.Equal(t, "def1234", state.Items[0].AbbrevHash)
+	require.Equal(t, "Initial commit", state.Items[0].Subject)
+
+	// Second item should be bad
+	require.Equal(t, "bad", state.Items[1].Action)
+	require.Equal(t, "abc1234567890123456789012345678901234567890", state.Items[1].Hash)
+
+	// Third item should be skip
+	require.Equal(t, "skip", state.Items[2].Action)
+}
+
+func TestSequencerState_NoSequencer_ReturnsEmpty(t *testing.T) {
+	r := newTempRepo(t)
+
+	state, err := r.SequencerState(context.Background())
+	require.NoError(t, err)
+	require.Empty(t, state.Operation)
+	require.Empty(t, state.Items)
+}
+
+func TestSequencerState_CherryPick_ReturnsState(t *testing.T) {
+	r := newTempRepo(t)
+
+	// Create CHERRY_PICK_HEAD to simulate cherry-pick in progress
+	cpHead := filepath.Join(r.gitDir, "CHERRY_PICK_HEAD")
+	require.NoError(t, os.WriteFile(cpHead, []byte("abc1234567890123456789012345678901234567890\n"), 0o644))
+
+	state, err := r.SequencerState(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "cherry-pick", state.Operation)
+	require.Len(t, state.Items, 1)
+	require.Equal(t, "abc1234", state.Items[0].AbbrevHash)
+}
+
+func TestSequencerState_Revert_ReturnsState(t *testing.T) {
+	r := newTempRepo(t)
+
+	// Create REVERT_HEAD to simulate revert in progress
+	revertHead := filepath.Join(r.gitDir, "REVERT_HEAD")
+	require.NoError(t, os.WriteFile(revertHead, []byte("def1234567890123456789012345678901234567890\n"), 0o644))
+
+	state, err := r.SequencerState(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "revert", state.Operation)
+	require.Len(t, state.Items, 1)
+	require.Equal(t, "def1234", state.Items[0].AbbrevHash)
+}
+
+func TestSequencerState_MultiCommitCherryPick_ReturnsItems(t *testing.T) {
+	r := newTempRepo(t)
+
+	// Create CHERRY_PICK_HEAD
+	cpHead := filepath.Join(r.gitDir, "CHERRY_PICK_HEAD")
+	require.NoError(t, os.WriteFile(cpHead, []byte("abc1234567890123456789012345678901234567890\n"), 0o644))
+
+	// Create sequencer/todo for multi-commit cherry-pick
+	seqDir := filepath.Join(r.gitDir, "sequencer")
+	require.NoError(t, os.MkdirAll(seqDir, 0o755))
+
+	todoContent := `pick abc1234567890123456789012345678901234567890 First commit
+pick def1234567890123456789012345678901234567890 Second commit
+pick ghi1234567890123456789012345678901234567890 Third commit
+`
+	require.NoError(t, os.WriteFile(filepath.Join(seqDir, "todo"), []byte(todoContent), 0o644))
+
+	state, err := r.SequencerState(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "cherry-pick", state.Operation)
+	require.Len(t, state.Items, 3)
+	require.Equal(t, "First commit", state.Items[0].Subject)
+	require.Equal(t, "Second commit", state.Items[1].Subject)
+	require.NotNil(t, state.Current)
 }

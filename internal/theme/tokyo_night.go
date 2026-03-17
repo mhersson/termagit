@@ -72,5 +72,23 @@ func (t *tokyoNight) Raw() RawTokens {
 		Selection:  "#c0caf5",
 		SelectBg:   "#33467c",
 		Background: "#1a1b26",
+
+		// Graph/sequencer colors
+		GraphOrange: "#ff9e64", // orange
+		GraphGreen:  "#9ece6a", // green
+		GraphRed:    "#f7768e", // red
+		GraphBlue:   "#7aa2f7", // blue
+
+		// Sequencer section headers
+		Merging:   "#bb9af7", // magenta
+		Rebasing:  "#7dcfff", // cyan
+		Picking:   "#9ece6a", // green
+		Reverting: "#f7768e", // red
+		Bisecting: "#e0af68", // yellow
+
+		// Misc
+		RebaseDone: "#565f89", // dim
+		SubtleText: "#565f89", // dim
+		Stashes:    "#bb9af7", // magenta
 	}
 }

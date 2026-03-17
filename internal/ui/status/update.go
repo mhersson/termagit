@@ -1,6 +1,8 @@
 package status
 
 import (
+	"time"
+
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/git"
@@ -63,6 +65,11 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKeyMsg handles keyboard input.
 func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Handle confirmation mode first
+	if m.confirmMode != ConfirmNone {
+		return handleConfirmKey(m, msg)
+	}
+
 	switch {
 	case key.Matches(msg, m.keys.Close):
 		return m, tea.Quit
@@ -99,9 +106,406 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.RefreshBuffer):
 		m.loading = true
 		return m, loadStatusCmd(m.repo, m.cfg)
+
+	// Stage/Unstage actions
+	case key.Matches(msg, m.keys.Stage):
+		return handleStage(m)
+
+	case key.Matches(msg, m.keys.StageUnstaged):
+		return handleStageUnstaged(m)
+
+	case key.Matches(msg, m.keys.StageAll):
+		return handleStageAll(m)
+
+	case key.Matches(msg, m.keys.Unstage):
+		return handleUnstage(m)
+
+	case key.Matches(msg, m.keys.UnstageStaged):
+		return handleUnstageStaged(m)
+
+	// Discard action (requires confirmation)
+	case key.Matches(msg, m.keys.Discard):
+		return handleDiscardStart(m)
+
+	// Untrack action (requires confirmation)
+	case key.Matches(msg, m.keys.Untrack):
+		return handleUntrackStart(m)
+
+	// Navigation keys
+	case key.Matches(msg, m.keys.NextSection):
+		return handleNextSection(m)
+
+	case key.Matches(msg, m.keys.PreviousSection):
+		return handlePreviousSection(m)
+
+	case key.Matches(msg, m.keys.NextHunkHeader):
+		return handleNextHunk(m)
+
+	case key.Matches(msg, m.keys.PrevHunkHeader):
+		return handlePrevHunk(m)
+
+	// Yank to clipboard
+	case key.Matches(msg, m.keys.YankSelected):
+		return handleYank(m)
+
+	// Open directory in file manager
+	case key.Matches(msg, m.keys.OpenTree):
+		return handleOpenTree(m)
+
+	// All popup keys - stub with notification
+	case key.Matches(msg, m.keys.HelpPopup),
+		key.Matches(msg, m.keys.CherryPickPopup),
+		key.Matches(msg, m.keys.DiffPopup),
+		key.Matches(msg, m.keys.RemotePopup),
+		key.Matches(msg, m.keys.PushPopup),
+		key.Matches(msg, m.keys.ResetPopup),
+		key.Matches(msg, m.keys.StashPopup),
+		key.Matches(msg, m.keys.IgnorePopup),
+		key.Matches(msg, m.keys.TagPopup),
+		key.Matches(msg, m.keys.BranchPopup),
+		key.Matches(msg, m.keys.BisectPopup),
+		key.Matches(msg, m.keys.WorktreePopup),
+		key.Matches(msg, m.keys.CommitPopup),
+		key.Matches(msg, m.keys.FetchPopup),
+		key.Matches(msg, m.keys.LogPopup),
+		key.Matches(msg, m.keys.MarginPopup),
+		key.Matches(msg, m.keys.MergePopup),
+		key.Matches(msg, m.keys.PullPopup),
+		key.Matches(msg, m.keys.RebasePopup),
+		key.Matches(msg, m.keys.RevertPopup):
+		m.notification = "Popups not yet implemented (Phase 6)"
+		return m, notifyCmd(3 * time.Second)
+
+	// Other stub keys
+	case key.Matches(msg, m.keys.ShowRefs),
+		key.Matches(msg, m.keys.CommandHistory),
+		key.Matches(msg, m.keys.Command),
+		key.Matches(msg, m.keys.InitRepo),
+		key.Matches(msg, m.keys.GoToParentRepo),
+		key.Matches(msg, m.keys.Rename),
+		key.Matches(msg, m.keys.PeekFile),
+		key.Matches(msg, m.keys.GoToFile),
+		key.Matches(msg, m.keys.VSplitOpen),
+		key.Matches(msg, m.keys.SplitOpen),
+		key.Matches(msg, m.keys.TabOpen),
+		key.Matches(msg, m.keys.OpenOrScrollDown),
+		key.Matches(msg, m.keys.OpenOrScrollUp),
+		key.Matches(msg, m.keys.PeekDown),
+		key.Matches(msg, m.keys.PeekUp):
+		m.notification = "Not yet implemented"
+		return m, notifyCmd(2 * time.Second)
 	}
 
 	return m, nil
+}
+
+// handleConfirmKey handles keypresses during confirmation mode.
+func handleConfirmKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "y", "Y":
+		// Execute the confirmed action
+		return executeConfirmedAction(m)
+	case "n", "N", "esc":
+		// Cancel
+		m.confirmMode = ConfirmNone
+		m.confirmPath = ""
+		m.confirmHunk = -1
+		m.notification = ""
+		return m, nil
+	default:
+		// Any other key cancels
+		m.confirmMode = ConfirmNone
+		m.confirmPath = ""
+		m.confirmHunk = -1
+		m.notification = ""
+		return m, nil
+	}
+}
+
+// executeConfirmedAction executes the action after confirmation.
+func executeConfirmedAction(m Model) (tea.Model, tea.Cmd) {
+	switch m.confirmMode {
+	case ConfirmDiscard:
+		path := m.confirmPath
+		m.confirmMode = ConfirmNone
+		m.confirmPath = ""
+		m.notification = ""
+		return m, discardFileCmd(m.repo, path)
+
+	case ConfirmDiscardHunk:
+		path := m.confirmPath
+		hunkIdx := m.confirmHunk
+		m.confirmMode = ConfirmNone
+		m.confirmPath = ""
+		m.confirmHunk = -1
+		m.notification = ""
+		return m, discardHunkCmd(m.repo, path, hunkIdx)
+
+	case ConfirmUntrack:
+		path := m.confirmPath
+		m.confirmMode = ConfirmNone
+		m.confirmPath = ""
+		m.notification = ""
+		return m, untrackFileCmd(m.repo, path)
+	}
+
+	m.confirmMode = ConfirmNone
+	return m, nil
+}
+
+// handleStage stages the current file or hunk.
+func handleStage(m Model) (tea.Model, tea.Cmd) {
+	item, sectionKind := getCurrentItem(m)
+	if item == nil || item.Entry == nil {
+		return m, nil
+	}
+
+	// Only stage from untracked or unstaged sections
+	if sectionKind != SectionUntracked && sectionKind != SectionUnstaged {
+		return m, nil
+	}
+
+	// If on a hunk, stage just the hunk
+	if m.cursor.Hunk >= 0 && len(item.Hunks) > m.cursor.Hunk {
+		return m, stageHunkCmd(m.repo, item.Entry.Path(), m.cursor.Hunk)
+	}
+
+	// Stage the whole file
+	return m, stageFileCmd(m.repo, item.Entry.Path())
+}
+
+// handleStageUnstaged stages all unstaged files.
+func handleStageUnstaged(m Model) (tea.Model, tea.Cmd) {
+	return m, stageAllUnstagedCmd(m.repo)
+}
+
+// handleStageAll stages everything including untracked.
+func handleStageAll(m Model) (tea.Model, tea.Cmd) {
+	return m, stageAllUnstagedCmd(m.repo)
+}
+
+// handleUnstage unstages the current file or hunk.
+func handleUnstage(m Model) (tea.Model, tea.Cmd) {
+	item, sectionKind := getCurrentItem(m)
+	if item == nil || item.Entry == nil {
+		return m, nil
+	}
+
+	// Only unstage from staged section
+	if sectionKind != SectionStaged {
+		return m, nil
+	}
+
+	// If on a hunk, unstage just the hunk
+	if m.cursor.Hunk >= 0 && len(item.Hunks) > m.cursor.Hunk {
+		return m, unstageHunkCmd(m.repo, item.Entry.Path(), m.cursor.Hunk)
+	}
+
+	// Unstage the whole file
+	return m, unstageFileCmd(m.repo, item.Entry.Path())
+}
+
+// handleUnstageStaged unstages all staged files.
+func handleUnstageStaged(m Model) (tea.Model, tea.Cmd) {
+	return m, unstageAllStagedCmd(m.repo)
+}
+
+// handleDiscardStart initiates discard with confirmation.
+func handleDiscardStart(m Model) (tea.Model, tea.Cmd) {
+	item, sectionKind := getCurrentItem(m)
+	if item == nil || item.Entry == nil {
+		return m, nil
+	}
+
+	// Only discard from unstaged section
+	if sectionKind != SectionUnstaged {
+		m.notification = "Can only discard unstaged changes"
+		return m, notifyCmd(2 * time.Second)
+	}
+
+	path := item.Entry.Path()
+
+	// Check if on a hunk
+	if m.cursor.Hunk >= 0 && len(item.Hunks) > m.cursor.Hunk {
+		m.confirmMode = ConfirmDiscardHunk
+		m.confirmPath = path
+		m.confirmHunk = m.cursor.Hunk
+		m.notification = "Discard hunk in " + path + "? (y/N)"
+	} else {
+		m.confirmMode = ConfirmDiscard
+		m.confirmPath = path
+		m.notification = "Discard changes to " + path + "? (y/N)"
+	}
+
+	return m, nil
+}
+
+// handleUntrackStart initiates untrack with confirmation.
+func handleUntrackStart(m Model) (tea.Model, tea.Cmd) {
+	item, sectionKind := getCurrentItem(m)
+	if item == nil || item.Entry == nil {
+		return m, nil
+	}
+
+	// Only untrack from staged section (remove from index)
+	if sectionKind != SectionStaged {
+		m.notification = "Can only untrack staged files"
+		return m, notifyCmd(2 * time.Second)
+	}
+
+	path := item.Entry.Path()
+	m.confirmMode = ConfirmUntrack
+	m.confirmPath = path
+	m.notification = "Untrack " + path + "? (y/N)"
+
+	return m, nil
+}
+
+// handleNextSection moves to the next section header.
+func handleNextSection(m Model) (tea.Model, tea.Cmd) {
+	visible := visibleSections(m.sections)
+	if len(visible) == 0 {
+		return m, nil
+	}
+
+	// Find current section in visible list
+	currentIdx := -1
+	for i, v := range visible {
+		if v == m.cursor.Section {
+			currentIdx = i
+			break
+		}
+	}
+
+	// Move to next visible section
+	nextIdx := (currentIdx + 1) % len(visible)
+	m.cursor = Cursor{Section: visible[nextIdx], Item: -1, Hunk: -1, Line: -1}
+
+	return m, nil
+}
+
+// handlePreviousSection moves to the previous section header.
+func handlePreviousSection(m Model) (tea.Model, tea.Cmd) {
+	visible := visibleSections(m.sections)
+	if len(visible) == 0 {
+		return m, nil
+	}
+
+	// Find current section in visible list
+	currentIdx := 0
+	for i, v := range visible {
+		if v == m.cursor.Section {
+			currentIdx = i
+			break
+		}
+	}
+
+	// Move to previous visible section
+	prevIdx := currentIdx - 1
+	if prevIdx < 0 {
+		prevIdx = len(visible) - 1
+	}
+	m.cursor = Cursor{Section: visible[prevIdx], Item: -1, Hunk: -1, Line: -1}
+
+	return m, nil
+}
+
+// handleNextHunk moves to the next hunk header.
+func handleNextHunk(m Model) (tea.Model, tea.Cmd) {
+	item, _ := getCurrentItem(m)
+	if item == nil || item.Entry == nil || len(item.Hunks) == 0 {
+		// No hunks in current item, try next item
+		return m, nil
+	}
+
+	// If not in hunks yet, go to first hunk
+	if m.cursor.Hunk < 0 {
+		m.cursor.Hunk = 0
+		m.cursor.Line = -1
+		return m, nil
+	}
+
+	// Move to next hunk
+	if m.cursor.Hunk < len(item.Hunks)-1 {
+		m.cursor.Hunk++
+		m.cursor.Line = -1
+	}
+
+	return m, nil
+}
+
+// handlePrevHunk moves to the previous hunk header.
+func handlePrevHunk(m Model) (tea.Model, tea.Cmd) {
+	item, _ := getCurrentItem(m)
+	if item == nil || item.Entry == nil || len(item.Hunks) == 0 {
+		return m, nil
+	}
+
+	// If on first hunk or before, go to item
+	if m.cursor.Hunk <= 0 {
+		m.cursor.Hunk = -1
+		m.cursor.Line = -1
+		return m, nil
+	}
+
+	// Move to previous hunk
+	m.cursor.Hunk--
+	m.cursor.Line = -1
+
+	return m, nil
+}
+
+// handleYank copies the current selection to clipboard.
+func handleYank(m Model) (tea.Model, tea.Cmd) {
+	item, _ := getCurrentItem(m)
+	if item == nil {
+		return m, nil
+	}
+
+	var text string
+	if item.Entry != nil {
+		text = item.Entry.Path()
+	} else if item.Commit != nil {
+		text = item.Commit.AbbreviatedHash
+	} else if item.Stash != nil {
+		text = item.Stash.Name
+	} else if item.ActionHash != "" {
+		text = item.ActionHash
+	}
+
+	if text == "" {
+		return m, nil
+	}
+
+	m.notification = "Yanked: " + text
+	return m, tea.Batch(
+		yankToClipboardCmd(text),
+		notifyCmd(2*time.Second),
+	)
+}
+
+// handleOpenTree opens the directory containing the current file.
+func handleOpenTree(m Model) (tea.Model, tea.Cmd) {
+	item, _ := getCurrentItem(m)
+	if item == nil || item.Entry == nil {
+		return m, nil
+	}
+
+	return m, openTreeCmd(m.repo.Path(), item.Entry.Path())
+}
+
+// getCurrentItem returns the current item and its section kind.
+func getCurrentItem(m Model) (*Item, SectionKind) {
+	if m.cursor.Section >= len(m.sections) {
+		return nil, 0
+	}
+
+	s := &m.sections[m.cursor.Section]
+	if m.cursor.Item < 0 || m.cursor.Item >= len(s.Items) {
+		return nil, s.Kind
+	}
+
+	return &s.Items[m.cursor.Item], s.Kind
 }
 
 // handleToggle toggles fold state of current section or item.

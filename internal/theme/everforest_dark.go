@@ -72,5 +72,23 @@ func (t *everforestDark) Raw() RawTokens {
 		Selection:  "#d3c6aa",
 		SelectBg:   "#475258",
 		Background: "#2d353b",
+
+		// Graph/sequencer colors
+		GraphOrange: "#e69875", // orange
+		GraphGreen:  "#a7c080", // green
+		GraphRed:    "#e67e80", // red
+		GraphBlue:   "#7fbbb3", // blue
+
+		// Sequencer section headers
+		Merging:   "#d699b6", // purple
+		Rebasing:  "#83c092", // aqua
+		Picking:   "#a7c080", // green
+		Reverting: "#e67e80", // red
+		Bisecting: "#dbbc7f", // yellow
+
+		// Misc
+		RebaseDone: "#7a8478", // grey
+		SubtleText: "#7a8478", // grey
+		Stashes:    "#d699b6", // purple
 	}
 }
