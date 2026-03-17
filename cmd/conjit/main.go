@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/mhersson/conjit/internal/app"
 	"github.com/mhersson/conjit/internal/cmdlog"
 	"github.com/mhersson/conjit/internal/config"
+	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/theme"
 )
 
@@ -17,7 +19,7 @@ var version = "dev"
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "conjit: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -25,7 +27,7 @@ func main() {
 func run() error {
 	// Parse flags
 	var (
-		flagPath    = flag.String("path", ".", "path to git repository")
+		flagPath    = flag.String("path", "", "path to git repository")
 		flagTheme   = flag.String("theme", "", "color theme (overrides config)")
 		flagVersion = flag.Bool("version", false, "print version and exit")
 	)
@@ -34,13 +36,6 @@ func run() error {
 	if *flagVersion {
 		fmt.Println("conjit", version)
 		return nil
-	}
-
-	// Change to repo path
-	if *flagPath != "." {
-		if err := os.Chdir(*flagPath); err != nil {
-			return fmt.Errorf("change directory: %w", err)
-		}
 	}
 
 	// Load config
@@ -90,8 +85,25 @@ func run() error {
 		}
 	}()
 
+	// Discover git repository
+	repoPath := *flagPath
+	if repoPath == "" {
+		repoPath, err = os.Getwd()
+		if err != nil {
+			return fmt.Errorf("get current directory: %w", err)
+		}
+	}
+
+	repo, err := git.Open(repoPath, logger)
+	if err != nil {
+		if errors.Is(err, git.ErrNotARepo) {
+			return fmt.Errorf("not a git repository: %s", repoPath)
+		}
+		return fmt.Errorf("open repository: %w", err)
+	}
+
 	// Run the TUI
-	model := app.New(cfg, tokens, logger)
+	model := app.New(repo, cfg, tokens, logger)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	_, err = p.Run()
 	return err
