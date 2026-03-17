@@ -654,3 +654,15 @@ func (r *Repository) logOpSingle(ctx context.Context, equiv string, fn func() (s
 	})
 	return result, "", err
 }
+
+// GetConfigValue reads a git config value by key.
+// Returns empty string (not error) if the key doesn't exist.
+func (r *Repository) GetConfigValue(ctx context.Context, key string) (string, error) {
+	out, err := r.runGit(ctx, "config", "--get", key)
+	if err != nil {
+		// git config --get returns exit code 1 for missing keys
+		// This is not an error condition for us
+		return "", nil
+	}
+	return strings.TrimSpace(out), nil
+}

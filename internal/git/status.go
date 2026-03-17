@@ -81,6 +81,16 @@ func (e *StatusEntry) OrigPath() string {
 	return e.origPath
 }
 
+// NewStatusEntry creates a StatusEntry with the given path and statuses.
+// This is primarily useful for testing.
+func NewStatusEntry(path string, staged, unstaged FileStatus) StatusEntry {
+	return StatusEntry{
+		path:     path,
+		Staged:   staged,
+		Unstaged: unstaged,
+	}
+}
+
 // StatusResult holds the parsed result of git status.
 type StatusResult struct {
 	Untracked []StatusEntry

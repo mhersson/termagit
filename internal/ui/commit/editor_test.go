@@ -203,16 +203,18 @@ func TestEditorModel_TwoKeySequence_CancelOnOtherKey(t *testing.T) {
 }
 
 func TestEditorModel_View_ContainsHelpLines(t *testing.T) {
+	// Help lines are now in the buffer content via buildInitialContent,
+	// not in the View() output. Test that buildInitialContent has the commands.
 	m := newTestModel(t)
-	m.width = 80
-	m.height = 24
+	m.commentChar = "#"
+	m.branch = "main"
 
-	view := m.View()
+	content := m.buildInitialContent()
 
-	assert.Contains(t, view, "Commands:")
-	assert.Contains(t, view, "Submit")
-	assert.Contains(t, view, "Abort")
-	assert.Contains(t, view, "Previous Message")
+	assert.Contains(t, content, "Commands:")
+	assert.Contains(t, content, "Submit")
+	assert.Contains(t, content, "Abort")
+	assert.Contains(t, content, "Previous Message")
 }
 
 func TestEditorModel_View_ContainsContent(t *testing.T) {
@@ -395,4 +397,196 @@ func TestEditorModel_i_SwitchesToInsertMode(t *testing.T) {
 	m = newModel.(Model)
 
 	assert.Equal(t, vim.ModeInsert, m.vimEditor.Mode())
+}
+
+func TestExtractMessage_FiltersCommentLines(t *testing.T) {
+	m := newTestModel(t)
+	m.commentChar = "#"
+
+	content := `My commit message
+
+# This is a comment
+# Another comment
+With more content`
+
+	m.vimEditor.SetContent(content)
+
+	result := m.extractMessage()
+	// After filtering comments and trimming, we get the message and content
+	expected := `My commit message
+
+With more content`
+	assert.Equal(t, expected, result)
+}
+
+func TestExtractMessage_StopsAtScissorsLine(t *testing.T) {
+	m := newTestModel(t)
+	m.commentChar = "#"
+
+	content := `My commit message
+
+# ------------------------ >8 ------------------------
+# Do not modify or remove the line above.
+diff --git a/file.txt
++new content`
+
+	m.vimEditor.SetContent(content)
+
+	result := m.extractMessage()
+	assert.Equal(t, "My commit message", result)
+}
+
+func TestExtractMessage_RespectsCustomCommentChar(t *testing.T) {
+	m := newTestModel(t)
+	m.commentChar = ";"
+
+	content := `My commit message
+; This is a comment
+# This is NOT a comment
+More content`
+
+	m.vimEditor.SetContent(content)
+
+	result := m.extractMessage()
+	expected := `My commit message
+# This is NOT a comment
+More content`
+	assert.Equal(t, expected, result)
+}
+
+func TestExtractMessage_TrimsWhitespace(t *testing.T) {
+	m := newTestModel(t)
+	m.commentChar = "#"
+
+	content := `
+
+My commit message
+
+# Comment
+`
+
+	m.vimEditor.SetContent(content)
+
+	result := m.extractMessage()
+	assert.Equal(t, "My commit message", result)
+}
+
+func TestBuildInitialContent_IncludesCommandsSection(t *testing.T) {
+	m := newTestModel(t)
+	m.commentChar = "#"
+	m.branch = "main"
+
+	content := m.buildInitialContent()
+
+	assert.Contains(t, content, "# Commands:")
+	assert.Contains(t, content, "Submit")
+	assert.Contains(t, content, "Abort")
+	assert.Contains(t, content, "Previous Message")
+}
+
+func TestBuildInitialContent_IncludesBranchInfo(t *testing.T) {
+	m := newTestModel(t)
+	m.commentChar = "#"
+	m.branch = "feature/my-branch"
+
+	content := m.buildInitialContent()
+
+	assert.Contains(t, content, "# On branch feature/my-branch")
+}
+
+func TestBuildInitialContent_IncludesStagedFiles(t *testing.T) {
+	m := newTestModel(t)
+	m.commentChar = "#"
+	m.branch = "main"
+	m.status = &git.StatusResult{
+		Staged: []git.StatusEntry{
+			git.NewStatusEntry("src/main.go", git.FileStatusModified, git.FileStatusNone),
+		},
+	}
+
+	content := m.buildInitialContent()
+
+	assert.Contains(t, content, "# Changes to be committed:")
+	assert.Contains(t, content, "modified:   src/main.go")
+}
+
+func TestBuildInitialContent_IncludesUnstagedFiles(t *testing.T) {
+	m := newTestModel(t)
+	m.commentChar = "#"
+	m.branch = "main"
+	m.status = &git.StatusResult{
+		Unstaged: []git.StatusEntry{
+			git.NewStatusEntry("docs/README.md", git.FileStatusNone, git.FileStatusModified),
+		},
+	}
+
+	content := m.buildInitialContent()
+
+	assert.Contains(t, content, "# Changes not staged for commit:")
+	assert.Contains(t, content, "modified:   docs/README.md")
+}
+
+func TestBuildInitialContent_IncludesUntrackedFiles(t *testing.T) {
+	m := newTestModel(t)
+	m.commentChar = "#"
+	m.branch = "main"
+	m.status = &git.StatusResult{
+		Untracked: []git.StatusEntry{
+			git.NewStatusEntry("new_file.txt", git.FileStatusNone, git.FileStatusUntracked),
+		},
+	}
+
+	content := m.buildInitialContent()
+
+	assert.Contains(t, content, "# Untracked files:")
+	assert.Contains(t, content, "new_file.txt")
+}
+
+func TestBuildInitialContent_IncludesScissorsAndDiff(t *testing.T) {
+	m := newTestModel(t)
+	m.commentChar = "#"
+	m.branch = "main"
+	m.diff = []git.FileDiff{
+		{
+			Path: "test.go",
+			Hunks: []git.Hunk{
+				{
+					OldStart: 1, OldCount: 3,
+					NewStart: 1, NewCount: 4,
+					Lines: []git.DiffLine{
+						{Content: " existing line"},
+						{Content: "+new line added"},
+					},
+				},
+			},
+		},
+	}
+	m.showDiff = true
+
+	content := m.buildInitialContent()
+
+	assert.Contains(t, content, "# ------------------------ >8 ------------------------")
+	assert.Contains(t, content, "# Do not modify or remove the line above.")
+	assert.Contains(t, content, "diff --git a/test.go b/test.go")
+	assert.Contains(t, content, "+new line added")
+}
+
+func TestBuildInitialContent_OmitsDiffWhenDisabled(t *testing.T) {
+	m := newTestModel(t)
+	m.commentChar = "#"
+	m.branch = "main"
+	m.diff = []git.FileDiff{
+		{
+			Path: "test.go",
+			Hunks: []git.Hunk{
+				{Lines: []git.DiffLine{{Content: "diff content"}}},
+			},
+		},
+	}
+	m.showDiff = false
+
+	content := m.buildInitialContent()
+
+	assert.NotContains(t, content, ">8")
+	assert.NotContains(t, content, "diff content")
 }

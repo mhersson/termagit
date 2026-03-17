@@ -30,6 +30,14 @@ type Model struct {
 
 	pendingKey  string // for ctrl+c ctrl+c / ctrl+c ctrl+k sequences
 	commentChar string // from git core.commentChar, default "#"
+	branch      string // current branch name
+	status      *git.StatusResult
+
+	// Loading state tracking
+	commentCharLoaded bool
+	statusLoaded      bool
+	diffLoaded        bool
+	contentInitialized bool
 
 	width, height int
 	done          bool
@@ -66,15 +74,26 @@ func New(repo *git.Repository, opts git.CommitOpts, cfg *config.Config, tokens t
 func (m Model) Init() tea.Cmd {
 	var cmds []tea.Cmd
 
-	// Load commit history for cycling
 	if m.repo != nil {
+		// Load commit history for cycling
 		cmds = append(cmds, loadCommitHistoryCmd(m.repo))
+
+		// Load comment character from git config
+		cmds = append(cmds, loadCommentCharCmd(m.repo))
+
+		// Load branch name
+		cmds = append(cmds, loadBranchCmd(m.repo))
+
+		// Load status for template
+		cmds = append(cmds, loadStatusCmd(m.repo))
 	}
 
 	// Load staged diff if enabled
 	if m.showDiff && m.repo != nil {
 		cmds = append(cmds, loadStagedDiffCmd(m.repo))
 	}
+	// Note: diffLoaded is set in Update when stagedDiffLoadedMsg arrives,
+	// or defaults to true when showDiff is false (handled in maybeInitializeContent)
 
 	if len(cmds) == 0 {
 		return nil
@@ -101,10 +120,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case stagedDiffLoadedMsg:
+		m.diffLoaded = true
 		if msg.Err == nil {
 			m.diff = msg.Diff
 		}
+		return m.maybeInitializeContent()
+
+	case commentCharLoadedMsg:
+		m.commentCharLoaded = true
+		if msg.Err == nil && msg.Char != "" {
+			m.commentChar = msg.Char
+		}
+		return m.maybeInitializeContent()
+
+	case branchLoadedMsg:
+		if msg.Err == nil {
+			m.branch = msg.Branch
+		}
 		return m, nil
+
+	case statusLoadedMsg:
+		m.statusLoaded = true
+		if msg.Err == nil {
+			m.status = msg.Status
+		}
+		return m.maybeInitializeContent()
 	}
 
 	return m, nil
@@ -174,7 +214,7 @@ func (m Model) submit() (tea.Model, tea.Cmd) {
 	m.done = true
 	m.aborted = false
 
-	message := strings.TrimSpace(m.vimEditor.Content())
+	message := m.extractMessage()
 	m.opts.Message = message
 
 	// Return command to perform the commit
@@ -185,6 +225,27 @@ func (m Model) submit() (tea.Model, tea.Cmd) {
 		hash, err := m.repo.Commit(context.Background(), m.opts)
 		return CommitEditorDoneMsg{Hash: hash, Err: err}
 	}
+}
+
+// extractMessage extracts the commit message from the buffer content.
+// It filters out comment lines and stops at the scissors line.
+func (m Model) extractMessage() string {
+	lines := strings.Split(m.vimEditor.Content(), "\n")
+	var msgLines []string
+
+	for _, line := range lines {
+		// Stop at scissors line
+		if strings.Contains(line, "> 8 ") || strings.Contains(line, ">8") {
+			break
+		}
+		// Skip comment lines
+		if strings.HasPrefix(line, m.commentChar) {
+			continue
+		}
+		msgLines = append(msgLines, line)
+	}
+
+	return strings.TrimSpace(strings.Join(msgLines, "\n"))
 }
 
 // abort cancels the commit.
@@ -212,12 +273,8 @@ func (m Model) View() string {
 	b.WriteString(m.tokens.Dim.Render(modeStr))
 	b.WriteString("\n\n")
 
-	// VimEditor content
+	// VimEditor content (includes the git-style template)
 	b.WriteString(m.vimEditor.View())
-	b.WriteString("\n\n")
-
-	// Help lines (matching Neogit style)
-	b.WriteString(m.renderHelpLines())
 
 	return b.String()
 }
@@ -254,30 +311,6 @@ func (m Model) titleForAction() string {
 	}
 }
 
-// renderHelpLines renders the help section matching Neogit style.
-func (m Model) renderHelpLines() string {
-	c := m.commentChar
-	style := m.tokens.Comment
-
-	lines := []string{
-		c,
-		fmt.Sprintf("%s Commands:", c),
-		fmt.Sprintf("%s   %-16s Close (normal mode)", c, m.keys.Close.Help().Key),
-		fmt.Sprintf("%s   %-16s Submit", c, "<c-c><c-c>"),
-		fmt.Sprintf("%s   %-16s Abort", c, "<c-c><c-k>"),
-		fmt.Sprintf("%s   %-16s Previous Message", c, m.keys.PrevMessage.Help().Key),
-		fmt.Sprintf("%s   %-16s Next Message", c, m.keys.NextMessage.Help().Key),
-		fmt.Sprintf("%s   %-16s Reset Message", c, m.keys.ResetMessage.Help().Key),
-	}
-
-	var styled []string
-	for _, line := range lines {
-		styled = append(styled, style.Render(line))
-	}
-
-	return strings.Join(styled, "\n")
-}
-
 // Done returns whether the editor is done.
 func (m Model) Done() bool {
 	return m.done
@@ -309,6 +342,181 @@ func loadStagedDiffCmd(repo *git.Repository) tea.Cmd {
 		diff, err := repo.StagedDiff(context.Background(), "")
 		return stagedDiffLoadedMsg{Diff: diff, Err: err}
 	}
+}
+
+// loadCommentCharCmd loads the git comment character from config.
+func loadCommentCharCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		char, err := repo.GetConfigValue(context.Background(), "core.commentChar")
+		if char == "" {
+			char = "#" // Default
+		}
+		return commentCharLoadedMsg{Char: char, Err: err}
+	}
+}
+
+// loadBranchCmd loads the current branch name.
+func loadBranchCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		branch, _, err := repo.HeadInfo(context.Background())
+		return branchLoadedMsg{Branch: branch, Err: err}
+	}
+}
+
+// loadStatusCmd loads the git status for the template.
+func loadStatusCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		status, err := repo.Status(context.Background())
+		return statusLoadedMsg{Status: status, Err: err}
+	}
+}
+
+// maybeInitializeContent checks if all required data is loaded and initializes
+// the buffer content with the git-style template.
+func (m Model) maybeInitializeContent() (tea.Model, tea.Cmd) {
+	// Wait until all required data is loaded
+	// diffLoaded is true when stagedDiffLoadedMsg arrives, or when showDiff is false
+	diffReady := m.diffLoaded || !m.showDiff
+	if !m.commentCharLoaded || !m.statusLoaded || !diffReady {
+		return m, nil
+	}
+
+	// Only initialize once
+	if m.contentInitialized {
+		return m, nil
+	}
+
+	m.contentInitialized = true
+	content := m.buildInitialContent()
+	m.vimEditor.SetContent(content)
+
+	return m, nil
+}
+
+// buildInitialContent generates the git-style commit message template.
+func (m Model) buildInitialContent() string {
+	c := m.commentChar
+	var b strings.Builder
+
+	// Initial empty lines for the message
+	b.WriteString("\n")
+
+	// Git header comment
+	fmt.Fprintf(&b, "%s Please enter the commit message for your changes. Lines starting\n", c)
+	fmt.Fprintf(&b, "%s with '%s' will be ignored, and an empty message aborts the commit.\n", c, c)
+	fmt.Fprintf(&b, "%s\n", c)
+
+	// Commands section (like Neogit)
+	fmt.Fprintf(&b, "%s Commands:\n", c)
+	fmt.Fprintf(&b, "%s   %-16s Close\n", c, m.keys.Close.Help().Key)
+	fmt.Fprintf(&b, "%s   %-16s Submit\n", c, "<c-c><c-c>")
+	fmt.Fprintf(&b, "%s   %-16s Abort\n", c, "<c-c><c-k>")
+	fmt.Fprintf(&b, "%s   %-16s Previous Message\n", c, m.keys.PrevMessage.Help().Key)
+	fmt.Fprintf(&b, "%s   %-16s Next Message\n", c, m.keys.NextMessage.Help().Key)
+	fmt.Fprintf(&b, "%s   %-16s Reset Message\n", c, m.keys.ResetMessage.Help().Key)
+	fmt.Fprintf(&b, "%s\n", c)
+
+	// Branch info
+	if m.branch != "" {
+		fmt.Fprintf(&b, "%s On branch %s\n", c, m.branch)
+	}
+
+	// Status sections
+	if m.status != nil {
+		// Changes to be committed (staged)
+		if len(m.status.Staged) > 0 {
+			fmt.Fprintf(&b, "%s Changes to be committed:\n", c)
+			for _, entry := range m.status.Staged {
+				modeText := git.ModeText[string(entry.Staged)]
+				if modeText == "" {
+					modeText = "modified"
+				}
+				fmt.Fprintf(&b, "%s    %s:   %s\n", c, modeText, entry.Path())
+			}
+			fmt.Fprintf(&b, "%s\n", c)
+		}
+
+		// Changes not staged for commit (unstaged)
+		if len(m.status.Unstaged) > 0 {
+			fmt.Fprintf(&b, "%s Changes not staged for commit:\n", c)
+			for _, entry := range m.status.Unstaged {
+				modeText := git.ModeText[string(entry.Unstaged)]
+				if modeText == "" {
+					modeText = "modified"
+				}
+				fmt.Fprintf(&b, "%s    %s:   %s\n", c, modeText, entry.Path())
+			}
+			fmt.Fprintf(&b, "%s\n", c)
+		}
+
+		// Untracked files
+		if len(m.status.Untracked) > 0 {
+			fmt.Fprintf(&b, "%s Untracked files:\n", c)
+			for _, entry := range m.status.Untracked {
+				fmt.Fprintf(&b, "%s    %s\n", c, entry.Path())
+			}
+			fmt.Fprintf(&b, "%s\n", c)
+		}
+	}
+
+	// Scissors and diff (if enabled)
+	if m.showDiff && len(m.diff) > 0 {
+		fmt.Fprintf(&b, "%s ------------------------ >8 ------------------------\n", c)
+		fmt.Fprintf(&b, "%s Do not modify or remove the line above.\n", c)
+		fmt.Fprintf(&b, "%s Everything below it will be ignored.\n", c)
+
+		for _, fd := range m.diff {
+			b.WriteString(m.formatFileDiff(fd))
+		}
+	}
+
+	return b.String()
+}
+
+// formatFileDiff formats a FileDiff for display in the template.
+func (m Model) formatFileDiff(fd git.FileDiff) string {
+	var b strings.Builder
+
+	// Diff header
+	if fd.OldPath != "" && fd.OldPath != fd.Path {
+		fmt.Fprintf(&b, "diff --git a/%s b/%s\n", fd.OldPath, fd.Path)
+	} else {
+		fmt.Fprintf(&b, "diff --git a/%s b/%s\n", fd.Path, fd.Path)
+	}
+
+	if fd.IsNew {
+		b.WriteString("new file mode 100644\n")
+	} else if fd.IsDelete {
+		b.WriteString("deleted file mode 100644\n")
+	}
+
+	// File headers
+	if fd.OldPath != "" && fd.OldPath != fd.Path {
+		fmt.Fprintf(&b, "--- a/%s\n", fd.OldPath)
+	} else if fd.IsNew {
+		b.WriteString("--- /dev/null\n")
+	} else {
+		fmt.Fprintf(&b, "--- a/%s\n", fd.Path)
+	}
+
+	if fd.IsDelete {
+		b.WriteString("+++ /dev/null\n")
+	} else {
+		fmt.Fprintf(&b, "+++ b/%s\n", fd.Path)
+	}
+
+	// Hunks
+	for _, hunk := range fd.Hunks {
+		fmt.Fprintf(&b, "@@ -%d,%d +%d,%d @@\n", hunk.OldStart, hunk.OldCount, hunk.NewStart, hunk.NewCount)
+		for _, line := range hunk.Lines {
+			b.WriteString(line.Content)
+			if !strings.HasSuffix(line.Content, "\n") {
+				b.WriteString("\n")
+			}
+		}
+	}
+
+	return b.String()
 }
 
 // OpenCommitEditorCmd returns a command to open the commit editor.

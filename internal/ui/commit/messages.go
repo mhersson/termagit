@@ -28,3 +28,21 @@ type stagedDiffLoadedMsg struct {
 	Diff []git.FileDiff
 	Err  error
 }
+
+// commentCharLoadedMsg delivers the git comment character.
+type commentCharLoadedMsg struct {
+	Char string
+	Err  error
+}
+
+// branchLoadedMsg delivers the current branch name.
+type branchLoadedMsg struct {
+	Branch string
+	Err    error
+}
+
+// statusLoadedMsg delivers the git status for the template.
+type statusLoadedMsg struct {
+	Status *git.StatusResult
+	Err    error
+}

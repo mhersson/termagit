@@ -400,3 +400,42 @@ pick ghi1234567890123456789012345678901234567890 Third commit
 	require.Equal(t, "Second commit", state.Items[1].Subject)
 	require.NotNil(t, state.Current)
 }
+
+func TestGetConfigValue_ReturnsValue_WhenConfigExists(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Set a config value
+	cmd := exec.Command("git", "config", "core.commentChar", ";")
+	cmd.Dir = r.path
+	require.NoError(t, cmd.Run())
+
+	// Read it back
+	val, err := r.GetConfigValue(ctx, "core.commentChar")
+	require.NoError(t, err)
+	assert.Equal(t, ";", val)
+}
+
+func TestGetConfigValue_ReturnsEmpty_WhenConfigMissing(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Read a non-existent config key
+	val, err := r.GetConfigValue(ctx, "nonexistent.key")
+	require.NoError(t, err) // Should NOT return error for missing config
+	assert.Empty(t, val)
+}
+
+func TestGetConfigValue_ReturnsDefault_ForUserEmail(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// user.email is typically set globally, but test the mechanism
+	val, err := r.GetConfigValue(ctx, "user.email")
+	require.NoError(t, err)
+	// Value may or may not be set, but no error
+	_ = val
+}
