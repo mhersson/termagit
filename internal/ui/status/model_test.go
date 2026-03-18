@@ -2142,3 +2142,101 @@ func TestHunksLoadedMsg_HintBarVisibleAfterHunkStageRestore(t *testing.T) {
 			m.viewport.YOffset, m.cursor)
 	}
 }
+
+func TestStatusLoadedMsg_LastHunkStaged_NextFileNotExpanded(t *testing.T) {
+	// Regression: when staging the last hunk of a file causes the file to move
+	// from unstaged to staged, the next file in unstaged should NOT be
+	// auto-expanded. The cursor should land on the next file's filename line
+	// with fold state unchanged.
+	cfg, _ := config.Load()
+	tokens := theme.Compile(theme.Fallback().Raw())
+
+	m := Model{
+		cfg:     cfg,
+		tokens:  tokens,
+		keys:    DefaultKeyMap(),
+		loading: true,
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 30
+	m.width = 80
+	m.height = 30
+
+	// Initial load: two unstaged files, file1 expanded with one hunk.
+	initialSections := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("file1.go"), Expanded: true, Hunks: []git.Hunk{
+				{Header: "@@ -1,5 +1,6 @@", Lines: []git.DiffLine{
+					{Op: git.DiffOpContext, Content: "context"},
+					{Op: git.DiffOpAdd, Content: "added"},
+				}},
+			}},
+			{Entry: makeEntry("file2.go")}, // collapsed (Expanded=false)
+		}},
+		{Kind: SectionStaged, Title: "Staged changes", Items: []Item{}},
+		{Kind: SectionRecentCommits, Title: "Recent Commits", Items: []Item{
+			{Commit: &git.LogEntry{AbbreviatedHash: "abc1234", Subject: "test"}},
+		}},
+	}
+
+	result, _ := update(m, statusLoadedMsg{
+		head:     HeadState{Branch: "main", AbbrevOid: "abc1234"},
+		sections: initialSections,
+	})
+	m = result.(Model)
+
+	// Place cursor on hunk 0 of file1.go (the only hunk).
+	m.cursor = Cursor{Section: 0, Item: 0, Hunk: 0, Line: -1}
+
+	// Simulate staging the hunk: save pendingRestore as handleStage would.
+	m.pendingRestore = cursorRestore{
+		active:      true,
+		path:        "file1.go",
+		sectionKind: SectionUnstaged,
+		itemIndex:   0,
+		hunk:        0, // was on hunk 0
+	}
+
+	// After staging the last hunk, file1.go moves entirely to staged.
+	postStageSections := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("file2.go")}, // collapsed
+		}},
+		{Kind: SectionStaged, Title: "Staged changes", Items: []Item{
+			{Entry: makeEntry("file1.go")},
+		}},
+		{Kind: SectionRecentCommits, Title: "Recent Commits", Items: []Item{
+			{Commit: &git.LogEntry{AbbreviatedHash: "abc1234", Subject: "test"}},
+		}},
+	}
+
+	result2, cmd := update(m, statusLoadedMsg{
+		head:     HeadState{Branch: "main", AbbrevOid: "abc1234"},
+		sections: postStageSections,
+	})
+	m = result2.(Model)
+
+	// Cursor should be on file2.go's filename, NOT on a hunk.
+	if m.cursor.Section != 0 {
+		t.Errorf("expected cursor Section=0 (unstaged), got %d", m.cursor.Section)
+	}
+	if m.cursor.Item != 0 {
+		t.Errorf("expected cursor Item=0 (file2.go), got %d", m.cursor.Item)
+	}
+	if m.cursor.Hunk != -1 {
+		t.Errorf("expected cursor Hunk=-1 (on filename, not hunk), got %d", m.cursor.Hunk)
+	}
+	if m.cursor.Line != -1 {
+		t.Errorf("expected cursor Line=-1, got %d", m.cursor.Line)
+	}
+
+	// file2.go must NOT be expanded.
+	if m.sections[0].Items[0].Expanded {
+		t.Error("file2.go should NOT be expanded after staging last hunk of file1.go")
+	}
+
+	// No hunk-loading command should have been issued for file2.go.
+	if cmd != nil {
+		t.Error("expected no command (no hunk loading for the next file), but got one")
+	}
+}

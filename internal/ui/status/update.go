@@ -49,12 +49,14 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cursor = restoreCursor(m.sections, restore)
 			m.pendingRestore = cursorRestore{}
 
-			// If restoring after a hunk operation, expand the file and reload hunks
+			// If restoring after a hunk operation, expand the file and reload hunks.
+			// Only do this when the cursor landed on the SAME file — if the file
+			// moved (e.g. last hunk staged), we must not expand the next file.
 			if restore.hunk >= 0 && m.cursor.Item >= 0 {
 				s := &m.sections[m.cursor.Section]
 				if m.cursor.Item < len(s.Items) {
 					item := &s.Items[m.cursor.Item]
-					if item.Entry != nil {
+					if item.Entry != nil && item.Entry.Path() == restore.path {
 						item.Expanded = true
 						item.HunksLoading = true
 						m.pendingHunkRestore = hunkRestore{
