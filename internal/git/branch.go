@@ -146,10 +146,40 @@ func (r *Repository) CurrentUpstream(ctx context.Context) (remote, branch string
 }
 
 // CurrentPushRemote returns the push remote and branch for the current branch.
+// Only returns a value when branch.<name>.pushRemote is explicitly configured.
 func (r *Repository) CurrentPushRemote(ctx context.Context) (remote, branch string, err error) {
-	// Push remote can be configured per-branch or globally
-	// For now, fall back to upstream remote
-	return r.CurrentUpstream(ctx)
+	head, err := r.raw.Head()
+	if err != nil {
+		return "", "", fmt.Errorf("get HEAD: %w", err)
+	}
+	if !head.Name().IsBranch() {
+		return "", "", nil
+	}
+
+	branchName := head.Name().Short()
+
+	cfg, err := r.raw.Config()
+	if err != nil {
+		return "", "", nil
+	}
+
+	// go-git doesn't directly expose pushRemote, so check raw config sections
+	for _, raw := range cfg.Raw.Sections {
+		if raw.Name != "branch" {
+			continue
+		}
+		for _, sub := range raw.Subsections {
+			if sub.Name != branchName {
+				continue
+			}
+			pushRemote := sub.Option("pushRemote")
+			if pushRemote != "" {
+				return pushRemote, branchName, nil
+			}
+		}
+	}
+
+	return "", "", nil
 }
 
 // Checkout switches to the given branch.

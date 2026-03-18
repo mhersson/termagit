@@ -295,3 +295,54 @@ func TestSetBranchConfig_SetsValue(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "test description")
 }
+
+func TestCurrentPushRemote_ReturnsEmptyWhenOnlyUpstreamConfigured(t *testing.T) {
+	r := newMemRepo(t)
+	ctx := context.Background()
+
+	// Configure upstream tracking (remote + merge) but NOT pushRemote
+	cfg, err := r.raw.Config()
+	require.NoError(t, err)
+
+	head, err := r.raw.Head()
+	require.NoError(t, err)
+	branchName := head.Name().Short()
+
+	cfg.Remotes["origin"] = &config.RemoteConfig{
+		Name: "origin",
+		URLs: []string{"https://example.com/repo.git"},
+	}
+	cfg.Branches[branchName] = &config.Branch{
+		Name:   branchName,
+		Remote: "origin",
+		Merge:  plumbing.NewBranchReferenceName(branchName),
+	}
+	require.NoError(t, r.raw.SetConfig(cfg))
+
+	remote, branch, err := r.CurrentPushRemote(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, remote, "push remote should be empty when only upstream is configured")
+	assert.Empty(t, branch)
+}
+
+func TestCurrentPushRemote_ReturnsValueWhenExplicitlyConfigured(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	branchName, err := r.CurrentBranch(ctx)
+	require.NoError(t, err)
+
+	// Configure an explicit pushRemote
+	_, err = r.runGit(ctx, "config", "branch."+branchName+".pushRemote", "myfork")
+	require.NoError(t, err)
+
+	// Re-open to pick up config
+	r2, err := Open(r.path, nil)
+	require.NoError(t, err)
+
+	remote, branch, err := r2.CurrentPushRemote(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "myfork", remote)
+	assert.Equal(t, branchName, branch)
+}

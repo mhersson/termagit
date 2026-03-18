@@ -176,7 +176,7 @@ func renderHeadBar(m Model) string {
 	}
 
 	if m.head.Subject != "" {
-		b.WriteString("  ")
+		b.WriteString(" ")
 		b.WriteString(m.head.Subject)
 	}
 
@@ -195,7 +195,7 @@ func renderHeadBar(m Model) string {
 		b.WriteString(m.tokens.Remote.Render(remoteBranch))
 
 		if m.head.UpstreamSubject != "" {
-			b.WriteString("  ")
+			b.WriteString(" ")
 			b.WriteString(m.head.UpstreamSubject)
 		}
 	}
@@ -215,7 +215,7 @@ func renderHeadBar(m Model) string {
 		b.WriteString(m.tokens.Remote.Render(remoteBranch))
 
 		if m.head.PushSubject != "" {
-			b.WriteString("  ")
+			b.WriteString(" ")
 			b.WriteString(m.head.PushSubject)
 		}
 	}

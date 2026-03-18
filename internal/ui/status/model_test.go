@@ -692,6 +692,52 @@ func TestView_HeadBar_ShowsBranchAndSubject(t *testing.T) {
 	}
 }
 
+func TestView_HeadBar_SingleSpaceBeforeSubject(t *testing.T) {
+	m := Model{
+		head: HeadState{
+			Branch:    "main",
+			AbbrevOid: "abc1234",
+			Subject:   "add config loader",
+		},
+		sections: []Section{},
+	}
+
+	output := view(m)
+
+	// Neogit uses single space between branch and subject
+	if !contains(output, "main add config loader") {
+		t.Errorf("expected single space between branch and subject, got:\n%s", output)
+	}
+	if contains(output, "main  add config loader") {
+		t.Error("found double space between branch and subject, should be single space")
+	}
+}
+
+func TestView_HeadBar_MergeLine_SingleSpaceBeforeSubject(t *testing.T) {
+	m := Model{
+		head: HeadState{
+			Branch:          "main",
+			AbbrevOid:       "abc1234",
+			Subject:         "head commit",
+			UpstreamRemote:  "origin",
+			UpstreamBranch:  "main",
+			UpstreamOid:     "def4567890",
+			UpstreamSubject: "upstream commit",
+		},
+		sections: []Section{},
+	}
+
+	output := view(m)
+
+	// Single space between remote ref and subject
+	if !contains(output, "origin/main upstream commit") {
+		t.Errorf("expected single space between remote and subject in Merge line, got:\n%s", output)
+	}
+	if contains(output, "origin/main  upstream commit") {
+		t.Error("found double space in Merge line")
+	}
+}
+
 func TestView_HeadBar_DetachedHEAD(t *testing.T) {
 	m := Model{
 		head: HeadState{

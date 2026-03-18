@@ -44,12 +44,24 @@ func loadStatusCmd(repo *git.Repository, cfg *config.Config) tea.Cmd {
 		if uRemote, uBranch, uErr := repo.CurrentUpstream(ctx); uErr == nil && uRemote != "" {
 			head.UpstreamRemote = uRemote
 			head.UpstreamBranch = uBranch
+
+			upstreamRef := uRemote + "/" + uBranch
+			if uOid, uSubject, err := repo.RefCommitInfo(ctx, upstreamRef); err == nil {
+				head.UpstreamOid = uOid
+				head.UpstreamSubject = uSubject
+			}
 		}
 
 		// Populate push remote info
 		if pRemote, pBranch, pErr := repo.CurrentPushRemote(ctx); pErr == nil && pRemote != "" {
 			head.PushRemote = pRemote
 			head.PushBranch = pBranch
+
+			pushRef := pRemote + "/" + pBranch
+			if pOid, pSubject, err := repo.RefCommitInfo(ctx, pushRef); err == nil {
+				head.PushOid = pOid
+				head.PushSubject = pSubject
+			}
 		}
 
 		// Load git status

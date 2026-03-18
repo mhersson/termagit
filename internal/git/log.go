@@ -201,6 +201,26 @@ func (r *Repository) LogBehind(ctx context.Context, ref string, max int) ([]LogE
 	return parseLogOutput(out, nil), nil
 }
 
+// RefCommitInfo returns the full OID and subject of the commit at the tip of a ref.
+func (r *Repository) RefCommitInfo(ctx context.Context, ref string) (oid, subject string, err error) {
+	out, err := r.runGit(ctx, "log", "-1", "--format=%H|%s", ref)
+	if err != nil {
+		return "", "", fmt.Errorf("ref commit info %s: %w", ref, err)
+	}
+
+	line := strings.TrimSpace(out)
+	if line == "" {
+		return "", "", fmt.Errorf("no commit found for ref %s", ref)
+	}
+
+	parts := strings.SplitN(line, "|", 2)
+	if len(parts) < 2 {
+		return "", "", fmt.Errorf("unexpected format for ref %s: %s", ref, line)
+	}
+
+	return parts[0], parts[1], nil
+}
+
 // CommitMessage returns just the subject line of a commit.
 func (r *Repository) CommitMessage(ctx context.Context, hash string) (string, error) {
 	out, err := r.runGit(ctx, "log", "-1", "--format=%s", hash)

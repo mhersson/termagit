@@ -399,6 +399,32 @@ func TestLog_EmptyRepo_ReturnsEmpty(t *testing.T) {
 	}
 }
 
+func TestRefCommitInfo_ReturnsOIDAndSubject(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// HEAD is on the default branch with "Initial commit"
+	head, err := r.raw.Head()
+	require.NoError(t, err)
+	expectedOID := head.Hash().String()
+	branch := head.Name().Short()
+
+	oid, subject, err := r.RefCommitInfo(ctx, branch)
+	require.NoError(t, err)
+	assert.Equal(t, expectedOID, oid)
+	assert.Equal(t, "Initial commit", subject)
+}
+
+func TestRefCommitInfo_ReturnsErrorForInvalidRef(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	_, _, err := r.RefCommitInfo(ctx, "nonexistent-ref")
+	assert.Error(t, err)
+}
+
 func TestLog_When_IsParsed(t *testing.T) {
 	skipInShort(t)
 	r := newTempRepo(t)

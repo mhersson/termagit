@@ -94,20 +94,26 @@ func TestGetUpstreamRef_ReturnsEmptyWhenNoUpstream(t *testing.T) {
 	assert.Empty(t, ref)
 }
 
-func TestGetPushRemoteRef_ReturnsRefWhenConfigured(t *testing.T) {
+func TestGetPushRemoteRef_ReturnsRefWhenExplicitlyConfigured(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping shell-out test in short mode")
 	}
 
 	repo := initTestRepo(t)
-	configureUpstream(t, repo, "origin", "main")
+	dir := repoPath(t, repo)
+
+	// Configure explicit pushRemote (not just upstream)
+	cmd := exec.Command("git", "config", "branch.main.pushRemote", "myfork")
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git config: %s", out)
 
 	// Re-open to pick up config changes
-	repo, err := git.Open(repo.Path(), nil)
+	repo, err = git.Open(dir, nil)
 	require.NoError(t, err)
 
 	ref := getPushRemoteRef(repo)
-	assert.Equal(t, "origin/main", ref)
+	assert.Equal(t, "myfork/main", ref)
 }
 
 func TestGetPushRemoteRef_ReturnsEmptyWhenNoUpstream(t *testing.T) {
@@ -168,4 +174,51 @@ func TestLoadStatusCmd_PopulatesHeadStateUpstream(t *testing.T) {
 
 	assert.Equal(t, "origin", loaded.head.UpstreamRemote)
 	assert.Equal(t, "main", loaded.head.UpstreamBranch)
+}
+
+func TestLoadStatusCmd_PopulatesUpstreamOidAndSubject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping shell-out test in short mode")
+	}
+
+	repo := initTestRepo(t)
+	configureUpstream(t, repo, "origin", "main")
+
+	dir := repo.Path()
+
+	// Create a remote ref pointing at HEAD
+	cmd := exec.Command("git", "update-ref", "refs/remotes/origin/main", "HEAD")
+	cmd.Dir = dir
+	out, runErr := cmd.CombinedOutput()
+	require.NoError(t, runErr, "update-ref: %s", out)
+
+	repo, err := git.Open(dir, nil)
+	require.NoError(t, err)
+
+	fn := loadStatusCmd(repo, nil)
+	msg := fn()
+
+	loaded, ok := msg.(statusLoadedMsg)
+	require.True(t, ok, "expected statusLoadedMsg, got %T", msg)
+	require.NoError(t, loaded.err)
+
+	// UpstreamOid should be populated with a 40-char hash
+	assert.Len(t, loaded.head.UpstreamOid, 40, "UpstreamOid should be a full 40-char hash")
+	assert.Equal(t, "initial", loaded.head.UpstreamSubject)
+}
+
+func TestGetPushRemoteRef_ReturnsEmptyWhenOnlyUpstreamConfigured(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping shell-out test in short mode")
+	}
+
+	repo := initTestRepo(t)
+	// Only configure upstream, not pushRemote
+	configureUpstream(t, repo, "origin", "main")
+
+	repo, err := git.Open(repo.Path(), nil)
+	require.NoError(t, err)
+
+	ref := getPushRemoteRef(repo)
+	assert.Empty(t, ref, "push remote ref should be empty when only upstream is configured")
 }
