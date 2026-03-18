@@ -10,6 +10,8 @@ import (
 	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/conjit/internal/ui/notification"
+	"github.com/mhersson/conjit/internal/ui/popup"
 )
 
 func TestSectionKind_AllTwelveValues(t *testing.T) {
@@ -2238,5 +2240,139 @@ func TestStatusLoadedMsg_LastHunkStaged_NextFileNotExpanded(t *testing.T) {
 	// No hunk-loading command should have been issued for file2.go.
 	if cmd != nil {
 		t.Error("expected no command (no hunk loading for the next file), but got one")
+	}
+}
+
+// --- Commit action staged-changes guard tests ---
+
+// executeCmd runs a tea.Cmd and returns the resulting message.
+func executeCmd(t *testing.T, cmd tea.Cmd) tea.Msg {
+	t.Helper()
+	if cmd == nil {
+		t.Fatal("expected a command, got nil")
+	}
+	return cmd()
+}
+
+func TestCommitAction_NoStagedChanges_ShowsWarning(t *testing.T) {
+	// Model with sections but no staged section (or empty staged)
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Untracked files", Items: []Item{{}}},
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{{}}},
+		},
+	}
+
+	result := popup.Result{
+		Action:   "c",
+		Switches: map[string]bool{},
+		Options:  map[string]string{},
+	}
+
+	_, cmd := handleCommitPopupAction(m, result)
+	msg := executeCmd(t, cmd)
+
+	notifyMsg, ok := msg.(notification.NotifyMsg)
+	if !ok {
+		t.Fatalf("expected notification.NotifyMsg, got %T", msg)
+	}
+	if notifyMsg.Kind != notification.Warning {
+		t.Errorf("expected Warning kind, got %s", notifyMsg.Kind)
+	}
+	if notifyMsg.Message != "No changes to commit." {
+		t.Errorf("expected 'No changes to commit.', got %q", notifyMsg.Message)
+	}
+}
+
+func TestCommitAction_WithStagedChanges_OpensEditor(t *testing.T) {
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{{}}},
+			{Kind: SectionStaged, Title: "Staged changes", Items: []Item{
+				{Entry: &git.StatusEntry{}},
+			}},
+		},
+	}
+
+	result := popup.Result{
+		Action:   "c",
+		Switches: map[string]bool{},
+		Options:  map[string]string{},
+	}
+
+	_, cmd := handleCommitPopupAction(m, result)
+	msg := executeCmd(t, cmd)
+
+	if _, ok := msg.(openCommitEditorMsg); !ok {
+		t.Fatalf("expected openCommitEditorMsg, got %T", msg)
+	}
+}
+
+func TestCommitAction_AllowEmpty_BypassesGuard(t *testing.T) {
+	// No staged changes, but --allow-empty is set
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{{}}},
+		},
+	}
+
+	result := popup.Result{
+		Action:   "c",
+		Switches: map[string]bool{"allow-empty": true},
+		Options:  map[string]string{},
+	}
+
+	_, cmd := handleCommitPopupAction(m, result)
+	msg := executeCmd(t, cmd)
+
+	if _, ok := msg.(openCommitEditorMsg); !ok {
+		t.Fatalf("expected openCommitEditorMsg (allow-empty bypass), got %T", msg)
+	}
+}
+
+func TestCommitAction_All_BypassesGuard(t *testing.T) {
+	// No staged changes, but --all is set (stages everything)
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{{}}},
+		},
+	}
+
+	result := popup.Result{
+		Action:   "c",
+		Switches: map[string]bool{"all": true},
+		Options:  map[string]string{},
+	}
+
+	_, cmd := handleCommitPopupAction(m, result)
+	msg := executeCmd(t, cmd)
+
+	if _, ok := msg.(openCommitEditorMsg); !ok {
+		t.Fatalf("expected openCommitEditorMsg (--all bypass), got %T", msg)
+	}
+}
+
+func TestExtendAction_NoStagedChanges_ShowsWarning(t *testing.T) {
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Untracked files", Items: []Item{{}}},
+		},
+	}
+
+	result := popup.Result{
+		Action:   "e",
+		Switches: map[string]bool{},
+		Options:  map[string]string{},
+	}
+
+	_, cmd := handleCommitPopupAction(m, result)
+	msg := executeCmd(t, cmd)
+
+	notifyMsg, ok := msg.(notification.NotifyMsg)
+	if !ok {
+		t.Fatalf("expected notification.NotifyMsg, got %T", msg)
+	}
+	if notifyMsg.Kind != notification.Warning {
+		t.Errorf("expected Warning kind, got %s", notifyMsg.Kind)
 	}
 }

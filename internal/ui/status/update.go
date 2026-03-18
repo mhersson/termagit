@@ -1364,8 +1364,14 @@ func handleCommitPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) 
 
 	switch result.Action {
 	case "c": // Commit
+		if !opts.AllowEmpty && !opts.All && !hasStagedChanges(m) {
+			return m, notifyAppCmd("No changes to commit.", notification.Warning)
+		}
 		return m, openCommitEditorCmd(opts, "commit")
 	case "e": // Extend (amend without editing)
+		if !opts.AllowEmpty && !opts.All && !hasStagedChanges(m) {
+			return m, notifyAppCmd("No changes to commit.", notification.Warning)
+		}
 		opts.Amend = true
 		return m, openCommitEditorCmd(opts, "extend")
 	case "a": // Amend
@@ -1393,6 +1399,16 @@ func handleCommitPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) 
 	default:
 		return m, notifyAppCmd("Unknown commit action: "+result.Action, notification.Warning)
 	}
+}
+
+// hasStagedChanges returns true if the model has a non-empty staged section.
+func hasStagedChanges(m Model) bool {
+	for i := range m.sections {
+		if m.sections[i].Kind == SectionStaged && len(m.sections[i].Items) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // buildCommitOpts builds CommitOpts from popup result switches and options.
