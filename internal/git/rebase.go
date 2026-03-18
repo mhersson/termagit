@@ -1,6 +1,7 @@
 package git
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -249,4 +250,19 @@ func (r *Repository) RebaseCurrentStep() (int, error) {
 		return 0, err
 	}
 	return state.Current, nil
+}
+
+// RebaseAutosquash runs an interactive rebase with --autosquash to fold
+// fixup!/squash! commits into their targets. The target parameter is the
+// commit SHA that marks the start of the range (the rebase will be done
+// onto target~1, i.e. the parent of target). GIT_SEQUENCE_EDITOR is set
+// to "true" so the todo list is auto-accepted without user interaction.
+func (r *Repository) RebaseAutosquash(ctx context.Context, target string) error {
+	args := []string{
+		"-c", "sequence.editor=true",
+		"rebase", "-i", "--autosquash", "--keep-empty",
+		target + "~1",
+	}
+	_, err := r.runGit(ctx, args...)
+	return err
 }

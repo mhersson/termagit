@@ -19,6 +19,24 @@ func view(m Model) string {
 		return fmt.Sprintf("Error: %v", m.err)
 	}
 
+	// Overlay commit select if active
+	if m.commitSelect != nil {
+		content, _ := renderContent(m)
+
+		lines := strings.Split(content, "\n")
+		startLine := m.viewport.YOffset
+		endLine := startLine + m.viewport.Height
+		if endLine > len(lines) {
+			endLine = len(lines)
+		}
+		if startLine > len(lines) {
+			startLine = len(lines)
+		}
+
+		visibleContent := strings.Join(lines[startLine:endLine], "\n")
+		return renderCommitSelectOverlay(m, visibleContent)
+	}
+
 	// Overlay popup if active
 	if m.popup != nil {
 		// Re-render content when popup is active to suppress block cursor
@@ -94,6 +112,32 @@ func renderPopupOverlay(m Model, statusContent string) string {
 
 	// Render popup
 	b.WriteString(popupView)
+
+	return b.String()
+}
+
+// renderCommitSelectOverlay renders the commit select view on top of the status buffer.
+func renderCommitSelectOverlay(m Model, statusContent string) string {
+	selectView := m.commitSelect.View()
+
+	statusLines := strings.Split(statusContent, "\n")
+	selectLines := strings.Split(selectView, "\n")
+
+	selectHeight := len(selectLines)
+	statusHeight := m.height
+
+	startLine := statusHeight - selectHeight
+	if startLine < 0 {
+		startLine = 0
+	}
+
+	var b strings.Builder
+	for i := 0; i < startLine && i < len(statusLines); i++ {
+		b.WriteString(statusLines[i])
+		b.WriteString("\n")
+	}
+
+	b.WriteString(selectView)
 
 	return b.String()
 }

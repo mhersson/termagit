@@ -8,6 +8,7 @@ import (
 	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/conjit/internal/ui/commitselect"
 	"github.com/mhersson/conjit/internal/ui/popup"
 )
 
@@ -133,6 +134,20 @@ const (
 	PopupHelp
 )
 
+// commitSpecialKind identifies which special commit action is pending commit selection.
+type commitSpecialKind int
+
+const (
+	commitSpecialNone         commitSpecialKind = iota
+	commitSpecialFixup                          // f: --fixup=<sha>, no editor
+	commitSpecialSquash                         // s: --squash=<sha>, no editor
+	commitSpecialAugment                        // n: --squash=<sha>, with editor
+	commitSpecialAlter                          // A: --fixup=amend:<sha>, with editor
+	commitSpecialRevise                         // W: --fixup=reword:<sha>, with editor
+	commitSpecialInstantFixup                   // F: --fixup=<sha> + autosquash
+	commitSpecialInstantSquash                  // S: --squash=<sha> + autosquash
+)
+
 // cursorRestore holds info to restore cursor position after a status reload.
 type cursorRestore struct {
 	active      bool
@@ -195,6 +210,11 @@ type Model struct {
 
 	// Pending key for multi-key sequences (e.g., "gg")
 	pendingKey string
+
+	// Commit select overlay (for fixup, squash, alter, augment, revise, instant fixup/squash)
+	commitSelect       *commitselect.Model
+	commitSpecialOpts  git.CommitOpts    // popup switches captured before commit select
+	commitSpecialKind  commitSpecialKind // which special action initiated the select
 
 	err error
 }

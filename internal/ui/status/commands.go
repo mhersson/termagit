@@ -704,3 +704,42 @@ type openCommitEditorMsg struct {
 	opts   git.CommitOpts
 	action string
 }
+
+// commitsLoadedMsg carries the recent commits for the commit select overlay.
+type commitsLoadedMsg struct {
+	commits []git.LogEntry
+	err     error
+}
+
+// loadCommitsForSelectCmd fetches recent commits to populate the commit select view.
+func loadCommitsForSelectCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		commits, err := repo.RecentCommits(context.Background(), 256)
+		return commitsLoadedMsg{commits: commits, err: err}
+	}
+}
+
+// commitSpecialCmd runs a fixup/squash commit directly (no editor).
+func commitSpecialCmd(repo *git.Repository, opts git.CommitOpts) tea.Cmd {
+	return func() tea.Msg {
+		_, err := repo.Commit(context.Background(), opts)
+		return operationDoneMsg{err: err}
+	}
+}
+
+// commitAndAutosquashCmd runs a fixup/squash commit then autosquash rebases.
+func commitAndAutosquashCmd(repo *git.Repository, opts git.CommitOpts, targetFullHash string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		_, err := repo.Commit(ctx, opts)
+		if err != nil {
+			return operationDoneMsg{err: fmt.Errorf("commit: %w", err)}
+		}
+
+		err = repo.RebaseAutosquash(ctx, targetFullHash)
+		if err != nil {
+			return operationDoneMsg{err: fmt.Errorf("autosquash rebase: %w", err)}
+		}
+		return operationDoneMsg{}
+	}
+}

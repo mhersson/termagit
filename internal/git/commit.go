@@ -20,6 +20,9 @@ type CommitOpts struct {
 	Author       string   // --author
 	ReuseMessage string   // -C <commit>
 	Amend        bool     // --amend
+	Fixup        string   // --fixup=<commit> (also supports "amend:<commit>" and "reword:<commit>")
+	Squash       string   // --squash=<commit>
+	NoEdit       bool     // --no-edit
 	OnlyFiles    []string // paths to stage before committing
 }
 
@@ -100,6 +103,15 @@ func appendCommitArgs(args []string, opts CommitOpts) []string {
 	}
 	if opts.Amend {
 		args = append(args, "--amend")
+	}
+	if opts.Fixup != "" {
+		args = append(args, "--fixup="+opts.Fixup)
+	}
+	if opts.Squash != "" {
+		args = append(args, "--squash="+opts.Squash)
+	}
+	if opts.NoEdit {
+		args = append(args, "--no-edit")
 	}
 	return args
 }

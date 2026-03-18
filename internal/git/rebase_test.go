@@ -1,10 +1,13 @@
 package git
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -122,4 +125,52 @@ merge -C def5678 feature
 
 	// Should parse various action types
 	require.Greater(t, len(state.Entries), 0)
+}
+
+func TestRebaseAutosquash_SquashesFixupIntoTarget(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Create base commit
+	require.NoError(t, os.WriteFile(filepath.Join(r.path, "base.txt"), []byte("base"), 0o644))
+	require.NoError(t, r.StageFile(ctx, "base.txt"))
+	_, err := r.Commit(ctx, CommitOpts{Message: "Base commit"})
+	require.NoError(t, err)
+
+	// Get the base commit hash (full)
+	baseHash, err := r.runGit(ctx, "rev-parse", "HEAD")
+	require.NoError(t, err)
+	baseHash = strings.TrimSpace(baseHash)
+
+	// Create a normal commit after base
+	require.NoError(t, os.WriteFile(filepath.Join(r.path, "normal.txt"), []byte("normal"), 0o644))
+	require.NoError(t, r.StageFile(ctx, "normal.txt"))
+	_, err = r.Commit(ctx, CommitOpts{Message: "Normal commit"})
+	require.NoError(t, err)
+
+	// Create fixup commit targeting base
+	require.NoError(t, os.WriteFile(filepath.Join(r.path, "fix.txt"), []byte("fix"), 0o644))
+	require.NoError(t, r.StageFile(ctx, "fix.txt"))
+	_, err = r.Commit(ctx, CommitOpts{Fixup: baseHash, NoEdit: true})
+	require.NoError(t, err)
+
+	// Before autosquash: 4 commits (Initial + Base + Normal + fixup!)
+	countBefore, err := r.runGit(ctx, "rev-list", "--count", "HEAD")
+	require.NoError(t, err)
+	require.Equal(t, "4", strings.TrimSpace(countBefore))
+
+	// Run autosquash targeting the base commit's parent
+	err = r.RebaseAutosquash(ctx, baseHash)
+	require.NoError(t, err)
+
+	// After autosquash: 3 commits (Initial + Base(with fix) + Normal)
+	countAfter, err := r.runGit(ctx, "rev-list", "--count", "HEAD")
+	require.NoError(t, err)
+	require.Equal(t, "3", strings.TrimSpace(countAfter))
+
+	// Verify the fixup commit message is gone (base commit absorbed it)
+	logOut, err := r.runGit(ctx, "log", "--oneline")
+	require.NoError(t, err)
+	assert.NotContains(t, logOut, "fixup!")
 }

@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/ui/commit"
+	"github.com/mhersson/conjit/internal/ui/commitselect"
 	"github.com/mhersson/conjit/internal/ui/popup"
 )
 
@@ -149,6 +150,32 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 				Action: msg.action,
 			}
 		}
+
+	case commitselect.SelectedMsg:
+		return handleCommitSelected(m, msg)
+
+	case commitselect.AbortedMsg:
+		m.commitSelect = nil
+		m.commitSpecialKind = commitSpecialNone
+		m.commitSpecialOpts = git.CommitOpts{}
+		return m, nil
+
+	case commitsLoadedMsg:
+		if msg.err != nil {
+			m.notification = "Failed to load commits: " + msg.err.Error()
+			m.commitSpecialKind = commitSpecialNone
+			m.commitSpecialOpts = git.CommitOpts{}
+			return m, notifyCmd(2 * time.Second)
+		}
+		if len(msg.commits) == 0 {
+			m.notification = "No commits found"
+			m.commitSpecialKind = commitSpecialNone
+			m.commitSpecialOpts = git.CommitOpts{}
+			return m, notifyCmd(2 * time.Second)
+		}
+		cs := commitselect.New(msg.commits, m.width, m.height)
+		m.commitSelect = &cs
+		return m, nil
 	}
 
 	return m, nil
@@ -156,6 +183,11 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKeyMsg handles keyboard input.
 func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// If commit select overlay is active, delegate to it
+	if m.commitSelect != nil {
+		return handleCommitSelectKey(m, msg)
+	}
+
 	// If popup is active, delegate to it
 	if m.popup != nil {
 		return handlePopupKey(m, msg)
@@ -1334,21 +1366,19 @@ func handleCommitPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) 
 		opts.Amend = true
 		return m, openCommitEditorCmd(opts, "reword")
 	case "f": // Fixup
-		return m, openCommitEditorCmd(opts, "fixup")
+		return openCommitSelect(m, opts, commitSpecialFixup)
 	case "s": // Squash
-		return m, openCommitEditorCmd(opts, "squash")
+		return openCommitSelect(m, opts, commitSpecialSquash)
 	case "A": // Alter
-		return m, openCommitEditorCmd(opts, "alter")
+		return openCommitSelect(m, opts, commitSpecialAlter)
 	case "n": // Augment
-		return m, openCommitEditorCmd(opts, "augment")
+		return openCommitSelect(m, opts, commitSpecialAugment)
 	case "W": // Revise
-		return m, openCommitEditorCmd(opts, "revise")
+		return openCommitSelect(m, opts, commitSpecialRevise)
 	case "F": // Instant Fixup
-		m.notification = "Instant Fixup not yet implemented"
-		return m, notifyCmd(2 * time.Second)
+		return openCommitSelect(m, opts, commitSpecialInstantFixup)
 	case "S": // Instant Squash
-		m.notification = "Instant Squash not yet implemented"
-		return m, notifyCmd(2 * time.Second)
+		return openCommitSelect(m, opts, commitSpecialInstantSquash)
 	case "x": // Absorb
 		m.notification = "Absorb not yet implemented"
 		return m, notifyCmd(2 * time.Second)
@@ -1380,6 +1410,69 @@ func handleOpenCommitPopup(m Model) (tea.Model, tea.Cmd) {
 	m.popup = &p
 	m.popupKind = PopupCommit
 	return m, nil
+}
+
+// openCommitSelect opens the commit select overlay for special commit actions.
+// It fetches recent commits and shows a list for the user to pick a target.
+func openCommitSelect(m Model, opts git.CommitOpts, kind commitSpecialKind) (tea.Model, tea.Cmd) {
+	m.commitSpecialOpts = opts
+	m.commitSpecialKind = kind
+	return m, loadCommitsForSelectCmd(m.repo)
+}
+
+// handleCommitSelectKey delegates key handling to the commit select overlay.
+func handleCommitSelectKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	cs := *m.commitSelect
+	updated, cmd := cs.Update(msg)
+	csModel := updated.(commitselect.Model)
+	m.commitSelect = &csModel
+
+	if m.commitSelect.Done() {
+		// The SelectedMsg or AbortedMsg will be delivered via cmd
+		return m, cmd
+	}
+	return m, cmd
+}
+
+// handleCommitSelected handles the user selecting a commit in the commit select overlay.
+func handleCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.Model, tea.Cmd) {
+	opts := m.commitSpecialOpts
+	kind := m.commitSpecialKind
+
+	// Clear commit select state
+	m.commitSelect = nil
+	m.commitSpecialKind = commitSpecialNone
+	m.commitSpecialOpts = git.CommitOpts{}
+
+	switch kind {
+	case commitSpecialFixup:
+		opts.Fixup = msg.Hash
+		opts.NoEdit = true
+		return m, commitSpecialCmd(m.repo, opts)
+	case commitSpecialSquash:
+		opts.Squash = msg.Hash
+		opts.NoEdit = true
+		return m, commitSpecialCmd(m.repo, opts)
+	case commitSpecialAugment:
+		opts.Squash = msg.Hash
+		return m, openCommitEditorCmd(opts, "augment")
+	case commitSpecialAlter:
+		opts.Fixup = "amend:" + msg.Hash
+		return m, openCommitEditorCmd(opts, "alter")
+	case commitSpecialRevise:
+		opts.Fixup = "reword:" + msg.Hash
+		return m, openCommitEditorCmd(opts, "revise")
+	case commitSpecialInstantFixup:
+		opts.Fixup = msg.Hash
+		opts.NoEdit = true
+		return m, commitAndAutosquashCmd(m.repo, opts, msg.FullHash)
+	case commitSpecialInstantSquash:
+		opts.Squash = msg.Hash
+		opts.NoEdit = true
+		return m, commitAndAutosquashCmd(m.repo, opts, msg.FullHash)
+	default:
+		return m, nil
+	}
 }
 
 // handleOpenBranchPopup opens the branch popup.
