@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -575,6 +576,17 @@ func (r *Repository) runGitWithEnv(ctx context.Context, env []string, args ...st
 // runGitFull executes a git command and returns stdout, stderr, and error.
 // The output is returned even when there's an error (for commands like diff --no-index).
 func (r *Repository) runGitFull(ctx context.Context, args ...string) (stdout, stderr string, err error) {
+	return r.runGitFullWithStdin(ctx, nil, args...)
+}
+
+// runGitWithStdin executes a git command with data piped to stdin.
+func (r *Repository) runGitWithStdin(ctx context.Context, stdin string, args ...string) (string, error) {
+	stdout, _, err := r.runGitFullWithStdin(ctx, strings.NewReader(stdin), args...)
+	return stdout, err
+}
+
+// runGitFullWithStdin executes a git command with optional stdin and returns stdout, stderr, and error.
+func (r *Repository) runGitFullWithStdin(ctx context.Context, stdin io.Reader, args ...string) (stdout, stderr string, err error) {
 	start := time.Now()
 
 	cmd := exec.CommandContext(ctx, "git", args...)
@@ -583,6 +595,9 @@ func (r *Repository) runGitFull(ctx context.Context, args ...string) (stdout, st
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
+	if stdin != nil {
+		cmd.Stdin = stdin
+	}
 
 	cmdErr := cmd.Run()
 	duration := time.Since(start)

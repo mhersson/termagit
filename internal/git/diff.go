@@ -348,3 +348,14 @@ func HunkToPatch(path string, hunk *Hunk, reverse bool) string {
 
 	return sb.String()
 }
+
+// ApplyPatch applies a unified diff patch via `git apply`.
+// Extra args are passed directly (e.g. "--cached", "-R").
+func (r *Repository) ApplyPatch(ctx context.Context, patch string, extraArgs ...string) error {
+	args := append([]string{"apply"}, extraArgs...)
+	_, err := r.runGitWithStdin(ctx, patch, args...)
+	if err != nil {
+		return fmt.Errorf("apply patch: %w", err)
+	}
+	return nil
+}

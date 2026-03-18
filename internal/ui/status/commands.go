@@ -553,35 +553,29 @@ func loadPeekFileCmd(repoPath, filePath string) tea.Cmd {
 }
 
 // stageHunkCmd stages a specific hunk of a file.
-//
-//nolint:unused // Phase 4 - used in update.go
-func stageHunkCmd(repo *git.Repository, path string, hunkIdx int) tea.Cmd {
+func stageHunkCmd(repo *git.Repository, path string, hunk git.Hunk) tea.Cmd {
 	return func() tea.Msg {
-		// TODO: Implement hunk staging via git apply --cached
-		// For now, this is a stub
-		return operationDoneMsg{err: fmt.Errorf("hunk staging not yet implemented")}
+		patch := git.HunkToPatch(path, &hunk, false)
+		err := repo.ApplyPatch(context.Background(), patch, "--cached")
+		return operationDoneMsg{err: err}
 	}
 }
 
 // unstageHunkCmd unstages a specific hunk of a file.
-//
-//nolint:unused // Phase 4 - used in update.go
-func unstageHunkCmd(repo *git.Repository, path string, hunkIdx int) tea.Cmd {
+func unstageHunkCmd(repo *git.Repository, path string, hunk git.Hunk) tea.Cmd {
 	return func() tea.Msg {
-		// TODO: Implement hunk unstaging via git apply --cached -R
-		// For now, this is a stub
-		return operationDoneMsg{err: fmt.Errorf("hunk unstaging not yet implemented")}
+		patch := git.HunkToPatch(path, &hunk, true)
+		err := repo.ApplyPatch(context.Background(), patch, "--cached")
+		return operationDoneMsg{err: err}
 	}
 }
 
 // discardHunkCmd discards a specific hunk of a file.
-//
-//nolint:unused // Phase 4 - used in update.go
-func discardHunkCmd(repo *git.Repository, path string, hunkIdx int) tea.Cmd {
+func discardHunkCmd(repo *git.Repository, path string, hunk git.Hunk) tea.Cmd {
 	return func() tea.Msg {
-		// TODO: Implement hunk discarding via git apply -R
-		// For now, this is a stub
-		return operationDoneMsg{err: fmt.Errorf("hunk discarding not yet implemented")}
+		patch := git.HunkToPatch(path, &hunk, true)
+		err := repo.ApplyPatch(context.Background(), patch)
+		return operationDoneMsg{err: err}
 	}
 }
 

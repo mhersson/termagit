@@ -251,3 +251,111 @@ func TestUntrackedDiff_ReturnsDiff_ForNewFile(t *testing.T) {
 	assert.Equal(t, "untracked.txt", diff.Path)
 	assert.True(t, diff.IsNew)
 }
+
+func TestApplyPatch_StagesHunk(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Create a file with multiple lines and commit it
+	addAndCommit(t, r, "multi.txt", "line1\nline2\nline3\nline4\nline5\n", "add multi.txt")
+
+	// Modify lines 2 and 4 (creates unstaged changes)
+	addFile(t, r, "multi.txt", "line1\nLINE2\nline3\nLINE4\nline5\n")
+
+	// Get the unstaged diff to get hunks
+	diffs, err := r.UnstagedDiff(ctx, "multi.txt")
+	require.NoError(t, err)
+	require.NotEmpty(t, diffs, "expected at least one file diff")
+	require.NotEmpty(t, diffs[0].Hunks, "expected at least one hunk")
+
+	// Generate patch for the first hunk and apply it to stage
+	patch := HunkToPatch("multi.txt", &diffs[0].Hunks[0], false)
+	err = r.ApplyPatch(ctx, patch, "--cached")
+	require.NoError(t, err)
+
+	// Verify the hunk is now staged
+	status, err := r.Status(ctx)
+	require.NoError(t, err)
+
+	found := false
+	for _, e := range status.Staged {
+		if e.Path() == "multi.txt" {
+			found = true
+		}
+	}
+	assert.True(t, found, "expected multi.txt in staged entries")
+}
+
+func TestApplyPatch_UnstagesHunk(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Create a file and commit it
+	addAndCommit(t, r, "unstage.txt", "aaa\nbbb\nccc\n", "initial")
+
+	// Modify and stage the change
+	addFile(t, r, "unstage.txt", "aaa\nBBB\nccc\n")
+	_, err := r.runGit(ctx, "add", "unstage.txt")
+	require.NoError(t, err)
+
+	// Get the staged diff
+	diffs, err := r.StagedDiff(ctx, "unstage.txt")
+	require.NoError(t, err)
+	require.NotEmpty(t, diffs)
+	require.NotEmpty(t, diffs[0].Hunks)
+
+	// Reverse-apply the patch to unstage the hunk
+	patch := HunkToPatch("unstage.txt", &diffs[0].Hunks[0], true)
+	err = r.ApplyPatch(ctx, patch, "--cached")
+	require.NoError(t, err)
+
+	// Verify unstaged: file should no longer be in Staged, but should be in Unstaged
+	status, err := r.Status(ctx)
+	require.NoError(t, err)
+	for _, e := range status.Staged {
+		if e.Path() == "unstage.txt" {
+			t.Fatal("unstage.txt should not be in staged entries after unstaging hunk")
+		}
+	}
+	foundUnstaged := false
+	for _, e := range status.Unstaged {
+		if e.Path() == "unstage.txt" {
+			foundUnstaged = true
+		}
+	}
+	assert.True(t, foundUnstaged, "unstage.txt should still have unstaged changes")
+}
+
+func TestApplyPatch_DiscardsHunk(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Create a file and commit
+	addAndCommit(t, r, "discard.txt", "one\ntwo\nthree\n", "initial")
+
+	// Modify worktree
+	addFile(t, r, "discard.txt", "one\nTWO\nthree\n")
+
+	// Get the unstaged diff
+	diffs, err := r.UnstagedDiff(ctx, "discard.txt")
+	require.NoError(t, err)
+	require.NotEmpty(t, diffs)
+	require.NotEmpty(t, diffs[0].Hunks)
+
+	// Reverse-apply (no --cached) to discard the worktree change
+	patch := HunkToPatch("discard.txt", &diffs[0].Hunks[0], true)
+	err = r.ApplyPatch(ctx, patch)
+	require.NoError(t, err)
+
+	// Verify worktree change is gone — file should not appear in any status list
+	status, err := r.Status(ctx)
+	require.NoError(t, err)
+	for _, e := range status.Unstaged {
+		if e.Path() == "discard.txt" {
+			t.Fatal("discard.txt should not appear in unstaged after discarding all changes")
+		}
+	}
+}

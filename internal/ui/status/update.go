@@ -1,6 +1,8 @@
 package status
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -364,7 +366,11 @@ func executeConfirmedAction(m Model) (tea.Model, tea.Cmd) {
 		m.confirmPath = ""
 		m.confirmHunk = -1
 		m.notification = ""
-		return m, discardHunkCmd(m.repo, path, hunkIdx)
+		// Look up the hunk from the current item
+		if hunk := findHunkByPathAndIndex(m, path, hunkIdx); hunk != nil {
+			return m, discardHunkCmd(m.repo, path, *hunk)
+		}
+		return m, nil
 
 	case ConfirmUntrack:
 		path := m.confirmPath
@@ -392,7 +398,7 @@ func handleStage(m Model) (tea.Model, tea.Cmd) {
 
 	// If on a hunk, stage just the hunk
 	if m.cursor.Hunk >= 0 && len(item.Hunks) > m.cursor.Hunk {
-		return m, stageHunkCmd(m.repo, item.Entry.Path(), m.cursor.Hunk)
+		return m, stageHunkCmd(m.repo, item.Entry.Path(), item.Hunks[m.cursor.Hunk])
 	}
 
 	// Stage the whole file
@@ -423,7 +429,7 @@ func handleUnstage(m Model) (tea.Model, tea.Cmd) {
 
 	// If on a hunk, unstage just the hunk
 	if m.cursor.Hunk >= 0 && len(item.Hunks) > m.cursor.Hunk {
-		return m, unstageHunkCmd(m.repo, item.Entry.Path(), m.cursor.Hunk)
+		return m, unstageHunkCmd(m.repo, item.Entry.Path(), item.Hunks[m.cursor.Hunk])
 	}
 
 	// Unstage the whole file
@@ -631,6 +637,21 @@ func getCurrentItem(m Model) (*Item, SectionKind) {
 	}
 
 	return &s.Items[m.cursor.Item], s.Kind
+}
+
+// findHunkByPathAndIndex searches all sections for a file matching path
+// and returns the hunk at the given index, or nil if not found.
+func findHunkByPathAndIndex(m Model, path string, hunkIdx int) *git.Hunk {
+	for _, s := range m.sections {
+		for _, item := range s.Items {
+			if item.Entry != nil && item.Entry.Path() == path {
+				if hunkIdx >= 0 && hunkIdx < len(item.Hunks) {
+					return &item.Hunks[hunkIdx]
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // handleToggle toggles fold state of current section or item.
@@ -1163,6 +1184,12 @@ func handlePopupAction(m Model, kind PopupKind, result popup.Result) (tea.Model,
 	switch kind {
 	case PopupCommit:
 		return handleCommitPopupAction(m, result)
+	case PopupPush:
+		return handlePushPopupAction(m, result)
+	case PopupPull:
+		return handlePullPopupAction(m, result)
+	case PopupFetch:
+		return handleFetchPopupAction(m, result)
 	default:
 		// For now, just show a notification with the action
 		// The actual git operations will be wired up as needed
@@ -1496,4 +1523,184 @@ func getBisectState(sections []Section) (inProgress, finished bool) {
 		}
 	}
 	return false, false
+}
+
+// handlePushPopupAction handles actions from the push popup.
+func handlePushPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	switch result.Action {
+	case "C": // Configure
+		m.notification = "Push configuration not yet implemented"
+		return m, notifyCmd(2 * time.Second)
+	case "e": // Elsewhere
+		m.notification = "Push elsewhere not yet implemented"
+		return m, notifyCmd(2 * time.Second)
+	case "o": // Another branch
+		m.notification = "Push another branch not yet implemented"
+		return m, notifyCmd(2 * time.Second)
+	case "r": // Explicit refspec
+		m.notification = "Push explicit refspec not yet implemented"
+		return m, notifyCmd(2 * time.Second)
+	case "T": // A tag
+		m.notification = "Push a tag not yet implemented"
+		return m, notifyCmd(2 * time.Second)
+	}
+
+	opts := buildPushOpts(result)
+	remote, branch := resolvePushTarget(result.Action, m.head)
+	opts.Remote = remote
+	opts.Branch = branch
+
+	if remote == "" {
+		m.notification = "No remote configured for push"
+		return m, notifyCmd(2 * time.Second)
+	}
+
+	m.notification = "Pushing..."
+	return m, pushCmd(m.repo, opts)
+}
+
+// buildPushOpts builds PushOpts from popup result switches.
+func buildPushOpts(result popup.Result) git.PushOpts {
+	return git.PushOpts{
+		ForceWithLease: result.Switches["force-with-lease"],
+		Force:          result.Switches["force"],
+		NoVerify:       result.Switches["no-verify"],
+		DryRun:         result.Switches["dry-run"],
+		SetUpstream:    result.Switches["set-upstream"],
+		Tags:           result.Switches["tags"],
+		FollowTags:     result.Switches["follow-tags"],
+	}
+}
+
+// resolvePushTarget returns the remote and branch for a push action key.
+func resolvePushTarget(action string, head HeadState) (remote, branch string) {
+	switch action {
+	case "p": // pushRemote
+		return head.PushRemote, head.Branch
+	case "u": // @{upstream}
+		return head.UpstreamRemote, head.Branch
+	case "t": // all tags
+		return defaultRemote(head), ""
+	case "m": // matching branches
+		return defaultRemote(head), ""
+	default:
+		return defaultRemote(head), head.Branch
+	}
+}
+
+// defaultRemote returns the best remote to use for push operations.
+func defaultRemote(head HeadState) string {
+	if head.PushRemote != "" {
+		return head.PushRemote
+	}
+	if head.UpstreamRemote != "" {
+		return head.UpstreamRemote
+	}
+	return "origin"
+}
+
+// pushCmd creates a command that executes a git push.
+func pushCmd(repo *git.Repository, opts git.PushOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository")}
+		}
+		var err error
+		if opts.Tags && opts.Branch == "" {
+			err = repo.PushTags(context.Background(), opts.Remote)
+		} else {
+			err = repo.Push(context.Background(), opts)
+		}
+		return operationDoneMsg{err: err}
+	}
+}
+
+// handlePullPopupAction handles actions from the pull popup.
+func handlePullPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	opts := buildPullOpts(result)
+	remote, branch := resolvePullTarget(result.Action, m.head)
+	opts.Remote = remote
+	opts.Branch = branch
+
+	if remote == "" {
+		m.notification = "No remote configured for pull"
+		return m, notifyCmd(2 * time.Second)
+	}
+
+	m.notification = "Pulling..."
+	return m, pullCmd(m.repo, opts)
+}
+
+// buildPullOpts builds PullOpts from popup result switches.
+func buildPullOpts(result popup.Result) git.PullOpts {
+	return git.PullOpts{
+		Rebase:  result.Switches["rebase"],
+		FFOnly:  result.Switches["ff-only"],
+		Tags:    result.Switches["tags"],
+		Autostash: result.Switches["autostash"],
+	}
+}
+
+// resolvePullTarget returns the remote and branch for a pull action key.
+func resolvePullTarget(action string, head HeadState) (remote, branch string) {
+	switch action {
+	case "p": // pushRemote
+		return head.PushRemote, head.Branch
+	case "u": // @{upstream}
+		return head.UpstreamRemote, head.Branch
+	default:
+		return defaultRemote(head), head.Branch
+	}
+}
+
+// pullCmd creates a command that executes a git pull.
+func pullCmd(repo *git.Repository, opts git.PullOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository")}
+		}
+		err := repo.Pull(context.Background(), opts)
+		return operationDoneMsg{err: err}
+	}
+}
+
+// handleFetchPopupAction handles actions from the fetch popup.
+func handleFetchPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	opts := buildFetchOpts(result)
+
+	switch result.Action {
+	case "p": // pushRemote
+		opts.Remote = m.head.PushRemote
+	case "u": // upstream
+		opts.Remote = m.head.UpstreamRemote
+	default:
+		opts.Remote = defaultRemote(m.head)
+	}
+
+	if opts.Remote == "" {
+		m.notification = "No remote configured for fetch"
+		return m, notifyCmd(2 * time.Second)
+	}
+
+	m.notification = "Fetching..."
+	return m, fetchCmd(m.repo, opts)
+}
+
+// buildFetchOpts builds FetchOpts from popup result switches.
+func buildFetchOpts(result popup.Result) git.FetchOpts {
+	return git.FetchOpts{
+		Prune: result.Switches["prune"],
+		Tags:  result.Switches["tags"],
+	}
+}
+
+// fetchCmd creates a command that executes a git fetch.
+func fetchCmd(repo *git.Repository, opts git.FetchOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository")}
+		}
+		err := repo.Fetch(context.Background(), opts)
+		return operationDoneMsg{err: err}
+	}
 }
