@@ -172,8 +172,17 @@ func (e *Editor) handleInsertMode(msg tea.KeyMsg) bool {
 
 	case tea.KeyRunes:
 		for _, r := range msg.Runes {
-			e.buffer.InsertRune(e.cursor.Line, e.cursor.Col, r)
-			e.cursor.Col++
+			switch r {
+			case '\n':
+				e.buffer.InsertNewline(e.cursor.Line, e.cursor.Col)
+				e.cursor.Line++
+				e.cursor.Col = 0
+			case '\r':
+				// Skip carriage returns (Windows \r\n)
+			default:
+				e.buffer.InsertRune(e.cursor.Line, e.cursor.Col, r)
+				e.cursor.Col++
+			}
 		}
 		return true
 	}

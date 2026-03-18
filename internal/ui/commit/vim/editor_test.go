@@ -300,6 +300,62 @@ func TestVimEditor_CtrlU_HalfPageUp(t *testing.T) {
 	assert.Equal(t, 10, e.Line())
 }
 
+func TestVimEditor_Paste_MultilineCreatesLines(t *testing.T) {
+	e := NewEditor(testTokens())
+	e.SetContent("")
+	assert.Equal(t, ModeInsert, e.Mode())
+
+	// Simulate pasting "line1\nline2\nline3" via KeyRunes
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("line1\nline2\nline3")})
+
+	assert.Equal(t, 3, e.LineCount(), "paste with 2 newlines should create 3 lines")
+	assert.Equal(t, "line1", e.LineContent(0))
+	assert.Equal(t, "line2", e.LineContent(1))
+	assert.Equal(t, "line3", e.LineContent(2))
+}
+
+func TestVimEditor_Paste_CursorPositionAfterMultiline(t *testing.T) {
+	e := NewEditor(testTokens())
+	e.SetContent("")
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("hello\nworld")})
+
+	assert.Equal(t, 1, e.Line(), "cursor should be on second line after paste")
+	assert.Equal(t, 5, e.Col(), "cursor should be at end of 'world'")
+}
+
+func TestVimEditor_Paste_CRLFHandled(t *testing.T) {
+	e := NewEditor(testTokens())
+	e.SetContent("")
+
+	// Simulate Windows-style \r\n paste
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("aaa\r\nbbb\r\nccc")})
+
+	assert.Equal(t, 3, e.LineCount(), "CRLF paste should create 3 lines")
+	assert.Equal(t, "aaa", e.LineContent(0), "no \\r should remain in line content")
+	assert.Equal(t, "bbb", e.LineContent(1))
+	assert.Equal(t, "ccc", e.LineContent(2))
+}
+
+func TestVimEditor_Paste_ContentRoundTrip(t *testing.T) {
+	e := NewEditor(testTokens())
+	e.SetContent("")
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("first\nsecond\nthird")})
+
+	assert.Equal(t, "first\nsecond\nthird", e.Content())
+}
+
+func TestVimEditor_Paste_IntoExistingContent(t *testing.T) {
+	e := NewEditor(testTokens())
+	e.SetContent("before after")
+	e.SetCursor(0, 7) // between "before " and "after"
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("mid1\nmid2\n")})
+
+	assert.Equal(t, "before mid1\nmid2\nafter", e.Content())
+}
+
 // testTokens creates minimal tokens for testing
 func testTokens() Tokens {
 	return Tokens{
