@@ -1794,3 +1794,173 @@ func TestStatusLoadedMsg_WithoutRestore_UsesDefault(t *testing.T) {
 		t.Errorf("expected cursor on section header (Item=-1), got %d", resultModel.cursor.Item)
 	}
 }
+
+// --- Hunk-level cursor restore tests ---
+
+func TestStatusLoadedMsg_HunkRestore_ExpandsFileAndTriggersDiffLoad(t *testing.T) {
+	// When restoring after a hunk operation, the file should be expanded
+	// and a hunk load command should be triggered.
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+				{Entry: makeEntry("file.go")},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: 1, Line: -1},
+		pendingRestore: cursorRestore{
+			active:      true,
+			path:        "file.go",
+			sectionKind: SectionUnstaged,
+			itemIndex:   0,
+			hunk:        1,
+		},
+	}
+
+	newSections := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("file.go")},
+		}},
+	}
+
+	result, cmd := update(m, statusLoadedMsg{
+		head:     HeadState{Branch: "main"},
+		sections: newSections,
+	})
+	resultModel := result.(Model)
+
+	// File should be expanded (to show hunks once loaded)
+	if !resultModel.sections[0].Items[0].Expanded {
+		t.Error("expected file to be expanded for hunk restore")
+	}
+
+	// Should have a pending hunk restore
+	if !resultModel.pendingHunkRestore.active {
+		t.Error("expected pendingHunkRestore.active=true")
+	}
+	if resultModel.pendingHunkRestore.hunkIdx != 1 {
+		t.Errorf("expected pendingHunkRestore.hunkIdx=1, got %d", resultModel.pendingHunkRestore.hunkIdx)
+	}
+
+	// Should return a command (to load hunks)
+	if cmd == nil {
+		t.Error("expected a command to load hunks, got nil")
+	}
+
+	// Cursor should be on the file item while hunks are loading
+	if resultModel.cursor.Item != 0 {
+		t.Errorf("expected cursor on item 0, got %d", resultModel.cursor.Item)
+	}
+}
+
+func TestHunksLoadedMsg_WithPendingHunkRestore_PlacesCursorOnHunk(t *testing.T) {
+	// After hunks load, cursor should be placed on the target hunk.
+	testHunks := []git.Hunk{
+		{Header: "@@ -1,3 +1,3 @@"},
+		{Header: "@@ -10,5 +10,5 @@"},
+		{Header: "@@ -20,3 +20,3 @@"},
+	}
+
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+				{Entry: makeEntry("file.go"), Expanded: true, HunksLoading: true},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+		pendingHunkRestore: hunkRestore{
+			active:     true,
+			sectionIdx: 0,
+			itemIdx:    0,
+			hunkIdx:    1,
+		},
+	}
+
+	result, _ := update(m, hunksLoadedMsg{
+		sectionIdx: 0,
+		itemIdx:    0,
+		hunks:      testHunks,
+	})
+	resultModel := result.(Model)
+
+	// Cursor should be on hunk 1
+	if resultModel.cursor.Hunk != 1 {
+		t.Errorf("expected cursor.Hunk=1, got %d", resultModel.cursor.Hunk)
+	}
+	if resultModel.cursor.Line != -1 {
+		t.Errorf("expected cursor.Line=-1 (hunk header), got %d", resultModel.cursor.Line)
+	}
+
+	// pendingHunkRestore should be cleared
+	if resultModel.pendingHunkRestore.active {
+		t.Error("expected pendingHunkRestore to be cleared")
+	}
+}
+
+func TestHunksLoadedMsg_WithPendingHunkRestore_ClampsToLastHunk(t *testing.T) {
+	// If original hunk index exceeds available hunks, clamp to last.
+	testHunks := []git.Hunk{
+		{Header: "@@ -1,3 +1,3 @@"},
+	}
+
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+				{Entry: makeEntry("file.go"), Expanded: true, HunksLoading: true},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+		pendingHunkRestore: hunkRestore{
+			active:     true,
+			sectionIdx: 0,
+			itemIdx:    0,
+			hunkIdx:    3, // was on hunk 3, but only 1 remains
+		},
+	}
+
+	result, _ := update(m, hunksLoadedMsg{
+		sectionIdx: 0,
+		itemIdx:    0,
+		hunks:      testHunks,
+	})
+	resultModel := result.(Model)
+
+	// Should clamp to last available hunk (0)
+	if resultModel.cursor.Hunk != 0 {
+		t.Errorf("expected cursor.Hunk=0 (clamped), got %d", resultModel.cursor.Hunk)
+	}
+}
+
+func TestHunksLoadedMsg_WithPendingHunkRestore_NoHunksLeft(t *testing.T) {
+	// If no hunks remain after the operation, cursor stays on file item.
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+				{Entry: makeEntry("file.go"), Expanded: true, HunksLoading: true},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+		pendingHunkRestore: hunkRestore{
+			active:     true,
+			sectionIdx: 0,
+			itemIdx:    0,
+			hunkIdx:    0,
+		},
+	}
+
+	result, _ := update(m, hunksLoadedMsg{
+		sectionIdx: 0,
+		itemIdx:    0,
+		hunks:      nil, // no hunks
+	})
+	resultModel := result.(Model)
+
+	// Cursor should be on file item (Hunk=-1)
+	if resultModel.cursor.Hunk != -1 {
+		t.Errorf("expected cursor.Hunk=-1 (on file), got %d", resultModel.cursor.Hunk)
+	}
+
+	// pendingHunkRestore should be cleared
+	if resultModel.pendingHunkRestore.active {
+		t.Error("expected pendingHunkRestore to be cleared")
+	}
+}

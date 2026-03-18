@@ -142,6 +142,14 @@ type cursorRestore struct {
 	hunk        int         // hunk index (-1 = on file)
 }
 
+// hunkRestore holds info to place the cursor on a hunk once hunks finish loading.
+type hunkRestore struct {
+	active     bool
+	sectionIdx int
+	itemIdx    int
+	hunkIdx    int // target hunk index (clamped to available hunks)
+}
+
 // Model is the status buffer model.
 type Model struct {
 	repo   *git.Repository
@@ -171,6 +179,9 @@ type Model struct {
 
 	// Cursor restore after stage/unstage/discard
 	pendingRestore cursorRestore
+
+	// Hunk-level cursor restore (two-phase: expand file, then place cursor after hunks load)
+	pendingHunkRestore hunkRestore
 
 	// Peek file preview state
 	peekActive   bool            //nolint:unused // Phase 4 - used in view.go

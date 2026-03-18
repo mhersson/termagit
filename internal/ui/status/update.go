@@ -41,9 +41,32 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.head = msg.head
 		m.sections = msg.sections
 
+		var cmd tea.Cmd
+
 		if m.pendingRestore.active {
-			m.cursor = restoreCursor(m.sections, m.pendingRestore)
+			restore := m.pendingRestore
+			m.cursor = restoreCursor(m.sections, restore)
 			m.pendingRestore = cursorRestore{}
+
+			// If restoring after a hunk operation, expand the file and reload hunks
+			if restore.hunk >= 0 && m.cursor.Item >= 0 {
+				s := &m.sections[m.cursor.Section]
+				if m.cursor.Item < len(s.Items) {
+					item := &s.Items[m.cursor.Item]
+					if item.Entry != nil {
+						item.Expanded = true
+						item.HunksLoading = true
+						m.pendingHunkRestore = hunkRestore{
+							active:     true,
+							sectionIdx: m.cursor.Section,
+							itemIdx:    m.cursor.Item,
+							hunkIdx:    restore.hunk,
+						}
+						kind := diffKindForSection(s.Kind)
+						cmd = loadHunksCmd(m.repo, m.cursor.Section, m.cursor.Item, item.Entry, kind)
+					}
+				}
+			}
 		} else {
 			// Position cursor on first non-empty, non-hidden section
 			m.cursor = findFirstValidCursor(m.sections)
@@ -55,7 +78,7 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.SetContent(content)
 			ensureCursorVisible(&m, cursorLine)
 		}
-		return m, nil
+		return m, cmd
 
 	case hunksLoadedMsg:
 		if msg.err != nil {
@@ -73,6 +96,27 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 				s.Items[msg.itemIdx].Hunks = msg.hunks
 				s.Items[msg.itemIdx].HunksLoading = false
 			}
+		}
+
+		// Apply pending hunk cursor restore if this is the load we're waiting for
+		if m.pendingHunkRestore.active &&
+			msg.sectionIdx == m.pendingHunkRestore.sectionIdx &&
+			msg.itemIdx == m.pendingHunkRestore.itemIdx {
+			hunkIdx := m.pendingHunkRestore.hunkIdx
+			m.pendingHunkRestore = hunkRestore{} // clear
+
+			if len(msg.hunks) > 0 {
+				// Clamp to available hunks
+				if hunkIdx >= len(msg.hunks) {
+					hunkIdx = len(msg.hunks) - 1
+				}
+				if hunkIdx < 0 {
+					hunkIdx = 0
+				}
+				m.cursor.Hunk = hunkIdx
+				m.cursor.Line = -1 // on hunk header
+			}
+			// If no hunks, cursor stays on file item (Hunk=-1)
 		}
 
 		// Update viewport content and preserve screen position
