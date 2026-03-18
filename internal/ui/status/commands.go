@@ -220,8 +220,8 @@ func loadStatusCmd(repo *git.Repository, cfg *config.Config) tea.Cmd {
 			}
 		}
 
-		// 11. Recent commits (only when unmerged upstream is empty)
-		if len(unmergedUpstream) == 0 && !getSectionConfig(cfg, SectionRecentCommits).Hidden {
+		// 11. Recent commits
+		if !getSectionConfig(cfg, SectionRecentCommits).Hidden {
 			recentCount := 10 // Default
 			if cfg != nil && cfg.Sections.Recent.Folded {
 				recentCount = 5 // Fewer when folded
