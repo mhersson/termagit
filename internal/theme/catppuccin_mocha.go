@@ -68,6 +68,11 @@ func (t *catppuccinMocha) Raw() RawTokens {
 		NotificationWarn:    "#fab387", // peach
 		NotificationError:   "#f38ba8", // red
 
+		// Confirmation dialog
+		ConfirmBorder: "#fab387", // peach — warm "action required" color
+		ConfirmText:   "#cdd6f4", // text
+		ConfirmKey:    "#f9e2af", // yellow — highlighted keys
+
 		// Cursor and selection
 		Cursor:     "#cdd6f4", // text (for use elsewhere)
 		CursorBg:   "#313244", // surface0 - subtle highlight

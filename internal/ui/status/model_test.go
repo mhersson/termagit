@@ -2501,15 +2501,62 @@ func TestHandleDiscardStart_SetsConfirmModeAndNotification(t *testing.T) {
 	if rm.confirmPath != "dirty.go" {
 		t.Errorf("expected confirmPath=dirty.go, got %s", rm.confirmPath)
 	}
-	if rm.notification == "" {
-		t.Error("expected notification to contain confirmation prompt")
+	// Confirmation is now rendered via ConfirmView overlay, not m.notification
+	v := rm.ConfirmView(60)
+	if v == "" {
+		t.Error("expected ConfirmView to return non-empty for active confirmation")
 	}
-	if !strings.Contains(rm.notification, "dirty.go") {
-		t.Errorf("notification should mention file name, got: %s", rm.notification)
+	if !strings.Contains(v, "dirty.go") {
+		t.Errorf("ConfirmView should mention file name, got: %s", v)
 	}
 }
 
-func TestHandleDiscardStart_ViewportIncludesNotification(t *testing.T) {
+func TestConfirmView_ReturnsEmpty_WhenNoConfirm(t *testing.T) {
+	tokens := theme.Compile(theme.Fallback().Raw())
+	m := Model{tokens: tokens, confirmMode: ConfirmNone}
+	v := m.ConfirmView(60)
+	if v != "" {
+		t.Error("expected empty ConfirmView when confirmMode is ConfirmNone")
+	}
+}
+
+func TestConfirmView_ReturnsNonEmpty_WhenConfirmDiscard(t *testing.T) {
+	tokens := theme.Compile(theme.Fallback().Raw())
+	m := Model{tokens: tokens, confirmMode: ConfirmDiscard, confirmPath: "main.go"}
+	v := m.ConfirmView(60)
+	if v == "" {
+		t.Error("expected non-empty ConfirmView for ConfirmDiscard")
+	}
+	if !strings.Contains(v, "main.go") {
+		t.Error("expected ConfirmView to mention file name")
+	}
+}
+
+func TestConfirmView_ReturnsNonEmpty_WhenConfirmDiscardHunk(t *testing.T) {
+	tokens := theme.Compile(theme.Fallback().Raw())
+	m := Model{tokens: tokens, confirmMode: ConfirmDiscardHunk, confirmPath: "test.go", confirmHunk: 2}
+	v := m.ConfirmView(60)
+	if v == "" {
+		t.Error("expected non-empty ConfirmView for ConfirmDiscardHunk")
+	}
+	if !strings.Contains(v, "test.go") {
+		t.Error("expected ConfirmView to mention file name")
+	}
+}
+
+func TestConfirmView_ReturnsNonEmpty_WhenConfirmUntrack(t *testing.T) {
+	tokens := theme.Compile(theme.Fallback().Raw())
+	m := Model{tokens: tokens, confirmMode: ConfirmUntrack, confirmPath: "tracked.go"}
+	v := m.ConfirmView(60)
+	if v == "" {
+		t.Error("expected non-empty ConfirmView for ConfirmUntrack")
+	}
+	if !strings.Contains(v, "tracked.go") {
+		t.Error("expected ConfirmView to mention file name")
+	}
+}
+
+func TestHandleDiscardStart_ConfirmViewShowsPrompt(t *testing.T) {
 	entry := makeEntry("dirty.go")
 	m := Model{
 		sections: []Section{
@@ -2520,6 +2567,7 @@ func TestHandleDiscardStart_ViewportIncludesNotification(t *testing.T) {
 		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
 		keys:   DefaultKeyMap(),
 		cfg:    &config.Config{UI: config.UIConfig{DisableHint: true}},
+		tokens: theme.Compile(theme.Fallback().Raw()),
 	}
 	m.viewport.Width = 80
 	m.viewport.Height = 24
@@ -2527,15 +2575,14 @@ func TestHandleDiscardStart_ViewportIncludesNotification(t *testing.T) {
 	result, _ := handleDiscardStart(m)
 	rm := result.(Model)
 
-	// The viewport content must include the notification prompt so the user
-	// can see the "Discard changes to dirty.go? (y/N)" message.
-	vpContent := rm.viewport.View()
-	if !strings.Contains(vpContent, "Discard") {
-		t.Error("viewport content should include the discard confirmation prompt")
+	// Confirmation is now rendered as a centered overlay via ConfirmView
+	v := rm.ConfirmView(60)
+	if !strings.Contains(v, "Discard") {
+		t.Error("ConfirmView should include the discard confirmation prompt")
 	}
 }
 
-func TestHandleUntrackStart_ViewportIncludesNotification(t *testing.T) {
+func TestHandleUntrackStart_ConfirmViewShowsPrompt(t *testing.T) {
 	entry := makeEntry("tracked.go")
 	m := Model{
 		sections: []Section{
@@ -2546,6 +2593,7 @@ func TestHandleUntrackStart_ViewportIncludesNotification(t *testing.T) {
 		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
 		keys:   DefaultKeyMap(),
 		cfg:    &config.Config{UI: config.UIConfig{DisableHint: true}},
+		tokens: theme.Compile(theme.Fallback().Raw()),
 	}
 	m.viewport.Width = 80
 	m.viewport.Height = 24
@@ -2553,8 +2601,8 @@ func TestHandleUntrackStart_ViewportIncludesNotification(t *testing.T) {
 	result, _ := handleUntrackStart(m)
 	rm := result.(Model)
 
-	vpContent := rm.viewport.View()
-	if !strings.Contains(vpContent, "Untrack") {
-		t.Error("viewport content should include the untrack confirmation prompt")
+	v := rm.ConfirmView(60)
+	if !strings.Contains(v, "Untrack") {
+		t.Error("ConfirmView should include the untrack confirmation prompt")
 	}
 }

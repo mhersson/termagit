@@ -66,6 +66,11 @@ func (t *everforestDark) Raw() RawTokens {
 		NotificationWarn:    "#e69875", // orange
 		NotificationError:   "#e67e80",
 
+		// Confirmation dialog
+		ConfirmBorder: "#e69875", // orange — warm "action required" color
+		ConfirmText:   "#d3c6aa", // normal fg
+		ConfirmKey:    "#dbbc7f", // yellow — highlighted keys
+
 		// Cursor and selection
 		Cursor:     "#d3c6aa", // text (for use elsewhere)
 		CursorBg:   "#374145", // bg_visual - subtle highlight

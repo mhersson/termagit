@@ -72,6 +72,22 @@ func TestApp_View_OverlaysNotifications(t *testing.T) {
 	assert.Contains(t, v, "Test notification")
 }
 
+func TestApp_View_OverlaysConfirmationCentered(t *testing.T) {
+	// Verify that CenterOverlay correctly composites a confirm dialog
+	// into the center of the view. The full wiring (status.ConfirmView →
+	// app.View → CenterOverlay) is verified by running the app.
+	tokens := testTokens()
+	dialog := notification.ConfirmDialog{Message: "Discard changes to dirty.go?"}
+	confirmView := dialog.View(tokens, 50)
+	assert.NotEmpty(t, confirmView)
+
+	// Build a simple base
+	base := "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\n"
+	result := notification.CenterOverlay(base, confirmView, 80, 8)
+	assert.Contains(t, result, "dirty.go")
+	assert.Contains(t, result, "Discard")
+}
+
 func TestApp_WindowSizeMsg_PropagatedToCmdHistory(t *testing.T) {
 	ch := cmdhistory.New(nil, testTokens(), 80, 24)
 	m := Model{

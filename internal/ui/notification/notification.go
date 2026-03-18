@@ -262,6 +262,85 @@ func Overlay(base, overlay string, width int) string {
 	return strings.Join(baseLines, "\n")
 }
 
+// CenterOverlay composites an overlay block onto the center of the base screen.
+func CenterOverlay(base, overlay string, width, height int) string {
+	if overlay == "" {
+		return base
+	}
+
+	baseLines := strings.Split(base, "\n")
+	overlayLines := strings.Split(overlay, "\n")
+
+	// Vertical centering
+	startRow := (height - len(overlayLines)) / 2
+	if startRow < 0 {
+		startRow = 0
+	}
+
+	for i, ol := range overlayLines {
+		row := startRow + i
+		if row >= len(baseLines) {
+			break
+		}
+
+		olPlain := stripAnsi(ol)
+		olLen := len([]rune(olPlain))
+
+		// Horizontal centering
+		startCol := (width - olLen) / 2
+		if startCol < 0 {
+			startCol = 0
+		}
+
+		basePlain := stripAnsi(baseLines[row])
+		baseLen := len([]rune(basePlain))
+
+		if baseLen < startCol {
+			padding := strings.Repeat(" ", startCol-baseLen)
+			baseLines[row] = baseLines[row] + padding + ol
+		} else {
+			runes := []rune(basePlain)
+			left := string(runes[:startCol])
+			endCol := startCol + olLen
+			var right string
+			if endCol < baseLen {
+				right = string(runes[endCol:])
+			}
+			baseLines[row] = left + ol + right
+		}
+	}
+
+	return strings.Join(baseLines, "\n")
+}
+
+// ConfirmDialog represents a confirmation prompt shown as a centered overlay.
+type ConfirmDialog struct {
+	Message string
+}
+
+// View renders the confirmation dialog as a bordered box with icon and key hints.
+func (d ConfirmDialog) View(tokens theme.Tokens, maxWidth int) string {
+	icon := "⚠"
+	content := tokens.ConfirmText.Render(icon+" "+d.Message) +
+		"  " +
+		tokens.ConfirmKey.Render("y") +
+		tokens.ConfirmText.Render("/") +
+		tokens.ConfirmKey.Render("N")
+
+	box := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(tokens.ConfirmBorder.GetForeground()).
+		Padding(0, 1)
+
+	innerMax := maxWidth - 4
+	if innerMax > 0 {
+		box = box.MaxWidth(maxWidth)
+		_ = innerMax
+	}
+
+	return box.Render(content)
+}
+
 // stripAnsi removes ANSI escape sequences for length calculation.
 func stripAnsi(s string) string {
 	var out strings.Builder

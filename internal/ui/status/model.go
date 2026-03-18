@@ -8,6 +8,7 @@ import (
 	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/conjit/internal/ui/notification"
 	"github.com/mhersson/conjit/internal/ui/popup"
 )
 
@@ -250,4 +251,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View renders the model - implementation in view.go.
 func (m Model) View() string {
 	return view(m)
+}
+
+// ConfirmView returns the rendered confirmation dialog if a confirmation is
+// pending, or an empty string if no confirmation is active.
+func (m Model) ConfirmView(maxWidth int) string {
+	var msg string
+	switch m.confirmMode {
+	case ConfirmNone:
+		return ""
+	case ConfirmDiscard:
+		msg = "Discard changes to " + m.confirmPath + "?"
+	case ConfirmDiscardHunk:
+		msg = "Discard hunk in " + m.confirmPath + "?"
+	case ConfirmUntrack:
+		msg = "Untrack " + m.confirmPath + "?"
+	default:
+		return ""
+	}
+
+	d := notification.ConfirmDialog{Message: msg}
+	return d.View(m.tokens, maxWidth)
 }

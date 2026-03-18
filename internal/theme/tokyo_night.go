@@ -66,6 +66,11 @@ func (t *tokyoNight) Raw() RawTokens {
 		NotificationWarn:    "#ff9e64", // orange
 		NotificationError:   "#f7768e",
 
+		// Confirmation dialog
+		ConfirmBorder: "#ff9e64", // orange — warm "action required" color
+		ConfirmText:   "#a9b1d6", // normal fg
+		ConfirmKey:    "#e0af68", // yellow — highlighted keys
+
 		// Cursor and selection
 		Cursor:     "#c0caf5", // text (for use elsewhere)
 		CursorBg:   "#292e42", // bg_highlight - subtle highlight

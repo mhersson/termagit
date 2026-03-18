@@ -63,6 +63,11 @@ type RawTokens struct {
 	NotificationWarn    string `toml:"notification_warn"`
 	NotificationError   string `toml:"notification_error"`
 
+	// Confirmation dialog
+	ConfirmBorder string `toml:"confirm_border"`
+	ConfirmText   string `toml:"confirm_text"`
+	ConfirmKey    string `toml:"confirm_key"`
+
 	// Cursor and selection
 	Cursor     string `toml:"cursor"`
 	CursorBg   string `toml:"cursor_bg"`
@@ -149,6 +154,11 @@ type Tokens struct {
 	NotificationWarn    lipgloss.Style
 	NotificationError   lipgloss.Style
 
+	// Confirmation dialog styles
+	ConfirmBorder lipgloss.Style
+	ConfirmText   lipgloss.Style
+	ConfirmKey    lipgloss.Style
+
 	// Cursor and selection styles
 	Cursor      lipgloss.Style
 	CursorBlock lipgloss.Style // Reverse video for block cursor character
@@ -233,6 +243,10 @@ func Compile(r RawTokens) Tokens {
 		NotificationSuccess: lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationSuccess)),
 		NotificationWarn:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationWarn)),
 		NotificationError:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationError)).Bold(true),
+
+		ConfirmBorder: lipgloss.NewStyle().Foreground(lipgloss.Color(r.ConfirmBorder)),
+		ConfirmText:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.ConfirmText)),
+		ConfirmKey:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.ConfirmKey)).Bold(true),
 
 		Cursor:      lipgloss.NewStyle().Background(lipgloss.Color(r.CursorBg)),
 		CursorBlock: lipgloss.NewStyle().Reverse(true),

@@ -230,5 +230,13 @@ func (m Model) View() string {
 		base = notification.Overlay(base, notifView, m.width)
 	}
 
+	// Overlay confirmation dialog (centered)
+	if m.active == ScreenStatus {
+		confirmView := m.status.ConfirmView(50)
+		if confirmView != "" {
+			base = notification.CenterOverlay(base, confirmView, m.width, m.height)
+		}
+	}
+
 	return base
 }

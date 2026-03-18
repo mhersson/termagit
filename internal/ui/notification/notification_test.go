@@ -17,6 +17,9 @@ func testTokens() theme.Tokens {
 		NotificationSuccess: "#9ece6a",
 		NotificationWarn:    "#ff9e64",
 		NotificationError:   "#f7768e",
+		ConfirmBorder:       "#ff9e64",
+		ConfirmText:         "#a9b1d6",
+		ConfirmKey:          "#e0af68",
 	})
 }
 
@@ -152,6 +155,85 @@ func TestNotification_Kind_String(t *testing.T) {
 	assert.Equal(t, "success", Success.String())
 	assert.Equal(t, "warning", Warning.String())
 	assert.Equal(t, "error", Error.String())
+}
+
+// --- ConfirmDialog tests ---
+
+func TestConfirmDialog_View_ContainsMessage(t *testing.T) {
+	tokens := testTokens()
+	d := ConfirmDialog{Message: "Discard changes to main.go?"}
+	v := d.View(tokens, 60)
+	assert.Contains(t, v, "Discard changes to main.go?")
+}
+
+func TestConfirmDialog_View_ContainsKeys(t *testing.T) {
+	tokens := testTokens()
+	d := ConfirmDialog{Message: "Discard?"}
+	v := d.View(tokens, 60)
+	assert.Contains(t, v, "y")
+	assert.Contains(t, v, "N")
+}
+
+func TestConfirmDialog_View_HasBorder(t *testing.T) {
+	tokens := testTokens()
+	d := ConfirmDialog{Message: "Discard?"}
+	v := d.View(tokens, 60)
+	// Rounded border uses "╭" at top-left
+	assert.Contains(t, v, "╭")
+}
+
+func TestConfirmDialog_View_HasIcon(t *testing.T) {
+	tokens := testTokens()
+	d := ConfirmDialog{Message: "Discard?"}
+	v := d.View(tokens, 60)
+	assert.Contains(t, v, "⚠")
+}
+
+// --- CenterOverlay tests ---
+
+func TestCenterOverlay_PlacesCentered(t *testing.T) {
+	// 10 lines x 40 cols base
+	var lines []string
+	for i := 0; i < 10; i++ {
+		lines = append(lines, strings.Repeat(".", 40))
+	}
+	base := strings.Join(lines, "\n")
+	overlay := "Hello"
+
+	result := CenterOverlay(base, overlay, 40, 10)
+	resultLines := strings.Split(result, "\n")
+
+	// Overlay should be at vertical middle (line 4 or 5 for 10 lines)
+	found := false
+	for i, l := range resultLines {
+		if strings.Contains(l, "Hello") {
+			// Should be roughly centered vertically
+			assert.True(t, i >= 3 && i <= 6, "expected overlay near vertical center, got line %d", i)
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "overlay text not found in result")
+}
+
+func TestCenterOverlay_EmptyOverlay_ReturnsBase(t *testing.T) {
+	base := "hello\nworld\n"
+	result := CenterOverlay(base, "", 40, 5)
+	assert.Equal(t, base, result)
+}
+
+func TestCenterOverlay_MultilineOverlay(t *testing.T) {
+	var lines []string
+	for i := 0; i < 10; i++ {
+		lines = append(lines, strings.Repeat(".", 40))
+	}
+	base := strings.Join(lines, "\n")
+	overlay := "line1\nline2\nline3"
+
+	result := CenterOverlay(base, overlay, 40, 10)
+	assert.Contains(t, result, "line1")
+	assert.Contains(t, result, "line2")
+	assert.Contains(t, result, "line3")
 }
 
 func TestNotification_borderColor(t *testing.T) {

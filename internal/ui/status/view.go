@@ -534,12 +534,6 @@ func renderContent(m Model) (content string, cursorLine int) {
 		lineNum += strings.Count(sectionContent, "\n")
 	}
 
-	// Render notification if present
-	if m.notification != "" {
-		b.WriteString("\n")
-		b.WriteString(m.notification)
-	}
-
 	return b.String(), cursorLine
 }
 

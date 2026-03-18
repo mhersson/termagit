@@ -431,14 +431,12 @@ func handleConfirmKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.confirmMode = ConfirmNone
 		m.confirmPath = ""
 		m.confirmHunk = -1
-		m.notification = ""
 		return m, nil
 	default:
 		// Any other key cancels
 		m.confirmMode = ConfirmNone
 		m.confirmPath = ""
 		m.confirmHunk = -1
-		m.notification = ""
 		return m, nil
 	}
 }
@@ -453,7 +451,6 @@ func executeConfirmedAction(m Model) (tea.Model, tea.Cmd) {
 		path := m.confirmPath
 		m.confirmMode = ConfirmNone
 		m.confirmPath = ""
-		m.notification = ""
 		return m, discardFileCmd(m.repo, path)
 
 	case ConfirmDiscardHunk:
@@ -462,7 +459,6 @@ func executeConfirmedAction(m Model) (tea.Model, tea.Cmd) {
 		m.confirmMode = ConfirmNone
 		m.confirmPath = ""
 		m.confirmHunk = -1
-		m.notification = ""
 		// Look up the hunk from the current item
 		if hunk := findHunkByPathAndIndex(m, path, hunkIdx); hunk != nil {
 			return m, discardHunkCmd(m.repo, path, *hunk)
@@ -473,7 +469,6 @@ func executeConfirmedAction(m Model) (tea.Model, tea.Cmd) {
 		path := m.confirmPath
 		m.confirmMode = ConfirmNone
 		m.confirmPath = ""
-		m.notification = ""
 		return m, untrackFileCmd(m.repo, path)
 	}
 
@@ -563,11 +558,9 @@ func handleDiscardStart(m Model) (tea.Model, tea.Cmd) {
 		m.confirmMode = ConfirmDiscardHunk
 		m.confirmPath = path
 		m.confirmHunk = m.cursor.Hunk
-		m.notification = "Discard hunk in " + path + "? (y/N)"
 	} else {
 		m.confirmMode = ConfirmDiscard
 		m.confirmPath = path
-		m.notification = "Discard changes to " + path + "? (y/N)"
 	}
 
 	// Refresh viewport so confirmation prompt is visible
@@ -595,7 +588,6 @@ func handleUntrackStart(m Model) (tea.Model, tea.Cmd) {
 	path := item.Entry.Path()
 	m.confirmMode = ConfirmUntrack
 	m.confirmPath = path
-	m.notification = "Untrack " + path + "? (y/N)"
 
 	// Refresh viewport so confirmation prompt is visible
 	if m.viewport.Width > 0 {
