@@ -127,6 +127,105 @@ merge -C def5678 feature
 	require.Greater(t, len(state.Entries), 0)
 }
 
+func TestFormatTodoEntries_PickLine(t *testing.T) {
+	entries := []TodoEntry{
+		{Action: TodoPick, AbbrevHash: "abc1234", Subject: "add feature X"},
+	}
+	got := FormatTodoEntries(entries)
+	assert.Equal(t, "pick abc1234 add feature X\n", got)
+}
+
+func TestFormatTodoEntries_MultipleActions(t *testing.T) {
+	entries := []TodoEntry{
+		{Action: TodoPick, AbbrevHash: "abc1234", Subject: "first commit"},
+		{Action: TodoSquash, AbbrevHash: "def5678", Subject: "fix typo"},
+		{Action: TodoReword, AbbrevHash: "ghi9012", Subject: "update README"},
+	}
+	got := FormatTodoEntries(entries)
+	expected := "pick abc1234 first commit\nsquash def5678 fix typo\nreword ghi9012 update README\n"
+	assert.Equal(t, expected, got)
+}
+
+func TestFormatTodoEntries_DropLine_CommentPrefix(t *testing.T) {
+	entries := []TodoEntry{
+		{Action: TodoDrop, AbbrevHash: "jkl3456", Subject: "wip: remove me"},
+	}
+	got := FormatTodoEntries(entries)
+	assert.Equal(t, "# drop jkl3456 wip: remove me\n", got)
+}
+
+func TestFormatTodoEntries_ExecLine_NoHash(t *testing.T) {
+	entries := []TodoEntry{
+		{Action: TodoExec, Subject: "make test"},
+	}
+	got := FormatTodoEntries(entries)
+	assert.Equal(t, "exec make test\n", got)
+}
+
+func TestFormatTodoEntries_BreakLine(t *testing.T) {
+	entries := []TodoEntry{
+		{Action: TodoBreak},
+	}
+	got := FormatTodoEntries(entries)
+	assert.Equal(t, "break\n", got)
+}
+
+func TestFormatTodoEntries_MixedEntries(t *testing.T) {
+	entries := []TodoEntry{
+		{Action: TodoPick, AbbrevHash: "abc1234", Subject: "add feature X"},
+		{Action: TodoExec, Subject: "make test"},
+		{Action: TodoBreak},
+		{Action: TodoDrop, AbbrevHash: "jkl3456", Subject: "wip: remove me"},
+		{Action: TodoFixup, AbbrevHash: "mno7890", Subject: "fix whitespace"},
+	}
+	got := FormatTodoEntries(entries)
+	expected := strings.Join([]string{
+		"pick abc1234 add feature X",
+		"exec make test",
+		"break",
+		"# drop jkl3456 wip: remove me",
+		"fixup mno7890 fix whitespace",
+		"",
+	}, "\n")
+	assert.Equal(t, expected, got)
+}
+
+func TestWriteRebaseTodo_WritesFile(t *testing.T) {
+	r := newTempRepo(t)
+
+	// Create rebase-merge directory (simulate in-progress rebase)
+	rebaseDir := filepath.Join(r.gitDir, "rebase-merge")
+	require.NoError(t, os.MkdirAll(rebaseDir, 0o755))
+
+	// Write an initial todo file
+	require.NoError(t, os.WriteFile(filepath.Join(rebaseDir, "git-rebase-todo"), []byte(""), 0o644))
+
+	entries := []TodoEntry{
+		{Action: TodoPick, AbbrevHash: "abc1234", Subject: "first commit"},
+		{Action: TodoSquash, AbbrevHash: "def5678", Subject: "second commit"},
+	}
+
+	err := r.WriteRebaseTodo(entries)
+	require.NoError(t, err)
+
+	// Verify file contents
+	data, err := os.ReadFile(filepath.Join(rebaseDir, "git-rebase-todo"))
+	require.NoError(t, err)
+	expected := "pick abc1234 first commit\nsquash def5678 second commit\n"
+	assert.Equal(t, expected, string(data))
+}
+
+func TestWriteRebaseTodo_NoRebase_ReturnsError(t *testing.T) {
+	r := newTempRepo(t)
+
+	entries := []TodoEntry{
+		{Action: TodoPick, AbbrevHash: "abc1234", Subject: "first commit"},
+	}
+
+	err := r.WriteRebaseTodo(entries)
+	require.Error(t, err)
+}
+
 func TestRebaseAutosquash_SquashesFixupIntoTarget(t *testing.T) {
 	skipInShort(t)
 	r := newTempRepo(t)

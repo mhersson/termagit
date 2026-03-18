@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -241,6 +242,105 @@ func markStopped(state *RebaseState, stoppedSha string) {
 			return
 		}
 	}
+}
+
+// FormatTodoEntries serializes rebase todo entries back to git-rebase-todo format.
+// Dropped entries are prefixed with "# ", exec/break lines omit the hash.
+func FormatTodoEntries(entries []TodoEntry) string {
+	var b strings.Builder
+	for _, e := range entries {
+		switch e.Action {
+		case TodoBreak:
+			b.WriteString("break\n")
+		case TodoExec:
+			b.WriteString("exec " + e.Subject + "\n")
+		case TodoLabel, TodoReset:
+			b.WriteString(string(e.Action) + " " + e.Subject + "\n")
+		case TodoDrop:
+			b.WriteString("# drop " + e.AbbrevHash + " " + e.Subject + "\n")
+		default:
+			b.WriteString(string(e.Action) + " " + e.AbbrevHash + " " + e.Subject + "\n")
+		}
+	}
+	return b.String()
+}
+
+// WriteRebaseTodo writes the given entries to .git/rebase-merge/git-rebase-todo.
+// Returns an error if no interactive rebase is in progress.
+func (r *Repository) WriteRebaseTodo(entries []TodoEntry) error {
+	rebaseMergeDir := filepath.Join(r.gitDir, "rebase-merge")
+	if _, err := os.Stat(rebaseMergeDir); err != nil {
+		return fmt.Errorf("write rebase todo: %w", ErrNoRebaseInProgress)
+	}
+
+	todoPath := filepath.Join(rebaseMergeDir, "git-rebase-todo")
+	content := FormatTodoEntries(entries)
+	if err := os.WriteFile(todoPath, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("write rebase todo: %w", err)
+	}
+	return nil
+}
+
+// GenerateRebaseTodo generates rebase todo entries for commits in the range (base..HEAD].
+// The entries are returned in execution order (oldest first), matching git rebase -i.
+func (r *Repository) GenerateRebaseTodo(ctx context.Context, base string) ([]TodoEntry, error) {
+	// Use git log to get commits from base (exclusive) to HEAD, oldest first
+	out, err := r.runGit(ctx, "log", "--reverse", "--format=%h %s", base+"..HEAD")
+	if err != nil {
+		return nil, fmt.Errorf("generate rebase todo: %w", err)
+	}
+
+	var entries []TodoEntry
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, " ", 2)
+		entry := TodoEntry{
+			Action:     TodoPick,
+			AbbrevHash: parts[0],
+		}
+		if len(parts) > 1 {
+			entry.Subject = parts[1]
+		}
+		entries = append(entries, entry)
+	}
+
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("generate rebase todo: no commits in range %s..HEAD", base)
+	}
+
+	return entries, nil
+}
+
+// RebaseWithTodo runs an interactive rebase using a pre-prepared todo file.
+// It writes the entries to a temp file, then runs git rebase -i with a
+// GIT_SEQUENCE_EDITOR that copies the prepared todo over git's generated one.
+func (r *Repository) RebaseWithTodo(ctx context.Context, base string, entries []TodoEntry, opts RebaseOpts) error {
+	// Write entries to a temp file
+	content := FormatTodoEntries(entries)
+	tmpFile, err := os.CreateTemp("", "conjit-rebase-todo-*")
+	if err != nil {
+		return fmt.Errorf("rebase with todo: create temp: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer func() { _ = os.Remove(tmpPath) }()
+
+	if _, err := tmpFile.WriteString(content); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("rebase with todo: write temp: %w", err)
+	}
+	_ = tmpFile.Close()
+
+	// Build the sequence editor command that copies our prepared todo over git's
+	seqEditor := fmt.Sprintf("cp %s", tmpPath)
+
+	args := append([]string{"rebase"}, rebaseArgs(opts)...)
+	args = append(args, "-i", base)
+
+	env := []string{"GIT_SEQUENCE_EDITOR=" + seqEditor}
+	_, err = r.runGitWithEnv(ctx, env, args...)
+	return err
 }
 
 // RebaseCurrentStep returns the current step number in the rebase (1-indexed).

@@ -11,6 +11,8 @@ import (
 	"github.com/mhersson/conjit/internal/ui/commit"
 	"github.com/mhersson/conjit/internal/ui/commitselect"
 	"github.com/mhersson/conjit/internal/ui/notification"
+	"github.com/mhersson/conjit/internal/ui/popup"
+	"github.com/mhersson/conjit/internal/ui/rebaseeditor"
 	"github.com/mhersson/conjit/internal/ui/status"
 )
 
@@ -48,6 +50,7 @@ type Model struct {
 	status       status.Model
 	commitEditor commit.Model
 	commitSelect commitselect.Model
+	rebaseEditor rebaseeditor.Model
 	cmdHistory   *cmdhistory.Model
 
 	notifications notification.Stack
@@ -96,6 +99,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			newSelect, cmd := m.commitSelect.Update(msg)
 			m.commitSelect = newSelect.(commitselect.Model)
+			return m, cmd
+		case ScreenRebaseEditor:
+			var cmd tea.Cmd
+			newEditor, cmd := m.rebaseEditor.Update(msg)
+			m.rebaseEditor = newEditor.(rebaseeditor.Model)
 			return m, cmd
 		case ScreenCmdHistory:
 			if m.cmdHistory != nil {
@@ -167,6 +175,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newStatus, cmd := m.status.Update(msg)
 		m.status = newStatus.(status.Model)
 		return m, cmd
+
+	case popup.OpenRebaseEditorMsg:
+		// Open rebase editor for an in-progress rebase (editing existing todo)
+		m.active = ScreenRebaseEditor
+		m.rebaseEditor = rebaseeditor.New(m.repo, m.tokens)
+		m.rebaseEditor.SetSize(m.width, m.height)
+		return m, m.rebaseEditor.Init()
+
+	case rebaseeditor.OpenRebaseEditorMsg:
+		// Open rebase editor with pre-generated entries (new interactive rebase)
+		m.active = ScreenRebaseEditor
+		m.rebaseEditor = rebaseeditor.NewWithEntries(m.repo, m.tokens, msg.Entries, msg.Base, msg.RebaseOpts)
+		m.rebaseEditor.SetSize(m.width, m.height)
+		return m, nil
+
+	case rebaseeditor.RebaseEditorDoneMsg:
+		m.active = ScreenStatus
+		cmds := []tea.Cmd{m.status.Init()}
+		if msg.Err != nil {
+			n := notification.New("Rebase failed: "+msg.Err.Error(), notification.Error, notification.DefaultDuration(notification.Error))
+			m.notifications.Add(n)
+			cmds = append(cmds, n.ExpireCmd())
+		}
+		return m, tea.Batch(cmds...)
+
+	case rebaseeditor.RebaseEditorAbortMsg:
+		m.active = ScreenStatus
+		return m, m.status.Init()
 	}
 
 	// Delegate to active screen
@@ -182,6 +218,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ScreenCommitSelect:
 		newSelect, cmd := m.commitSelect.Update(msg)
 		m.commitSelect = newSelect.(commitselect.Model)
+		return m, cmd
+	case ScreenRebaseEditor:
+		newEditor, cmd := m.rebaseEditor.Update(msg)
+		m.rebaseEditor = newEditor.(rebaseeditor.Model)
 		return m, cmd
 	case ScreenCmdHistory:
 		if m.cmdHistory != nil {
@@ -220,6 +260,8 @@ func (m Model) View() string {
 		} else {
 			base = "Command history not available"
 		}
+	case ScreenRebaseEditor:
+		base = m.rebaseEditor.View()
 	default:
 		base = "Unknown screen"
 	}

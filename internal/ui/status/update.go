@@ -1351,6 +1351,8 @@ func handlePopupAction(m Model, kind PopupKind, result popup.Result) (tea.Model,
 	switch kind {
 	case PopupCommit:
 		return handleCommitPopupAction(m, result)
+	case PopupRebase:
+		return handleRebasePopupAction(m, result)
 	case PopupPush:
 		return handlePushPopupAction(m, result)
 	case PopupPull:
@@ -1441,6 +1443,108 @@ func handleOpenCommitPopup(m Model) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleRebasePopupAction handles actions from the rebase popup.
+func handleRebasePopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	inRebase := isInRebase(m.sections)
+
+	if inRebase {
+		return handleRebaseInProgressAction(m, result)
+	}
+
+	opts := buildRebaseOpts(result)
+
+	switch result.Action {
+	// Rebase onto group
+	case "p": // pushRemote
+		remote := m.head.PushRemote
+		if remote == "" {
+			remote = m.head.UpstreamRemote
+		}
+		if remote == "" {
+			return m, notifyAppCmd("No push remote configured", notification.Warning)
+		}
+		target := remote + "/" + m.head.Branch
+		opts.Onto = target
+		return m, rebaseCmd(m.repo, opts)
+	case "u": // @{upstream}
+		remote := m.head.UpstreamRemote
+		if remote == "" {
+			return m, notifyAppCmd("No upstream configured", notification.Warning)
+		}
+		target := remote + "/" + m.head.UpstreamBranch
+		opts.Onto = target
+		return m, rebaseCmd(m.repo, opts)
+	case "e": // elsewhere — needs branch input, not yet implemented
+		return m, notifyAppCmd("Rebase elsewhere not yet implemented", notification.Warning)
+	case "b": // base branch — needs branch input, not yet implemented
+		return m, notifyAppCmd("Rebase onto base branch not yet implemented", notification.Warning)
+
+	// Rebase group
+	case "i": // interactively — needs commit selection
+		return openRebaseCommitSelect(m, opts, rebaseSpecialInteractive)
+	case "s": // a subset — needs commit selection
+		return openRebaseCommitSelect(m, opts, rebaseSpecialSubset)
+
+	// Modify commits group
+	case "m": // to modify a commit — needs commit selection
+		return openRebaseCommitSelect(m, opts, rebaseSpecialModify)
+	case "w": // to reword a commit — needs commit selection
+		return openRebaseCommitSelect(m, opts, rebaseSpecialReword)
+	case "d": // to remove a commit — needs commit selection
+		return openRebaseCommitSelect(m, opts, rebaseSpecialDrop)
+	case "f": // to autosquash
+		target := m.head.UpstreamRemote + "/" + m.head.UpstreamBranch
+		if m.head.UpstreamRemote == "" {
+			return m, notifyAppCmd("No upstream configured for autosquash", notification.Warning)
+		}
+		return m, autosquashCmd(m.repo, opts, target)
+
+	default:
+		return m, notifyAppCmd("Unknown rebase action: "+result.Action, notification.Warning)
+	}
+}
+
+// handleRebaseInProgressAction handles rebase actions when a rebase is already in progress.
+func handleRebaseInProgressAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	switch result.Action {
+	case "r": // Continue
+		return m, rebaseContinueCmd(m.repo)
+	case "s": // Skip
+		return m, rebaseSkipCmd(m.repo)
+	case "e": // Edit todo
+		return m, func() tea.Msg {
+			return popup.OpenRebaseEditorMsg{}
+		}
+	case "a": // Abort
+		return m, rebaseAbortCmd(m.repo)
+	default:
+		return m, notifyAppCmd("Unknown rebase action: "+result.Action, notification.Warning)
+	}
+}
+
+// buildRebaseOpts builds RebaseOpts from popup result switches and options.
+func buildRebaseOpts(result popup.Result) git.RebaseOpts {
+	return git.RebaseOpts{
+		Interactive:               result.Switches["interactive"],
+		Autosquash:                result.Switches["autosquash"],
+		Autostash:                 result.Switches["autostash"],
+		KeepEmpty:                 result.Switches["keep-empty"],
+		UpdateRefs:                result.Switches["update-refs"],
+		NoVerify:                  result.Switches["no-verify"],
+		CommitterDateIsAuthorDate: result.Switches["committer-date-is-author-date"],
+		IgnoreDate:                result.Switches["ignore-date"],
+		RebaseMerges:              result.Options["rebase-merges"],
+		GpgSign:                   result.Options["gpg-sign"],
+	}
+}
+
+// openRebaseCommitSelect opens the commit select view for rebase actions that need a target commit.
+func openRebaseCommitSelect(m Model, opts git.RebaseOpts, kind rebaseSpecialKind) (tea.Model, tea.Cmd) {
+	m.rebaseSpecialOpts = opts
+	m.rebaseSpecialKind = kind
+	return m, loadCommitsForSelectCmd(m.repo)
+}
+
 // openCommitSelect initiates the commit select flow for special commit actions.
 // It fetches recent commits; once loaded, the app switches to the commit select screen.
 func openCommitSelect(m Model, opts git.CommitOpts, kind commitSpecialKind) (tea.Model, tea.Cmd) {
@@ -1451,6 +1555,11 @@ func openCommitSelect(m Model, opts git.CommitOpts, kind commitSpecialKind) (tea
 
 // handleCommitSelected handles the user selecting a commit in the commit select view.
 func handleCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.Model, tea.Cmd) {
+	// Check if this is a rebase commit selection
+	if m.rebaseSpecialKind != rebaseSpecialNone {
+		return handleRebaseCommitSelected(m, msg)
+	}
+
 	opts := m.commitSpecialOpts
 	kind := m.commitSpecialKind
 
@@ -1484,6 +1593,34 @@ func handleCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.Model, tea
 		opts.Squash = msg.Hash
 		opts.NoEdit = true
 		return m, commitAndAutosquashCmd(m.repo, opts, msg.FullHash)
+	default:
+		return m, nil
+	}
+}
+
+// handleRebaseCommitSelected handles the user selecting a commit for a rebase action.
+func handleRebaseCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.Model, tea.Cmd) {
+	opts := m.rebaseSpecialOpts
+	kind := m.rebaseSpecialKind
+
+	// Clear rebase select state
+	m.rebaseSpecialKind = rebaseSpecialNone
+	m.rebaseSpecialOpts = git.RebaseOpts{}
+
+	switch kind {
+	case rebaseSpecialInteractive:
+		opts.Interactive = true
+		opts.Onto = msg.FullHash
+		return m, interactiveRebaseCmd(m.repo, opts)
+	case rebaseSpecialSubset:
+		opts.Onto = msg.FullHash
+		return m, rebaseCmd(m.repo, opts)
+	case rebaseSpecialModify:
+		return m, modifyCommitCmd(m.repo, msg.FullHash)
+	case rebaseSpecialReword:
+		return m, rewordCommitCmd(m.repo, msg.FullHash)
+	case rebaseSpecialDrop:
+		return m, dropCommitCmd(m.repo, msg.FullHash)
 	default:
 		return m, nil
 	}

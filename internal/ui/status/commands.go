@@ -14,6 +14,7 @@ import (
 	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/ui/notification"
+	"github.com/mhersson/conjit/internal/ui/rebaseeditor"
 )
 
 // loadStatusCmd loads the HEAD state and all 12 sections.
@@ -761,5 +762,117 @@ func commitAndAutosquashCmd(repo *git.Repository, opts git.CommitOpts, targetFul
 			return operationDoneMsg{err: fmt.Errorf("autosquash rebase: %w", err)}
 		}
 		return operationDoneMsg{}
+	}
+}
+
+// rebaseCmd returns a command that runs a non-interactive rebase.
+func rebaseCmd(repo *git.Repository, opts git.RebaseOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Rebase"}
+		}
+		err := repo.Rebase(context.Background(), opts)
+		return operationDoneMsg{err: err, op: "Rebase"}
+	}
+}
+
+// interactiveRebaseCmd generates the todo entries and opens the rebase editor.
+// opts.Onto is the commit the user selected — we use its parent as the rebase
+// base so the selected commit itself appears as the first entry in the editor.
+func interactiveRebaseCmd(repo *git.Repository, opts git.RebaseOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Rebase"}
+		}
+		ctx := context.Background()
+		// Use parent of selected commit so it's included in the todo
+		base := opts.Onto + "~1"
+		entries, err := repo.GenerateRebaseTodo(ctx, base)
+		if err != nil {
+			return operationDoneMsg{err: err, op: "Rebase"}
+		}
+		return rebaseeditor.OpenRebaseEditorMsg{
+			Entries:    entries,
+			Base:       base,
+			RebaseOpts: opts,
+		}
+	}
+}
+
+// rebaseContinueCmd returns a command that continues an in-progress rebase.
+func rebaseContinueCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Rebase continue"}
+		}
+		err := repo.RebaseContinue(context.Background())
+		return operationDoneMsg{err: err, op: "Rebase continue"}
+	}
+}
+
+// rebaseSkipCmd returns a command that skips the current commit in a rebase.
+func rebaseSkipCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Rebase skip"}
+		}
+		err := repo.RebaseSkip(context.Background())
+		return operationDoneMsg{err: err, op: "Rebase skip"}
+	}
+}
+
+// rebaseAbortCmd returns a command that aborts an in-progress rebase.
+func rebaseAbortCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Rebase abort"}
+		}
+		err := repo.RebaseAbort(context.Background())
+		return operationDoneMsg{err: err, op: "Rebase abort"}
+	}
+}
+
+// modifyCommitCmd returns a command that modifies a commit (stop for editing).
+func modifyCommitCmd(repo *git.Repository, hash string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Modify commit"}
+		}
+		err := repo.ModifyCommit(context.Background(), hash)
+		return operationDoneMsg{err: err, op: "Modify commit"}
+	}
+}
+
+// rewordCommitCmd returns a command that rewords a commit message.
+func rewordCommitCmd(repo *git.Repository, hash string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Reword commit"}
+		}
+		err := repo.RewordCommit(context.Background(), hash, "")
+		return operationDoneMsg{err: err, op: "Reword commit"}
+	}
+}
+
+// dropCommitCmd returns a command that drops a commit from history.
+func dropCommitCmd(repo *git.Repository, hash string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Drop commit"}
+		}
+		err := repo.DropCommit(context.Background(), hash)
+		return operationDoneMsg{err: err, op: "Drop commit"}
+	}
+}
+
+// autosquashCmd returns a command that runs autosquash rebase.
+func autosquashCmd(repo *git.Repository, opts git.RebaseOpts, target string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Autosquash"}
+		}
+		opts.Onto = target
+		err := repo.Autosquash(context.Background(), opts)
+		return operationDoneMsg{err: err, op: "Autosquash"}
 	}
 }

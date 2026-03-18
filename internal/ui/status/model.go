@@ -148,6 +148,18 @@ const (
 	commitSpecialInstantSquash                  // S: --squash=<sha> + autosquash
 )
 
+// rebaseSpecialKind identifies which rebase action is pending commit selection.
+type rebaseSpecialKind int
+
+const (
+	rebaseSpecialNone        rebaseSpecialKind = iota
+	rebaseSpecialInteractive                   // i: interactive rebase from selected commit
+	rebaseSpecialSubset                        // s: rebase a subset
+	rebaseSpecialModify                        // m: modify a commit (edit)
+	rebaseSpecialReword                        // w: reword a commit
+	rebaseSpecialDrop                          // d: drop a commit
+)
+
 // cursorRestore holds info to restore cursor position after a status reload.
 type cursorRestore struct {
 	active      bool
@@ -214,6 +226,10 @@ type Model struct {
 	// Pending commit special action (waiting for commit select result)
 	commitSpecialOpts  git.CommitOpts    // popup switches captured before commit select
 	commitSpecialKind  commitSpecialKind // which special action initiated the select
+
+	// Pending rebase special action (waiting for commit select result)
+	rebaseSpecialKind rebaseSpecialKind // which rebase action initiated the select
+	rebaseSpecialOpts git.RebaseOpts    // popup switches captured before commit select
 
 	err error
 }
