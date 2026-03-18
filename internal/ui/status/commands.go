@@ -39,6 +39,18 @@ func loadStatusCmd(repo *git.Repository, cfg *config.Config) tea.Cmd {
 			Detached:  branch == "HEAD",
 		}
 
+		// Populate upstream tracking info
+		if uRemote, uBranch, uErr := repo.CurrentUpstream(ctx); uErr == nil && uRemote != "" {
+			head.UpstreamRemote = uRemote
+			head.UpstreamBranch = uBranch
+		}
+
+		// Populate push remote info
+		if pRemote, pBranch, pErr := repo.CurrentPushRemote(ctx); pErr == nil && pRemote != "" {
+			head.PushRemote = pRemote
+			head.PushBranch = pBranch
+		}
+
 		// Load git status
 		status, err := repo.Status(ctx)
 		if err != nil {
@@ -377,17 +389,23 @@ func buildBisectSection(cfg *config.Config, state git.BisectState) *Section {
 }
 
 // getUpstreamRef returns the upstream tracking ref for the current branch.
+// Returns "remote/branch" or "" if no upstream is configured.
 func getUpstreamRef(repo *git.Repository) string {
-	// This would need to query git config for branch.<name>.remote and branch.<name>.merge
-	// For now, return empty - will be populated properly in a follow-up
-	return ""
+	remote, branch, err := repo.CurrentUpstream(context.Background())
+	if err != nil || remote == "" || branch == "" {
+		return ""
+	}
+	return remote + "/" + branch
 }
 
 // getPushRemoteRef returns the push remote ref for the current branch.
+// Returns "remote/branch" or "" if no push remote is configured.
 func getPushRemoteRef(repo *git.Repository) string {
-	// This would need to query git config for branch.<name>.pushRemote
-	// For now, return empty - will be populated properly in a follow-up
-	return ""
+	remote, branch, err := repo.CurrentPushRemote(context.Background())
+	if err != nil || remote == "" || branch == "" {
+		return ""
+	}
+	return remote + "/" + branch
 }
 
 // itoa converts int to string without importing strconv.
