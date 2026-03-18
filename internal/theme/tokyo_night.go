@@ -61,9 +61,10 @@ func (t *tokyoNight) Raw() RawTokens {
 		PopupSection: "#bb9af7",
 
 		// Notification
-		NotificationInfo:  "#7aa2f7",
-		NotificationWarn:  "#ff9e64", // orange
-		NotificationError: "#f7768e",
+		NotificationInfo:    "#7aa2f7",
+		NotificationSuccess: "#9ece6a", // green
+		NotificationWarn:    "#ff9e64", // orange
+		NotificationError:   "#f7768e",
 
 		// Cursor and selection
 		Cursor:     "#c0caf5", // text (for use elsewhere)

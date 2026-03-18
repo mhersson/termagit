@@ -61,9 +61,10 @@ func (t *everforestDark) Raw() RawTokens {
 		PopupSection: "#d699b6",
 
 		// Notification
-		NotificationInfo:  "#7fbbb3",
-		NotificationWarn:  "#e69875", // orange
-		NotificationError: "#e67e80",
+		NotificationInfo:    "#7fbbb3",
+		NotificationSuccess: "#a7c080", // green
+		NotificationWarn:    "#e69875", // orange
+		NotificationError:   "#e67e80",
 
 		// Cursor and selection
 		Cursor:     "#d3c6aa", // text (for use elsewhere)

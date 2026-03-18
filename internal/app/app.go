@@ -7,8 +7,10 @@ import (
 	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/conjit/internal/ui/cmdhistory"
 	"github.com/mhersson/conjit/internal/ui/commit"
 	"github.com/mhersson/conjit/internal/ui/commitselect"
+	"github.com/mhersson/conjit/internal/ui/notification"
 	"github.com/mhersson/conjit/internal/ui/status"
 )
 
@@ -46,6 +48,9 @@ type Model struct {
 	status       status.Model
 	commitEditor commit.Model
 	commitSelect commitselect.Model
+	cmdHistory   *cmdhistory.Model
+
+	notifications notification.Stack
 
 	width  int
 	height int
@@ -92,12 +97,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			newSelect, cmd := m.commitSelect.Update(msg)
 			m.commitSelect = newSelect.(commitselect.Model)
 			return m, cmd
+		case ScreenCmdHistory:
+			if m.cmdHistory != nil {
+				m.cmdHistory.SetSize(msg.Width, msg.Height)
+			}
 		}
+		return m, nil
+
+	// Notification system
+	case notification.NotifyMsg:
+		dur := notification.DefaultDuration(msg.Kind)
+		n := notification.New(msg.Message, msg.Kind, dur)
+		m.notifications.Add(n)
+		return m, n.ExpireCmd()
+
+	case notification.ExpiredMsg:
+		m.notifications.RemoveByID(msg.ID)
 		return m, nil
 
 	case SwitchScreenMsg:
 		m.active = msg.Screen
 		// Additional screen initialization will be added in future phases
+		return m, nil
+
+	// Command history
+	case status.OpenCmdHistoryMsg:
+		return m.openCmdHistory()
+
+	case cmdhistory.CloseMsg:
+		m.active = ScreenStatus
 		return m, nil
 
 	case commit.OpenCommitEditorMsg:
@@ -107,14 +135,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.commitEditor.Init()
 
 	case commit.CommitEditorDoneMsg:
-		// Return to status, reload status after commit
 		m.active = ScreenStatus
-		if msg.Err == nil {
-			// Successfully committed, refresh status
-			return m, m.status.Init()
+		cmds := []tea.Cmd{m.status.Init()}
+		if msg.Err != nil {
+			n := notification.New("Commit failed: "+msg.Err.Error(), notification.Error, notification.DefaultDuration(notification.Error))
+			m.notifications.Add(n)
+			cmds = append(cmds, n.ExpireCmd())
 		}
-		// TODO: Show error notification
-		return m, m.status.Init()
+		return m, tea.Batch(cmds...)
 
 	case commit.CommitEditorAbortMsg:
 		// Return to status without any changes
@@ -155,21 +183,52 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newSelect, cmd := m.commitSelect.Update(msg)
 		m.commitSelect = newSelect.(commitselect.Model)
 		return m, cmd
+	case ScreenCmdHistory:
+		if m.cmdHistory != nil {
+			newCmdHistory, cmd := m.cmdHistory.Update(msg)
+			ch := newCmdHistory.(cmdhistory.Model)
+			m.cmdHistory = &ch
+			return m, cmd
+		}
 	}
 
 	return m, nil
 }
 
+// openCmdHistory switches to the command history screen.
+func (m Model) openCmdHistory() (Model, tea.Cmd) {
+	entries := m.logger.Entries()
+	ch := cmdhistory.New(entries, m.tokens, m.width, m.height)
+	m.cmdHistory = &ch
+	m.active = ScreenCmdHistory
+	return m, nil
+}
+
 // View renders the model.
 func (m Model) View() string {
+	var base string
 	switch m.active {
 	case ScreenStatus:
-		return m.status.View()
+		base = m.status.View()
 	case ScreenCommitEditor:
-		return m.commitEditor.View()
+		base = m.commitEditor.View()
 	case ScreenCommitSelect:
-		return m.commitSelect.View()
+		base = m.commitSelect.View()
+	case ScreenCmdHistory:
+		if m.cmdHistory != nil {
+			base = m.cmdHistory.View()
+		} else {
+			base = "Command history not available"
+		}
 	default:
-		return "Unknown screen"
+		base = "Unknown screen"
 	}
+
+	// Overlay notifications on top-right
+	notifView := m.notifications.View(m.tokens, 50)
+	if notifView != "" {
+		base = notification.Overlay(base, notifView, m.width)
+	}
+
+	return base
 }

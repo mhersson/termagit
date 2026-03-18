@@ -58,9 +58,10 @@ type RawTokens struct {
 	PopupSection string `toml:"popup_section"`
 
 	// Notification
-	NotificationInfo  string `toml:"notification_info"`
-	NotificationWarn  string `toml:"notification_warn"`
-	NotificationError string `toml:"notification_error"`
+	NotificationInfo    string `toml:"notification_info"`
+	NotificationSuccess string `toml:"notification_success"`
+	NotificationWarn    string `toml:"notification_warn"`
+	NotificationError   string `toml:"notification_error"`
 
 	// Cursor and selection
 	Cursor     string `toml:"cursor"`
@@ -143,9 +144,10 @@ type Tokens struct {
 	PopupSection lipgloss.Style
 
 	// Notification styles
-	NotificationInfo  lipgloss.Style
-	NotificationWarn  lipgloss.Style
-	NotificationError lipgloss.Style
+	NotificationInfo    lipgloss.Style
+	NotificationSuccess lipgloss.Style
+	NotificationWarn    lipgloss.Style
+	NotificationError   lipgloss.Style
 
 	// Cursor and selection styles
 	Cursor      lipgloss.Style
@@ -221,9 +223,10 @@ func Compile(r RawTokens) Tokens {
 		PopupAction:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.PopupAction)),
 		PopupSection: lipgloss.NewStyle().Foreground(lipgloss.Color(r.PopupSection)).Bold(true),
 
-		NotificationInfo:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationInfo)),
-		NotificationWarn:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationWarn)),
-		NotificationError: lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationError)).Bold(true),
+		NotificationInfo:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationInfo)),
+		NotificationSuccess: lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationSuccess)),
+		NotificationWarn:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationWarn)),
+		NotificationError:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationError)).Bold(true),
 
 		Cursor:      lipgloss.NewStyle().Background(lipgloss.Color(r.CursorBg)),
 		CursorBlock: lipgloss.NewStyle().Reverse(true),

@@ -3,13 +3,13 @@ package status
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/ui/commit"
 	"github.com/mhersson/conjit/internal/ui/commitselect"
+	"github.com/mhersson/conjit/internal/ui/notification"
 	"github.com/mhersson/conjit/internal/ui/popup"
 )
 
@@ -129,11 +129,17 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case operationDoneMsg:
+		cmds := []tea.Cmd{loadStatusCmd(m.repo, m.cfg)}
 		if msg.err != nil {
-			m.err = msg.err
+			errMsg := msg.err.Error()
+			if msg.op != "" {
+				errMsg = msg.op + " failed: " + errMsg
+			}
+			cmds = append(cmds, notifyAppCmd(errMsg, notification.Error))
+		} else if msg.op != "" {
+			cmds = append(cmds, notifyAppCmd(msg.op+" complete", notification.Success))
 		}
-		// Reload status after operation
-		return m, loadStatusCmd(m.repo, m.cfg)
+		return m, tea.Batch(cmds...)
 
 	case notificationExpiredMsg:
 		m.notification = ""
@@ -161,16 +167,14 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case commitsLoadedMsg:
 		if msg.err != nil {
-			m.notification = "Failed to load commits: " + msg.err.Error()
 			m.commitSpecialKind = commitSpecialNone
 			m.commitSpecialOpts = git.CommitOpts{}
-			return m, notifyCmd(2 * time.Second)
+			return m, notifyAppCmd("Failed to load commits: "+msg.err.Error(), notification.Error)
 		}
 		if len(msg.commits) == 0 {
-			m.notification = "No commits found"
 			m.commitSpecialKind = commitSpecialNone
 			m.commitSpecialOpts = git.CommitOpts{}
-			return m, notifyCmd(2 * time.Second)
+			return m, notifyAppCmd("No commits found", notification.Warning)
 		}
 		// Send up to the app to take over the screen
 		return m, func() tea.Msg {
@@ -380,9 +384,11 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.HelpPopup):
 		return handleOpenHelpPopup(m)
 
+	case key.Matches(msg, m.keys.CommandHistory):
+		return m, func() tea.Msg { return OpenCmdHistoryMsg{} }
+
 	// Other stub keys
 	case key.Matches(msg, m.keys.ShowRefs),
-		key.Matches(msg, m.keys.CommandHistory),
 		key.Matches(msg, m.keys.Command),
 		key.Matches(msg, m.keys.InitRepo),
 		key.Matches(msg, m.keys.GoToParentRepo),
@@ -396,8 +402,7 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		key.Matches(msg, m.keys.OpenOrScrollUp),
 		key.Matches(msg, m.keys.PeekDown),
 		key.Matches(msg, m.keys.PeekUp):
-		m.notification = "Not yet implemented"
-		return m, notifyCmd(2 * time.Second)
+		return m, notifyAppCmd("Not yet implemented", notification.Warning)
 	}
 
 	return m, nil
@@ -536,8 +541,7 @@ func handleDiscardStart(m Model) (tea.Model, tea.Cmd) {
 
 	// Only discard from unstaged section
 	if sectionKind != SectionUnstaged {
-		m.notification = "Can only discard unstaged changes"
-		return m, notifyCmd(2 * time.Second)
+		return m, notifyAppCmd("Can only discard unstaged changes", notification.Warning)
 	}
 
 	path := item.Entry.Path()
@@ -566,8 +570,7 @@ func handleUntrackStart(m Model) (tea.Model, tea.Cmd) {
 
 	// Only untrack from staged section (remove from index)
 	if sectionKind != SectionStaged {
-		m.notification = "Can only untrack staged files"
-		return m, notifyCmd(2 * time.Second)
+		return m, notifyAppCmd("Can only untrack staged files", notification.Warning)
 	}
 
 	path := item.Entry.Path()
@@ -694,10 +697,10 @@ func handleYank(m Model) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.notification = "Yanked: " + text
+	m.notification = ""
 	return m, tea.Batch(
 		yankToClipboardCmd(text),
-		notifyCmd(2*time.Second),
+		notifyAppCmd("Yanked: "+text, notification.Info),
 	)
 }
 
@@ -1339,8 +1342,7 @@ func handlePopupAction(m Model, kind PopupKind, result popup.Result) (tea.Model,
 	default:
 		// For now, just show a notification with the action
 		// The actual git operations will be wired up as needed
-		m.notification = "Action: " + result.Action
-		return m, notifyCmd(2 * time.Second)
+		return m, notifyAppCmd("Action: "+result.Action, notification.Info)
 	}
 }
 
@@ -1375,11 +1377,9 @@ func handleCommitPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) 
 	case "S": // Instant Squash
 		return openCommitSelect(m, opts, commitSpecialInstantSquash)
 	case "x": // Absorb
-		m.notification = "Absorb not yet implemented"
-		return m, notifyCmd(2 * time.Second)
+		return m, notifyAppCmd("Absorb not yet implemented", notification.Warning)
 	default:
-		m.notification = "Unknown commit action: " + result.Action
-		return m, notifyCmd(2 * time.Second)
+		return m, notifyAppCmd("Unknown commit action: "+result.Action, notification.Warning)
 	}
 }
 
@@ -1721,20 +1721,15 @@ func getBisectState(sections []Section) (inProgress, finished bool) {
 func handlePushPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 	switch result.Action {
 	case "C": // Configure
-		m.notification = "Push configuration not yet implemented"
-		return m, notifyCmd(2 * time.Second)
+		return m, notifyAppCmd("Push configuration not yet implemented", notification.Warning)
 	case "e": // Elsewhere
-		m.notification = "Push elsewhere not yet implemented"
-		return m, notifyCmd(2 * time.Second)
+		return m, notifyAppCmd("Push elsewhere not yet implemented", notification.Warning)
 	case "o": // Another branch
-		m.notification = "Push another branch not yet implemented"
-		return m, notifyCmd(2 * time.Second)
+		return m, notifyAppCmd("Push another branch not yet implemented", notification.Warning)
 	case "r": // Explicit refspec
-		m.notification = "Push explicit refspec not yet implemented"
-		return m, notifyCmd(2 * time.Second)
+		return m, notifyAppCmd("Push explicit refspec not yet implemented", notification.Warning)
 	case "T": // A tag
-		m.notification = "Push a tag not yet implemented"
-		return m, notifyCmd(2 * time.Second)
+		return m, notifyAppCmd("Push a tag not yet implemented", notification.Warning)
 	}
 
 	opts := buildPushOpts(result)
@@ -1743,12 +1738,13 @@ func handlePushPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 	opts.Branch = branch
 
 	if remote == "" {
-		m.notification = "No remote configured for push"
-		return m, notifyCmd(2 * time.Second)
+		return m, notifyAppCmd("No remote configured for push", notification.Warning)
 	}
 
-	m.notification = "Pushing..."
-	return m, pushCmd(m.repo, opts)
+	return m, tea.Batch(
+		pushCmd(m.repo, opts),
+		notifyAppCmd("Pushing to "+remote+"/"+branch+"...", notification.Info),
+	)
 }
 
 // buildPushOpts builds PushOpts from popup result switches.
@@ -1795,7 +1791,7 @@ func defaultRemote(head HeadState) string {
 func pushCmd(repo *git.Repository, opts git.PushOpts) tea.Cmd {
 	return func() tea.Msg {
 		if repo == nil {
-			return operationDoneMsg{err: fmt.Errorf("no repository")}
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Push"}
 		}
 		var err error
 		if opts.Tags && opts.Branch == "" {
@@ -1803,7 +1799,7 @@ func pushCmd(repo *git.Repository, opts git.PushOpts) tea.Cmd {
 		} else {
 			err = repo.Push(context.Background(), opts)
 		}
-		return operationDoneMsg{err: err}
+		return operationDoneMsg{err: err, op: "Push"}
 	}
 }
 
@@ -1815,12 +1811,13 @@ func handlePullPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 	opts.Branch = branch
 
 	if remote == "" {
-		m.notification = "No remote configured for pull"
-		return m, notifyCmd(2 * time.Second)
+		return m, notifyAppCmd("No remote configured for pull", notification.Warning)
 	}
 
-	m.notification = "Pulling..."
-	return m, pullCmd(m.repo, opts)
+	return m, tea.Batch(
+		pullCmd(m.repo, opts),
+		notifyAppCmd("Pulling from "+remote+"/"+branch+"...", notification.Info),
+	)
 }
 
 // buildPullOpts builds PullOpts from popup result switches.
@@ -1849,10 +1846,10 @@ func resolvePullTarget(action string, head HeadState) (remote, branch string) {
 func pullCmd(repo *git.Repository, opts git.PullOpts) tea.Cmd {
 	return func() tea.Msg {
 		if repo == nil {
-			return operationDoneMsg{err: fmt.Errorf("no repository")}
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Pull"}
 		}
 		err := repo.Pull(context.Background(), opts)
-		return operationDoneMsg{err: err}
+		return operationDoneMsg{err: err, op: "Pull"}
 	}
 }
 
@@ -1870,12 +1867,13 @@ func handleFetchPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 	}
 
 	if opts.Remote == "" {
-		m.notification = "No remote configured for fetch"
-		return m, notifyCmd(2 * time.Second)
+		return m, notifyAppCmd("No remote configured for fetch", notification.Warning)
 	}
 
-	m.notification = "Fetching..."
-	return m, fetchCmd(m.repo, opts)
+	return m, tea.Batch(
+		fetchCmd(m.repo, opts),
+		notifyAppCmd("Fetching from "+opts.Remote+"...", notification.Info),
+	)
 }
 
 // buildFetchOpts builds FetchOpts from popup result switches.
@@ -1890,9 +1888,9 @@ func buildFetchOpts(result popup.Result) git.FetchOpts {
 func fetchCmd(repo *git.Repository, opts git.FetchOpts) tea.Cmd {
 	return func() tea.Msg {
 		if repo == nil {
-			return operationDoneMsg{err: fmt.Errorf("no repository")}
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Fetch"}
 		}
 		err := repo.Fetch(context.Background(), opts)
-		return operationDoneMsg{err: err}
+		return operationDoneMsg{err: err, op: "Fetch"}
 	}
 }

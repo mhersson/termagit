@@ -13,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/conjit/internal/ui/notification"
 )
 
 // loadStatusCmd loads the HEAD state and all 12 sections.
@@ -510,6 +511,13 @@ func notifyCmd(d time.Duration) tea.Cmd {
 	return tea.Tick(d, func(time.Time) tea.Msg {
 		return notificationExpiredMsg{}
 	})
+}
+
+// notifyAppCmd returns a command that sends a notification.NotifyMsg to the app layer.
+func notifyAppCmd(msg string, kind notification.Kind) tea.Cmd {
+	return func() tea.Msg {
+		return notification.NotifyMsg{Message: msg, Kind: kind}
+	}
 }
 
 // abbreviateOID returns the first 7 characters of an OID.

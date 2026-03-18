@@ -18,6 +18,7 @@ type Logger struct {
 	maxBytes int64
 	keep     int
 	size     int64
+	entries  []Entry // in-memory buffer for current session
 }
 
 // New creates a new Logger that writes to the given path.
@@ -58,6 +59,9 @@ func (l *Logger) Append(e Entry) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	// Store in memory for current session
+	l.entries = append(l.entries, e)
+
 	data, err := json.Marshal(e)
 	if err != nil {
 		return fmt.Errorf("marshal entry: %w", err)
@@ -77,6 +81,22 @@ func (l *Logger) Append(e Entry) error {
 	}
 
 	return nil
+}
+
+// Entries returns a copy of in-memory entries, newest first. Nil-safe.
+func (l *Logger) Entries() []Entry {
+	if l == nil {
+		return nil
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	result := make([]Entry, len(l.entries))
+	for i, e := range l.entries {
+		result[len(l.entries)-1-i] = e
+	}
+	return result
 }
 
 // Close flushes and closes the log file.

@@ -63,9 +63,10 @@ func (t *catppuccinMocha) Raw() RawTokens {
 		PopupSection: "#cba6f7", // mauve
 
 		// Notification
-		NotificationInfo:  "#89b4fa", // blue
-		NotificationWarn:  "#fab387", // peach
-		NotificationError: "#f38ba8", // red
+		NotificationInfo:    "#89b4fa", // blue
+		NotificationSuccess: "#a6e3a1", // green
+		NotificationWarn:    "#fab387", // peach
+		NotificationError:   "#f38ba8", // red
 
 		// Cursor and selection
 		Cursor:     "#cdd6f4", // text (for use elsewhere)

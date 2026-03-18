@@ -22,6 +22,7 @@ type hunksLoadedMsg struct {
 // operationDoneMsg is sent when a git operation completes.
 type operationDoneMsg struct {
 	err error
+	op  string // e.g., "Push", "Pull", "Fetch"
 }
 
 // notificationExpiredMsg is sent when a notification should be cleared.
@@ -59,3 +60,6 @@ type peekFileMsg struct {
 //
 //nolint:unused // Phase 4 - used in update.go
 type closePeekMsg struct{}
+
+// OpenCmdHistoryMsg is sent when the user presses $ to open command history.
+type OpenCmdHistoryMsg struct{}

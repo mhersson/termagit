@@ -242,3 +242,48 @@ func TestReadRecent_CombinesCurrentAndRotated(t *testing.T) {
 	assert.Equal(t, 2, entries[0].ExitCode)
 	assert.Equal(t, 1, entries[1].ExitCode)
 }
+
+func TestLogger_Entries_ReturnsInMemory(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.log")
+
+	logger, err := New(path, 1024*1024, 3)
+	require.NoError(t, err)
+	defer func() { _ = logger.Close() }()
+
+	for i := 1; i <= 3; i++ {
+		_ = logger.Append(Entry{
+			Timestamp: time.Date(2024, 1, i, 0, 0, 0, 0, time.UTC),
+			Command:   "cmd",
+			ExitCode:  i,
+		})
+	}
+
+	entries := logger.Entries()
+	require.Len(t, entries, 3)
+	assert.Equal(t, 3, entries[0].ExitCode, "newest first")
+	assert.Equal(t, 1, entries[2].ExitCode, "oldest last")
+}
+
+func TestLogger_Entries_NewestFirst(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.log")
+
+	logger, err := New(path, 1024*1024, 3)
+	require.NoError(t, err)
+	defer func() { _ = logger.Close() }()
+
+	_ = logger.Append(Entry{Command: "first", ExitCode: 1})
+	_ = logger.Append(Entry{Command: "second", ExitCode: 2})
+
+	entries := logger.Entries()
+	require.Len(t, entries, 2)
+	assert.Equal(t, "second", entries[0].Command)
+	assert.Equal(t, "first", entries[1].Command)
+}
+
+func TestLogger_Entries_NilSafe(t *testing.T) {
+	var logger *Logger
+	entries := logger.Entries()
+	assert.Nil(t, entries)
+}
