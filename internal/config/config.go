@@ -52,6 +52,7 @@ type CommitEditorConfig struct {
 	ShowStagedDiff              bool   `toml:"show_staged_diff"`
 	StagedDiffSplitKind         string `toml:"staged_diff_split_kind"`
 	SpellCheck                  bool   `toml:"spell_check"`
+	DisableInsertOnCommit       bool   `toml:"disable_insert_on_commit"`
 	GenerateCommitMessageCommand string `toml:"generate_commit_message_command"`
 }
 
@@ -115,9 +116,10 @@ func defaults() *Config {
 			AutoCloseConsole:           true,
 		},
 		CommitEditor: CommitEditorConfig{
-			ShowStagedDiff:      true,
-			StagedDiffSplitKind: "split",
-			SpellCheck:          false,
+			ShowStagedDiff:        true,
+			StagedDiffSplitKind:   "split",
+			SpellCheck:            false,
+			DisableInsertOnCommit: false,
 		},
 		CommitView: CommitViewConfig{
 			VerifyCommit: true,

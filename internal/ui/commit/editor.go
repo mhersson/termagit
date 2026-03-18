@@ -69,7 +69,12 @@ func New(repo *git.Repository, opts git.CommitOpts, cfg *config.Config, tokens t
 		DiffHeader:     tokens.Dim, // Use dim for diff headers (diff --git, ---, +++)
 	}
 
-	editor := vim.NewEditor(vimTokens)
+	initialMode := vim.ModeInsert
+	if cfg.CommitEditor.DisableInsertOnCommit {
+		initialMode = vim.ModeNormal
+	}
+
+	editor := vim.NewEditor(vimTokens, initialMode)
 
 	var repoPath string
 	if repo != nil {

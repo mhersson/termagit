@@ -8,7 +8,7 @@ import (
 )
 
 func TestVimEditor_dd_DeletesLine(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2\nline3")
 	e.SetCursor(1, 0)
 	e.SetMode(ModeNormal)
@@ -21,7 +21,7 @@ func TestVimEditor_dd_DeletesLine(t *testing.T) {
 }
 
 func TestVimEditor_dd_LastLine(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2")
 	e.SetCursor(1, 0)
 	e.SetMode(ModeNormal)
@@ -35,7 +35,7 @@ func TestVimEditor_dd_LastLine(t *testing.T) {
 }
 
 func TestVimEditor_dd_OnlyLine_LeavesEmpty(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("only line")
 	e.SetCursor(0, 0)
 	e.SetMode(ModeNormal)
@@ -48,7 +48,7 @@ func TestVimEditor_dd_OnlyLine_LeavesEmpty(t *testing.T) {
 }
 
 func TestVimEditor_dw_DeletesWord(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello world")
 	e.SetCursor(0, 0)
 	e.SetMode(ModeNormal)
@@ -60,7 +60,7 @@ func TestVimEditor_dw_DeletesWord(t *testing.T) {
 }
 
 func TestVimEditor_dw_MiddleOfWord(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello world")
 	e.SetCursor(0, 2)
 	e.SetMode(ModeNormal)
@@ -72,7 +72,7 @@ func TestVimEditor_dw_MiddleOfWord(t *testing.T) {
 }
 
 func TestVimEditor_d_dollar_DeletestoLineEnd(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello world")
 	e.SetCursor(0, 6)
 	e.SetMode(ModeNormal)
@@ -84,7 +84,7 @@ func TestVimEditor_d_dollar_DeletestoLineEnd(t *testing.T) {
 }
 
 func TestVimEditor_cw_ChangesWord(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello world")
 	e.SetCursor(0, 0)
 	e.SetMode(ModeNormal)
@@ -97,7 +97,7 @@ func TestVimEditor_cw_ChangesWord(t *testing.T) {
 }
 
 func TestVimEditor_cc_ChangesLine(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2\nline3")
 	e.SetCursor(1, 3)
 	e.SetMode(ModeNormal)
@@ -111,7 +111,7 @@ func TestVimEditor_cc_ChangesLine(t *testing.T) {
 }
 
 func TestVimEditor_x_DeletesChar(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello")
 	e.SetCursor(0, 0)
 	e.SetMode(ModeNormal)
@@ -122,7 +122,7 @@ func TestVimEditor_x_DeletesChar(t *testing.T) {
 }
 
 func TestVimEditor_x_MiddleOfLine(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello")
 	e.SetCursor(0, 2)
 	e.SetMode(ModeNormal)
@@ -133,7 +133,7 @@ func TestVimEditor_x_MiddleOfLine(t *testing.T) {
 }
 
 func TestVimEditor_x_AtEndOfLine(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello")
 	e.SetCursor(0, 4) // On 'o'
 	e.SetMode(ModeNormal)
@@ -145,7 +145,7 @@ func TestVimEditor_x_AtEndOfLine(t *testing.T) {
 }
 
 func TestVimEditor_x_EmptyLine_NoOp(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("")
 	e.SetCursor(0, 0)
 	e.SetMode(ModeNormal)
@@ -156,7 +156,7 @@ func TestVimEditor_x_EmptyLine_NoOp(t *testing.T) {
 }
 
 func TestVimEditor_PendingOperator_ESC_Cancels(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello")
 	e.SetCursor(0, 0)
 	e.SetMode(ModeNormal)
@@ -171,7 +171,7 @@ func TestVimEditor_PendingOperator_ESC_Cancels(t *testing.T) {
 }
 
 func TestVimEditor_D_DeletestoLineEnd(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello world")
 	e.SetCursor(0, 6)
 	e.SetMode(ModeNormal)
@@ -183,7 +183,7 @@ func TestVimEditor_D_DeletestoLineEnd(t *testing.T) {
 }
 
 func TestVimEditor_D_AtLineStart_DeletesWholeLine(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello world")
 	e.SetCursor(0, 0)
 	e.SetMode(ModeNormal)
@@ -194,7 +194,7 @@ func TestVimEditor_D_AtLineStart_DeletesWholeLine(t *testing.T) {
 }
 
 func TestVimEditor_C_ChangesToLineEnd(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello world")
 	e.SetCursor(0, 6)
 	e.SetMode(ModeNormal)
@@ -206,7 +206,7 @@ func TestVimEditor_C_ChangesToLineEnd(t *testing.T) {
 }
 
 func TestVimEditor_C_AtLineStart_DeletesAndInserts(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello")
 	e.SetCursor(0, 0)
 	e.SetMode(ModeNormal)

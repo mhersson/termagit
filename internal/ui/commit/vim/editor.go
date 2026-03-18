@@ -46,12 +46,12 @@ type Editor struct {
 	diffStartLine int // First line of the diff section (-1 = no diff section)
 }
 
-// NewEditor creates a new vim editor in insert mode (for commit editor UX).
-func NewEditor(tokens Tokens) *Editor {
+// NewEditor creates a new vim editor with the specified initial mode.
+func NewEditor(tokens Tokens, initialMode Mode) *Editor {
 	return &Editor{
 		buffer:        NewBuffer(""),
 		cursor:        NewCursor(),
-		mode:          ModeInsert, // Commit editor starts in insert mode
+		mode:          initialMode,
 		tokens:        tokens,
 		diffStartLine: -1, // No diff section by default
 	}

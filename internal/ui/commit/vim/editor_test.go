@@ -9,13 +9,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestVimEditor_New_StartsInInsertMode(t *testing.T) {
-	e := NewEditor(testTokens())
-	assert.Equal(t, ModeInsert, e.Mode(), "commit editor should start in insert mode")
+func TestVimEditor_New_RespectsInitialMode(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	assert.Equal(t, ModeNormal, e.Mode(), "should respect ModeNormal initial mode")
+
+	e2 := NewEditor(testTokens(), ModeInsert)
+	assert.Equal(t, ModeInsert, e2.Mode(), "should respect ModeInsert initial mode")
 }
 
 func TestVimEditor_ESC_SwitchesToNormal(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeInsert)
 	assert.Equal(t, ModeInsert, e.Mode())
 
 	e.HandleKey(tea.KeyMsg{Type: tea.KeyEscape})
@@ -23,7 +26,7 @@ func TestVimEditor_ESC_SwitchesToNormal(t *testing.T) {
 }
 
 func TestVimEditor_i_SwitchesToInsert(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetMode(ModeNormal)
 
 	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
@@ -31,7 +34,7 @@ func TestVimEditor_i_SwitchesToInsert(t *testing.T) {
 }
 
 func TestVimEditor_a_SwitchesToInsert_MovesRight(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello")
 	e.SetCursor(0, 0)
 	e.SetMode(ModeNormal)
@@ -42,7 +45,7 @@ func TestVimEditor_a_SwitchesToInsert_MovesRight(t *testing.T) {
 }
 
 func TestVimEditor_A_SwitchesToInsert_GoesToLineEnd(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello")
 	e.SetCursor(0, 0)
 	e.SetMode(ModeNormal)
@@ -53,7 +56,7 @@ func TestVimEditor_A_SwitchesToInsert_GoesToLineEnd(t *testing.T) {
 }
 
 func TestVimEditor_o_NewLineBelow_InsertMode(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2")
 	e.SetCursor(0, 0)
 	e.SetMode(ModeNormal)
@@ -66,7 +69,7 @@ func TestVimEditor_o_NewLineBelow_InsertMode(t *testing.T) {
 }
 
 func TestVimEditor_O_NewLineAbove_InsertMode(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2")
 	e.SetCursor(1, 0)
 	e.SetMode(ModeNormal)
@@ -79,7 +82,7 @@ func TestVimEditor_O_NewLineAbove_InsertMode(t *testing.T) {
 }
 
 func TestVimEditor_hjkl_MoveCursor(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello\nworld")
 	e.SetCursor(0, 2)
 	e.SetMode(ModeNormal)
@@ -102,7 +105,7 @@ func TestVimEditor_hjkl_MoveCursor(t *testing.T) {
 }
 
 func TestVimEditor_0Dollar_LineMotions(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello world")
 	e.SetCursor(0, 5)
 	e.SetMode(ModeNormal)
@@ -117,7 +120,7 @@ func TestVimEditor_0Dollar_LineMotions(t *testing.T) {
 }
 
 func TestVimEditor_ggG_BufferMotions(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2\nline3")
 	e.SetCursor(1, 0)
 	e.SetMode(ModeNormal)
@@ -133,7 +136,7 @@ func TestVimEditor_ggG_BufferMotions(t *testing.T) {
 }
 
 func TestVimEditor_wb_WordMotions(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello world")
 	e.SetCursor(0, 0)
 	e.SetMode(ModeNormal)
@@ -148,9 +151,8 @@ func TestVimEditor_wb_WordMotions(t *testing.T) {
 }
 
 func TestVimEditor_InsertMode_TypingAddsText(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeInsert)
 	e.SetContent("")
-	assert.Equal(t, ModeInsert, e.Mode())
 
 	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'H'}})
 	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
@@ -159,7 +161,7 @@ func TestVimEditor_InsertMode_TypingAddsText(t *testing.T) {
 }
 
 func TestVimEditor_InsertMode_Backspace(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeInsert)
 	e.SetContent("Hello")
 	e.SetCursor(0, 5)
 
@@ -168,7 +170,7 @@ func TestVimEditor_InsertMode_Backspace(t *testing.T) {
 }
 
 func TestVimEditor_InsertMode_Enter_CreatesNewLine(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeInsert)
 	e.SetContent("HelloWorld")
 	e.SetCursor(0, 5)
 
@@ -179,7 +181,7 @@ func TestVimEditor_InsertMode_Enter_CreatesNewLine(t *testing.T) {
 }
 
 func TestVimEditor_InsertMode_Space_InsertsSpace(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeInsert)
 	e.SetContent("HelloWorld")
 	e.SetCursor(0, 5)
 
@@ -189,7 +191,7 @@ func TestVimEditor_InsertMode_Space_InsertsSpace(t *testing.T) {
 }
 
 func TestVimEditor_InsertMode_Tab_InsertsTab(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeInsert)
 	e.SetContent("Hello")
 	e.SetCursor(0, 5)
 
@@ -198,7 +200,7 @@ func TestVimEditor_InsertMode_Tab_InsertsTab(t *testing.T) {
 }
 
 func TestVimEditor_NormalMode_TypingDoesNotAddText(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("Hello")
 	e.SetMode(ModeNormal)
 
@@ -209,7 +211,7 @@ func TestVimEditor_NormalMode_TypingDoesNotAddText(t *testing.T) {
 }
 
 func TestVimEditor_V_EntersVisualLineMode(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2\nline3")
 	e.SetCursor(1, 0)
 	e.SetMode(ModeNormal)
@@ -221,7 +223,7 @@ func TestVimEditor_V_EntersVisualLineMode(t *testing.T) {
 }
 
 func TestVimEditor_VisualLine_ESC_ReturnsToNormal(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2\nline3")
 	e.SetMode(ModeNormal)
 	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
@@ -232,7 +234,7 @@ func TestVimEditor_VisualLine_ESC_ReturnsToNormal(t *testing.T) {
 }
 
 func TestVimEditor_CtrlF_PageDown(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	// Create 20 lines
 	var lines []string
 	for i := 0; i < 20; i++ {
@@ -250,7 +252,7 @@ func TestVimEditor_CtrlF_PageDown(t *testing.T) {
 }
 
 func TestVimEditor_CtrlB_PageUp(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	var lines []string
 	for i := 0; i < 20; i++ {
 		lines = append(lines, "line")
@@ -267,7 +269,7 @@ func TestVimEditor_CtrlB_PageUp(t *testing.T) {
 }
 
 func TestVimEditor_CtrlD_HalfPageDown(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	var lines []string
 	for i := 0; i < 20; i++ {
 		lines = append(lines, "line")
@@ -284,7 +286,7 @@ func TestVimEditor_CtrlD_HalfPageDown(t *testing.T) {
 }
 
 func TestVimEditor_CtrlU_HalfPageUp(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	var lines []string
 	for i := 0; i < 20; i++ {
 		lines = append(lines, "line")
@@ -301,9 +303,8 @@ func TestVimEditor_CtrlU_HalfPageUp(t *testing.T) {
 }
 
 func TestVimEditor_Paste_MultilineCreatesLines(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeInsert)
 	e.SetContent("")
-	assert.Equal(t, ModeInsert, e.Mode())
 
 	// Simulate pasting "line1\nline2\nline3" via KeyRunes
 	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("line1\nline2\nline3")})
@@ -315,7 +316,7 @@ func TestVimEditor_Paste_MultilineCreatesLines(t *testing.T) {
 }
 
 func TestVimEditor_Paste_CursorPositionAfterMultiline(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeInsert)
 	e.SetContent("")
 
 	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("hello\nworld")})
@@ -325,7 +326,7 @@ func TestVimEditor_Paste_CursorPositionAfterMultiline(t *testing.T) {
 }
 
 func TestVimEditor_Paste_CRLFHandled(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeInsert)
 	e.SetContent("")
 
 	// Simulate Windows-style \r\n paste
@@ -338,7 +339,7 @@ func TestVimEditor_Paste_CRLFHandled(t *testing.T) {
 }
 
 func TestVimEditor_Paste_ContentRoundTrip(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeInsert)
 	e.SetContent("")
 
 	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("first\nsecond\nthird")})
@@ -347,7 +348,7 @@ func TestVimEditor_Paste_ContentRoundTrip(t *testing.T) {
 }
 
 func TestVimEditor_Paste_IntoExistingContent(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeInsert)
 	e.SetContent("before after")
 	e.SetCursor(0, 7) // between "before " and "after"
 

@@ -308,9 +308,10 @@ func newTestModelWithGenerateCmd(t *testing.T, command string) Model {
 func testConfig() *config.Config {
 	return &config.Config{
 		CommitEditor: config.CommitEditorConfig{
-			ShowStagedDiff:      true,
-			StagedDiffSplitKind: "split",
-			SpellCheck:          false,
+			ShowStagedDiff:        true,
+			StagedDiffSplitKind:   "split",
+			SpellCheck:            false,
+			DisableInsertOnCommit: false,
 		},
 	}
 }
@@ -436,6 +437,15 @@ func TestEditorModel_ESC_SwitchesToNormalMode(t *testing.T) {
 
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape})
 	m = newModel.(Model)
+
+	assert.Equal(t, vim.ModeNormal, m.vimEditor.Mode())
+}
+
+func TestEditorModel_DisableInsertOnCommit_StartsInNormalMode(t *testing.T) {
+	cfg := testConfig()
+	cfg.CommitEditor.DisableInsertOnCommit = true
+	tokens := testTokens()
+	m := New(nil, git.CommitOpts{}, cfg, tokens, "commit")
 
 	assert.Equal(t, vim.ModeNormal, m.vimEditor.Mode())
 }

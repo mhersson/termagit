@@ -203,6 +203,7 @@ func TestDefaults_CommitEditorConfigHasDefaults(t *testing.T) {
 	assert.True(t, cfg.CommitEditor.ShowStagedDiff)
 	assert.Equal(t, "split", cfg.CommitEditor.StagedDiffSplitKind)
 	assert.False(t, cfg.CommitEditor.SpellCheck)
+	assert.False(t, cfg.CommitEditor.DisableInsertOnCommit)
 	assert.Empty(t, cfg.CommitEditor.GenerateCommitMessageCommand)
 }
 

@@ -8,7 +8,7 @@ import (
 )
 
 func TestRender_BlockCursor_NormalMode(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello")
 	e.SetCursor(0, 2) // On 'l'
 	e.SetMode(ModeNormal)
@@ -26,7 +26,7 @@ func TestRender_BlockCursor_NormalMode(t *testing.T) {
 }
 
 func TestRender_InsertMode_ShowsCursor(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello")
 	e.SetCursor(0, 5) // After 'o'
 	e.SetSize(80, 24)
@@ -37,7 +37,7 @@ func TestRender_InsertMode_ShowsCursor(t *testing.T) {
 }
 
 func TestRender_InsertMode_CursorVisible(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello")
 	e.SetCursor(0, 2) // Between 'e' and 'l'
 	e.SetMode(ModeInsert)
@@ -54,7 +54,7 @@ func TestRender_InsertMode_CursorVisible(t *testing.T) {
 }
 
 func TestRender_InsertMode_CursorAtEndOfLine(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello")
 	e.SetCursor(0, 5) // Past last char
 	e.SetMode(ModeInsert)
@@ -68,7 +68,7 @@ func TestRender_InsertMode_CursorAtEndOfLine(t *testing.T) {
 }
 
 func TestRender_SelectionHighlight_VisualMode(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2\nline3")
 	e.SetCursor(0, 0)
 	e.SetMode(ModeNormal)
@@ -87,7 +87,7 @@ func TestRender_SelectionHighlight_VisualMode(t *testing.T) {
 }
 
 func TestRender_EmptyBuffer(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("")
 	e.SetSize(80, 24)
 
@@ -99,7 +99,7 @@ func TestRender_EmptyBuffer(t *testing.T) {
 }
 
 func TestRender_MultipleLines(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("first\nsecond\nthird")
 	e.SetSize(80, 24)
 
@@ -111,7 +111,7 @@ func TestRender_MultipleLines(t *testing.T) {
 }
 
 func TestRender_ModeIndicator(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello")
 	e.SetMode(ModeNormal)
 	e.SetSize(80, 24)
@@ -122,7 +122,7 @@ func TestRender_ModeIndicator(t *testing.T) {
 }
 
 func TestRender_WidthConstraint(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("hello world")
 	e.SetSize(5, 24) // Very narrow
 
@@ -134,7 +134,7 @@ func TestRender_WidthConstraint(t *testing.T) {
 }
 
 func TestRender_ViewportShowsTopAfterSetContent(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetSize(80, 5) // Small height to force viewport
 
 	// Create content with many lines
@@ -155,7 +155,7 @@ func TestRender_ViewportShowsTopAfterSetContent(t *testing.T) {
 
 func TestLineStyle_BulletNotColoredAsDiff(t *testing.T) {
 	tokens := testTokens()
-	e := NewEditor(tokens)
+	e := NewEditor(tokens, ModeNormal)
 
 	// Simulate a commit message with a bullet list, followed by scissors + diff
 	content := "feat: add things\n" +
@@ -187,7 +187,7 @@ func TestLineStyle_BulletNotColoredAsDiff(t *testing.T) {
 
 func TestLineStyle_DiffBelowScissorsColored(t *testing.T) {
 	tokens := testTokens()
-	e := NewEditor(tokens)
+	e := NewEditor(tokens, ModeNormal)
 
 	content := "feat: add things\n" +
 		"# ------------------------ >8 ------------------------\n" +
@@ -218,7 +218,7 @@ func TestLineStyle_DiffBelowScissorsColored(t *testing.T) {
 
 func TestLineStyle_NoScissorsAllNormal(t *testing.T) {
 	tokens := testTokens()
-	e := NewEditor(tokens)
+	e := NewEditor(tokens, ModeNormal)
 
 	// Content without scissors line — no diff section
 	content := "feat: add things\n" +
@@ -236,7 +236,7 @@ func TestLineStyle_NoScissorsAllNormal(t *testing.T) {
 }
 
 func TestRender_ViewportScrollsWithCursor(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetSize(80, 3) // Only 3 visible lines
 
 	e.SetContent("line0\nline1\nline2\nline3\nline4\nline5")

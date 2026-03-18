@@ -8,7 +8,7 @@ import (
 )
 
 func TestVimEditor_VisualLine_jk_ExtendsSelection(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2\nline3\nline4")
 	e.SetCursor(1, 0) // Start on line2
 	e.SetMode(ModeNormal)
@@ -31,7 +31,7 @@ func TestVimEditor_VisualLine_jk_ExtendsSelection(t *testing.T) {
 }
 
 func TestVimEditor_VisualLine_k_CanExtendUp(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2\nline3\nline4")
 	e.SetCursor(2, 0) // Start on line3
 	e.SetMode(ModeNormal)
@@ -46,7 +46,7 @@ func TestVimEditor_VisualLine_k_CanExtendUp(t *testing.T) {
 }
 
 func TestVimEditor_VisualLine_d_DeletesSelection(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2\nline3\nline4")
 	e.SetCursor(1, 0)
 	e.SetMode(ModeNormal)
@@ -66,7 +66,7 @@ func TestVimEditor_VisualLine_d_DeletesSelection(t *testing.T) {
 }
 
 func TestVimEditor_VisualLine_c_ChangesSelection(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2\nline3\nline4")
 	e.SetCursor(1, 0)
 	e.SetMode(ModeNormal)
@@ -84,7 +84,7 @@ func TestVimEditor_VisualLine_c_ChangesSelection(t *testing.T) {
 }
 
 func TestVimEditor_VisualLine_AllLines_LeavesEmpty(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2")
 	e.SetCursor(0, 0)
 	e.SetMode(ModeNormal)
@@ -101,7 +101,7 @@ func TestVimEditor_VisualLine_AllLines_LeavesEmpty(t *testing.T) {
 }
 
 func TestVimEditor_VisualLine_ESC_ClearsSelection(t *testing.T) {
-	e := NewEditor(testTokens())
+	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2\nline3")
 	e.SetCursor(0, 0)
 	e.SetMode(ModeNormal)
