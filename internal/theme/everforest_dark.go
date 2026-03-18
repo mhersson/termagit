@@ -77,6 +77,11 @@ func (t *everforestDark) Raw() RawTokens {
 		GraphGreen:  "#a7c080", // green
 		GraphRed:    "#e67e80", // red
 		GraphBlue:   "#7fbbb3", // blue
+		GraphYellow: "#dbbc7f", // yellow
+		GraphCyan:   "#7fbbb3", // aqua
+		GraphPurple: "#d699b6", // purple
+		GraphGray:   "#7a8478", // grey0
+		GraphWhite:  "#d3c6aa", // fg
 
 		// Sequencer section headers
 		Merging:   "#d699b6", // purple

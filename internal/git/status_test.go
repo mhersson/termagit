@@ -2,8 +2,11 @@ package git
 
 import (
 	"context"
+	"os/exec"
+	"path/filepath"
 	"testing"
 
+	"github.com/mhersson/conjit/internal/cmdlog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -143,6 +146,60 @@ func TestStatus_EmptyRepository_ReturnsEmpty(t *testing.T) {
 	assert.Empty(t, result.Untracked)
 	assert.Empty(t, result.Unstaged)
 	assert.Empty(t, result.Staged)
+}
+
+func TestStatus_RenamedFile_HasOrigPath(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Create and commit a file
+	addAndCommit(t, r, "original.txt", "some content\n", "Add original file")
+
+	// Rename via git mv
+	cmd := exec.Command("git", "mv", "original.txt", "renamed.txt")
+	cmd.Dir = r.path
+	require.NoError(t, cmd.Run())
+
+	result, err := r.Status(ctx)
+	require.NoError(t, err)
+
+	// The renamed file should appear in staged with OrigPath set
+	var found bool
+	for _, e := range result.Staged {
+		if e.Path() == "renamed.txt" {
+			found = true
+			assert.Equal(t, "original.txt", e.OrigPath(), "OrigPath should be the old filename")
+			assert.Equal(t, FileStatusRenamed, e.Staged)
+			break
+		}
+	}
+	assert.True(t, found, "renamed file should appear in staged entries")
+}
+
+func TestStatus_LogsEntry(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	logPath := filepath.Join(t.TempDir(), "status.log")
+	logger, err := cmdlog.New(logPath, 1<<20, 2)
+	require.NoError(t, err)
+	defer func() { _ = logger.Close() }()
+
+	r.logger = logger
+
+	_, err = r.Status(ctx)
+	require.NoError(t, err)
+
+	// Flush and read back
+	require.NoError(t, logger.Close())
+
+	entries, err := cmdlog.ReadRecent(logPath, 10)
+	require.NoError(t, err)
+	require.NotEmpty(t, entries, "Status should log at least one command")
+	// Should have logged a git status command
+	assert.Contains(t, entries[0].Command, "status")
 }
 
 // SubmoduleStatus parsing tests

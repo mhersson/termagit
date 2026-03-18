@@ -77,6 +77,11 @@ func (t *tokyoNight) Raw() RawTokens {
 		GraphGreen:  "#9ece6a", // green
 		GraphRed:    "#f7768e", // red
 		GraphBlue:   "#7aa2f7", // blue
+		GraphYellow: "#e0af68", // yellow
+		GraphCyan:   "#7dcfff", // cyan
+		GraphPurple: "#bb9af7", // magenta
+		GraphGray:   "#565f89", // comment
+		GraphWhite:  "#c0caf5", // fg
 
 		// Sequencer section headers
 		Merging:   "#bb9af7", // magenta

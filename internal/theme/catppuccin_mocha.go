@@ -79,6 +79,11 @@ func (t *catppuccinMocha) Raw() RawTokens {
 		GraphGreen:  "#a6e3a1", // green
 		GraphRed:    "#f38ba8", // red
 		GraphBlue:   "#89b4fa", // blue
+		GraphYellow: "#f9e2af", // yellow
+		GraphCyan:   "#89dceb", // sky
+		GraphPurple: "#cba6f7", // mauve
+		GraphGray:   "#585b70", // surface2
+		GraphWhite:  "#cdd6f4", // text
 
 		// Sequencer section headers
 		Merging:   "#f5c2e7", // pink

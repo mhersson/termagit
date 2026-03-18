@@ -24,7 +24,7 @@ func NewCherryPickPopup(tokens theme.Tokens, state *State, inProgress bool) Popu
 
 		// Switches (not in-progress)
 		p.AddSwitch("F", "ff", "Attempt fast-forward", false)
-		p.AddSwitch("x", "x", "Add reference to original commit", false)
+		p.AddSwitch("x", "reference-in-message", "Add reference to original commit", false)
 		p.AddSwitch("e", "edit", "Edit commit message", false)
 		p.AddSwitch("s", "signoff", "Add Signed-off-by line", false)
 		p.AddSwitch("S", "gpg-sign", "Sign using gpg", false)

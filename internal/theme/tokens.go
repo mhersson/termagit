@@ -74,6 +74,11 @@ type RawTokens struct {
 	GraphGreen  string `toml:"graph_green"`
 	GraphRed    string `toml:"graph_red"`
 	GraphBlue   string `toml:"graph_blue"`
+	GraphYellow string `toml:"graph_yellow"`
+	GraphCyan   string `toml:"graph_cyan"`
+	GraphPurple string `toml:"graph_purple"`
+	GraphGray   string `toml:"graph_gray"`
+	GraphWhite  string `toml:"graph_white"`
 
 	// Sequencer section headers
 	Merging   string `toml:"merging"`
@@ -152,6 +157,11 @@ type Tokens struct {
 	GraphGreen  lipgloss.Style
 	GraphRed    lipgloss.Style
 	GraphBlue   lipgloss.Style
+	GraphYellow lipgloss.Style
+	GraphCyan   lipgloss.Style
+	GraphPurple lipgloss.Style
+	GraphGray   lipgloss.Style
+	GraphWhite  lipgloss.Style
 
 	// Sequencer section header styles
 	Merging   lipgloss.Style
@@ -223,6 +233,11 @@ func Compile(r RawTokens) Tokens {
 		GraphGreen:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphGreen)),
 		GraphRed:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphRed)),
 		GraphBlue:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphBlue)),
+		GraphYellow: lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphYellow)),
+		GraphCyan:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphCyan)),
+		GraphPurple: lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphPurple)),
+		GraphGray:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphGray)),
+		GraphWhite:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphWhite)),
 
 		Merging:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.Merging)).Bold(true),
 		Rebasing:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.Rebasing)).Bold(true),

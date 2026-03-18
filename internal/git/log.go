@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // RefKind indicates the type of a git reference.
@@ -35,7 +36,9 @@ type LogEntry struct {
 	CommitterName   string
 	CommitterEmail  string
 	CommitterDate   string
-	Refs            []Ref // Branches/tags pointing at this commit
+	Refs            []Ref    // Branches/tags pointing at this commit
+	When            time.Time // Parsed from AuthorDate
+	RefName         string    // Raw decoration string from git
 }
 
 // LogOpts controls what commits are returned by Log.
@@ -52,6 +55,7 @@ type LogOpts struct {
 	Reverse     bool   // Oldest first
 	All         bool   // All branches
 	Decorate    bool   // Include refs
+	Graph       bool   // Include ASCII graph
 	Branch      string // Specific branch to show
 }
 
@@ -108,6 +112,10 @@ func (r *Repository) Log(ctx context.Context, opts LogOpts) ([]LogEntry, bool, e
 
 	if opts.Decorate {
 		args = append(args, "--decorate")
+	}
+
+	if opts.Graph {
+		args = append(args, "--graph")
 	}
 
 	if opts.Branch != "" {
@@ -286,6 +294,11 @@ func parseLogRecord(record string, remotes []string) *LogEntry {
 		AuthorDate:      parts[5],
 	}
 
+	// Parse When from AuthorDate (ISO 8601 / RFC3339)
+	if t, err := time.Parse(time.RFC3339, parts[5]); err == nil {
+		entry.When = t
+	}
+
 	// Optional fields
 	if len(parts) > 6 {
 		entry.CommitterName = parts[6]
@@ -298,6 +311,7 @@ func parseLogRecord(record string, remotes []string) *LogEntry {
 	}
 	if len(parts) > 9 {
 		decoration := strings.TrimSpace(parts[9])
+		entry.RefName = decoration
 		// Remove parentheses from decoration
 		decoration = strings.TrimPrefix(decoration, "(")
 		decoration = strings.TrimSuffix(decoration, ")")

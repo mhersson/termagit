@@ -101,3 +101,12 @@ func TestRebasePopup_InteractiveAction(t *testing.T) {
 		t.Errorf("expected action 'i', got %q", result.Action)
 	}
 }
+
+func TestRebasePopup_OpenRebaseEditorMsg(t *testing.T) {
+	// OpenRebaseEditorMsg must be exported so the app layer can receive it.
+	// Verify the type exists and is usable as a tea.Msg.
+	var msg tea.Msg = OpenRebaseEditorMsg{}
+	if _, ok := msg.(OpenRebaseEditorMsg); !ok {
+		t.Error("OpenRebaseEditorMsg should be usable as tea.Msg")
+	}
+}

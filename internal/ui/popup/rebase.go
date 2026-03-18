@@ -4,6 +4,10 @@ import (
 	"github.com/mhersson/conjit/internal/theme"
 )
 
+// OpenRebaseEditorMsg signals the app to open the rebase editor
+// when the interactive rebase action is triggered.
+type OpenRebaseEditorMsg struct{}
+
 // NewRebasePopup creates the rebase popup matching Neogit exactly.
 // Source: neogit/lua/neogit/popups/rebase/init.lua
 // State-dependent: different actions when in-rebase vs not.

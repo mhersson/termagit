@@ -120,12 +120,51 @@ func TestParseHunks_NoCount_DefaultsToOne(t *testing.T) {
 	assert.Equal(t, 1, hunks[0].NewCount)
 }
 
+func TestParseHunks_LengthIsOnesPlusLines(t *testing.T) {
+	diff := `@@ -1,3 +1,4 @@
+ line1
+ line2
++new line
+ line3
+`
+	hunks := parseHunks(diff)
+	require.Len(t, hunks, 1)
+
+	// Length = 1 (header) + len(Lines)
+	assert.Equal(t, 1+len(hunks[0].Lines), hunks[0].Length)
+	assert.Equal(t, 5, hunks[0].Length) // 1 header + 4 lines
+}
+
 func TestParseHunks_BinaryDiff(t *testing.T) {
 	diff := `diff --git a/image.png b/image.png
 Binary files a/image.png and b/image.png differ
 `
 	hunks := parseHunks(diff)
 	assert.Empty(t, hunks, "binary files should have no hunks")
+}
+
+func TestParseHunks_BinaryFile(t *testing.T) {
+	// Verify that parseFileDiff sets IsBinary for binary files
+	diff := `diff --git a/photo.jpg b/photo.jpg
+Binary files a/photo.jpg and b/photo.jpg differ
+`
+	fd := parseFileDiff(diff)
+	require.NotNil(t, fd)
+	assert.True(t, fd.IsBinary, "binary file should have IsBinary set")
+	assert.Empty(t, fd.Hunks, "binary file should have no hunks")
+}
+
+func TestParseHunks_RenamedFile(t *testing.T) {
+	// Verify that parseFileDiff sets OldPath for renamed files
+	diff := `diff --git a/before.txt b/after.txt
+similarity index 100%
+rename from before.txt
+rename to after.txt
+`
+	fd := parseFileDiff(diff)
+	require.NotNil(t, fd)
+	assert.Equal(t, "after.txt", fd.Path)
+	assert.Equal(t, "before.txt", fd.OldPath, "OldPath should be set for renames")
 }
 
 // FileDiff tests

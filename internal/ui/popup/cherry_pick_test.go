@@ -56,6 +56,26 @@ func TestCherryPickPopup_InProgress_Actions(t *testing.T) {
 	}
 }
 
+func TestCherryPickPopup_XSwitchLabel(t *testing.T) {
+	tokens := testTokens()
+	p := NewCherryPickPopup(tokens, nil, false)
+
+	// The -x switch must be labeled "reference-in-message" per PHASE_6 / Neogit
+	var found bool
+	for _, sw := range p.switches {
+		if sw.Key == "x" {
+			if sw.Label != "reference-in-message" {
+				t.Errorf("switch -x label: expected %q, got %q", "reference-in-message", sw.Label)
+			}
+			found = true
+		}
+	}
+
+	if !found {
+		t.Error("expected switch with key 'x'")
+	}
+}
+
 func TestCherryPickPopup_Pick(t *testing.T) {
 	tokens := testTokens()
 	p := NewCherryPickPopup(tokens, nil, false)

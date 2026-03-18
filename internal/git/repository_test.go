@@ -2,12 +2,14 @@ package git
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/mhersson/conjit/internal/cmdlog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -438,4 +440,153 @@ func TestGetConfigValue_ReturnsDefault_ForUserEmail(t *testing.T) {
 	require.NoError(t, err)
 	// Value may or may not be set, but no error
 	_ = val
+}
+
+func TestRunGit_CapturesStdout(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	out, err := r.runGit(ctx, "rev-parse", "--git-dir")
+	require.NoError(t, err)
+	assert.Contains(t, out, ".git")
+}
+
+func TestRunGit_WrapsStderrOnFailure(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	_, err := r.runGit(ctx, "log", "--invalid-option-xyz")
+	require.Error(t, err)
+	// Error message should contain stderr from git
+	assert.Contains(t, err.Error(), "git log")
+}
+
+func TestRunGit_RespectsContextCancellation(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	_, err := r.runGit(ctx, "status")
+	require.Error(t, err)
+}
+
+func TestRunGit_LogsEntry(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Create a logger
+	logPath := filepath.Join(t.TempDir(), "test.log")
+	logger, err := cmdlog.New(logPath, 1<<20, 2)
+	require.NoError(t, err)
+	defer func() { _ = logger.Close() }()
+
+	r.logger = logger
+
+	_, err = r.runGit(ctx, "status", "--porcelain")
+	require.NoError(t, err)
+
+	// Flush and read back
+	require.NoError(t, logger.Close())
+
+	entries, err := cmdlog.ReadRecent(logPath, 10)
+	require.NoError(t, err)
+	require.NotEmpty(t, entries)
+	assert.Contains(t, entries[0].Command, "git status")
+}
+
+func TestRunGit_NilLogger_DoesNotPanic(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// logger is already nil in newTempRepo
+	assert.Nil(t, r.logger)
+
+	// Should not panic
+	_, err := r.runGit(ctx, "status", "--porcelain")
+	require.NoError(t, err)
+}
+
+func TestLogOp_LogsSuccess(t *testing.T) {
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	logPath := filepath.Join(t.TempDir(), "test.log")
+	logger, err := cmdlog.New(logPath, 1<<20, 2)
+	require.NoError(t, err)
+	defer func() { _ = logger.Close() }()
+
+	r.logger = logger
+
+	result1, result2, err := r.logOp(ctx, "test-op", func() (string, string, error) {
+		return "out1", "out2", nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "out1", result1)
+	assert.Equal(t, "out2", result2)
+
+	// Flush and verify log entry
+	require.NoError(t, logger.Close())
+
+	entries, err := cmdlog.ReadRecent(logPath, 10)
+	require.NoError(t, err)
+	require.NotEmpty(t, entries)
+	assert.Equal(t, "test-op", entries[0].Command)
+	assert.Equal(t, 0, entries[0].ExitCode)
+}
+
+func TestLogOp_LogsFailure(t *testing.T) {
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	logPath := filepath.Join(t.TempDir(), "test.log")
+	logger, err := cmdlog.New(logPath, 1<<20, 2)
+	require.NoError(t, err)
+	defer func() { _ = logger.Close() }()
+
+	r.logger = logger
+
+	testErr := fmt.Errorf("something went wrong")
+	_, _, err = r.logOp(ctx, "failing-op", func() (string, string, error) {
+		return "", "", testErr
+	})
+	require.Error(t, err)
+	assert.Equal(t, testErr, err)
+
+	// Flush and verify log entry records the failure
+	require.NoError(t, logger.Close())
+
+	entries, err := cmdlog.ReadRecent(logPath, 10)
+	require.NoError(t, err)
+	require.NotEmpty(t, entries)
+	assert.Equal(t, "failing-op", entries[0].Command)
+	assert.Equal(t, 1, entries[0].ExitCode)
+	assert.Contains(t, entries[0].Stderr, "something went wrong")
+}
+
+func TestLogOp_NilLogger_DoesNotPanic(t *testing.T) {
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// logger is nil
+	assert.Nil(t, r.logger)
+
+	result1, result2, err := r.logOp(ctx, "test-op", func() (string, string, error) {
+		return "a", "b", nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "a", result1)
+	assert.Equal(t, "b", result2)
+}
+
+func TestSequencerOperation_ReturnsEmpty_WhenNone(t *testing.T) {
+	r := newTempRepo(t)
+
+	// Clean repo with no sequencer directory at all
+	assert.Equal(t, "", r.SequencerOperation())
 }

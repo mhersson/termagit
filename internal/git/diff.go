@@ -33,6 +33,7 @@ type Hunk struct {
 	NewStart int    // Starting line in new file
 	NewCount int    // Number of lines in new file
 	Lines    []DiffLine
+	Length   int // Number of rendered lines (1 header + len(Lines))
 }
 
 // DiffKind indicates what is being compared.
@@ -221,6 +222,7 @@ func parseHunks(diff string) []Hunk {
 		if strings.HasPrefix(line, "@@") {
 			// Start of a new hunk
 			if currentHunk != nil {
+				currentHunk.Length = 1 + len(currentHunk.Lines)
 				hunks = append(hunks, *currentHunk)
 			}
 			currentHunk = parseHunkHeader(line)
@@ -235,6 +237,7 @@ func parseHunks(diff string) []Hunk {
 
 	// Add final hunk
 	if currentHunk != nil {
+		currentHunk.Length = 1 + len(currentHunk.Lines)
 		hunks = append(hunks, *currentHunk)
 	}
 

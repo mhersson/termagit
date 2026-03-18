@@ -56,6 +56,29 @@ func (r *Repository) RenameFile(ctx context.Context, oldPath, newPath string) er
 	return err
 }
 
+// StageHunk stages a specific hunk of a file.
+func (r *Repository) StageHunk(ctx context.Context, path string, hunk Hunk) error {
+	patch := HunkToPatch(path, &hunk, false)
+	return r.ApplyPatch(ctx, patch, "--cached")
+}
+
+// UnstageHunk unstages a specific hunk from the index.
+func (r *Repository) UnstageHunk(ctx context.Context, path string, hunk Hunk) error {
+	patch := HunkToPatch(path, &hunk, true)
+	return r.ApplyPatch(ctx, patch, "--cached")
+}
+
+// DiscardHunk discards a specific hunk from the working tree.
+func (r *Repository) DiscardHunk(ctx context.Context, path string, hunk Hunk) error {
+	patch := HunkToPatch(path, &hunk, true)
+	return r.ApplyPatch(ctx, patch)
+}
+
+// UnstageStaged unstages all staged files.
+func (r *Repository) UnstageStaged(ctx context.Context) error {
+	return r.UnstageAll(ctx)
+}
+
 // logOpVoid wraps a void operation with logging.
 func (r *Repository) logOpVoid(ctx context.Context, equiv string, fn func() error) error {
 	_, _, err := r.logOp(ctx, equiv, func() (string, string, error) {
