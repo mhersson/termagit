@@ -570,6 +570,13 @@ func handleDiscardStart(m Model) (tea.Model, tea.Cmd) {
 		m.notification = "Discard changes to " + path + "? (y/N)"
 	}
 
+	// Refresh viewport so confirmation prompt is visible
+	if m.viewport.Width > 0 {
+		content, cursorLine := renderContent(m)
+		m.viewport.SetContent(content)
+		ensureCursorVisible(&m, cursorLine)
+	}
+
 	return m, nil
 }
 
@@ -589,6 +596,13 @@ func handleUntrackStart(m Model) (tea.Model, tea.Cmd) {
 	m.confirmMode = ConfirmUntrack
 	m.confirmPath = path
 	m.notification = "Untrack " + path + "? (y/N)"
+
+	// Refresh viewport so confirmation prompt is visible
+	if m.viewport.Width > 0 {
+		content, cursorLine := renderContent(m)
+		m.viewport.SetContent(content)
+		ensureCursorVisible(&m, cursorLine)
+	}
 
 	return m, nil
 }

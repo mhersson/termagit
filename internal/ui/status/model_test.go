@@ -2479,3 +2479,82 @@ func TestView_UntrackedFiles_NoModePadding(t *testing.T) {
 		t.Error("staged file should contain 'modified' mode text")
 	}
 }
+
+func TestHandleDiscardStart_SetsConfirmModeAndNotification(t *testing.T) {
+	entry := makeEntry("dirty.go")
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+				{Entry: entry},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+		keys:   DefaultKeyMap(),
+	}
+
+	result, _ := handleDiscardStart(m)
+	rm := result.(Model)
+
+	if rm.confirmMode != ConfirmDiscard {
+		t.Errorf("expected confirmMode=ConfirmDiscard, got %d", rm.confirmMode)
+	}
+	if rm.confirmPath != "dirty.go" {
+		t.Errorf("expected confirmPath=dirty.go, got %s", rm.confirmPath)
+	}
+	if rm.notification == "" {
+		t.Error("expected notification to contain confirmation prompt")
+	}
+	if !strings.Contains(rm.notification, "dirty.go") {
+		t.Errorf("notification should mention file name, got: %s", rm.notification)
+	}
+}
+
+func TestHandleDiscardStart_ViewportIncludesNotification(t *testing.T) {
+	entry := makeEntry("dirty.go")
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+				{Entry: entry},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+		keys:   DefaultKeyMap(),
+		cfg:    &config.Config{UI: config.UIConfig{DisableHint: true}},
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 24
+
+	result, _ := handleDiscardStart(m)
+	rm := result.(Model)
+
+	// The viewport content must include the notification prompt so the user
+	// can see the "Discard changes to dirty.go? (y/N)" message.
+	vpContent := rm.viewport.View()
+	if !strings.Contains(vpContent, "Discard") {
+		t.Error("viewport content should include the discard confirmation prompt")
+	}
+}
+
+func TestHandleUntrackStart_ViewportIncludesNotification(t *testing.T) {
+	entry := makeEntry("tracked.go")
+	m := Model{
+		sections: []Section{
+			{Kind: SectionStaged, Title: "Staged changes", Items: []Item{
+				{Entry: entry},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+		keys:   DefaultKeyMap(),
+		cfg:    &config.Config{UI: config.UIConfig{DisableHint: true}},
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 24
+
+	result, _ := handleUntrackStart(m)
+	rm := result.(Model)
+
+	vpContent := rm.viewport.View()
+	if !strings.Contains(vpContent, "Untrack") {
+		t.Error("viewport content should include the untrack confirmation prompt")
+	}
+}
