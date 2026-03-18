@@ -7,12 +7,13 @@ import (
 // KeyMap defines all key bindings for the commit editor.
 // Matches Neogit's config.lua commit_editor section exactly.
 type KeyMap struct {
-	Close       key.Binding // q
-	Submit      key.Binding // <c-c><c-c> (two-key sequence handled in update)
-	Abort       key.Binding // <c-c><c-k> (two-key sequence handled in update)
-	PrevMessage key.Binding // <m-p>
-	NextMessage key.Binding // <m-n>
-	ResetMessage key.Binding // <m-r>
+	Close           key.Binding // q
+	Submit          key.Binding // <c-c><c-c> (two-key sequence handled in update)
+	Abort           key.Binding // <c-c><c-k> (two-key sequence handled in update)
+	PrevMessage     key.Binding // <m-p>
+	NextMessage     key.Binding // <m-n>
+	ResetMessage    key.Binding // <m-r>
+	GenerateMessage key.Binding // <c-g>
 }
 
 // DefaultKeyMap returns the default key bindings matching Neogit exactly.
@@ -44,6 +45,10 @@ func DefaultKeyMap() KeyMap {
 		ResetMessage: key.NewBinding(
 			key.WithKeys("alt+r"),
 			key.WithHelp("<m-r>", "reset message"),
+		),
+		GenerateMessage: key.NewBinding(
+			key.WithKeys("ctrl+g"),
+			key.WithHelp("<c-g>", "generate message"),
 		),
 	}
 }

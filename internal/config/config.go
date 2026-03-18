@@ -49,9 +49,10 @@ type UIConfig struct {
 
 // CommitEditorConfig holds commit editor settings.
 type CommitEditorConfig struct {
-	ShowStagedDiff      bool   `toml:"show_staged_diff"`
-	StagedDiffSplitKind string `toml:"staged_diff_split_kind"`
-	SpellCheck          bool   `toml:"spell_check"`
+	ShowStagedDiff              bool   `toml:"show_staged_diff"`
+	StagedDiffSplitKind         string `toml:"staged_diff_split_kind"`
+	SpellCheck                  bool   `toml:"spell_check"`
+	GenerateCommitMessageCommand string `toml:"generate_commit_message_command"`
 }
 
 // CommitViewConfig holds commit view settings.

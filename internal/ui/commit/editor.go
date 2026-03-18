@@ -3,7 +3,9 @@ package commit
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,6 +14,7 @@ import (
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/theme"
 	"github.com/mhersson/conjit/internal/ui/commit/vim"
+	"github.com/mhersson/conjit/internal/ui/notification"
 )
 
 // Model is the commit editor model.
@@ -43,6 +46,8 @@ type Model struct {
 	width, height int
 	done          bool
 	aborted       bool
+	generating    bool   // true while an external generate command is running
+	repoPath      string // working directory for external commands
 	hash          string //nolint:unused // Stores commit hash after successful commit
 	err           error  //nolint:unused // Stores error from commit operation
 }
@@ -66,6 +71,11 @@ func New(repo *git.Repository, opts git.CommitOpts, cfg *config.Config, tokens t
 
 	editor := vim.NewEditor(vimTokens)
 
+	var repoPath string
+	if repo != nil {
+		repoPath = repo.Path()
+	}
+
 	return Model{
 		repo:        repo,
 		opts:        opts,
@@ -75,6 +85,7 @@ func New(repo *git.Repository, opts git.CommitOpts, cfg *config.Config, tokens t
 		action:      action,
 		vimEditor:   editor,
 		showDiff:    cfg.CommitEditor.ShowStagedDiff,
+		repoPath:    repoPath,
 		commentChar: "#", // Default, will be overridden from git config
 	}
 }
@@ -155,6 +166,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = msg.Status
 		}
 		return m.maybeInitializeContent()
+
+	case generateCommitMessageMsg:
+		m.generating = false
+		if msg.Err != nil {
+			return m, func() tea.Msg {
+				return notification.NotifyMsg{
+					Message: "Generate failed: " + msg.Err.Error(),
+					Kind:    notification.Error,
+				}
+			}
+		}
+		generated := strings.TrimSpace(msg.Message)
+		if generated != "" {
+			m.vimEditor.SetContent(generated + "\n" + m.buildCommentContent())
+			m.vimEditor.SetCursor(0, 0)
+		}
+		return m, func() tea.Msg {
+			return notification.NotifyMsg{
+				Message: "Commit message generated",
+				Kind:    notification.Success,
+			}
+		}
 	}
 
 	return m, nil
@@ -212,6 +245,24 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// 'q' only closes in normal mode
 	if key.Matches(msg, m.keys.Close) && m.vimEditor.Mode() == vim.ModeNormal {
 		return m.abort()
+	}
+
+	// Ctrl+G generates a commit message (normal mode only, when configured)
+	if key.Matches(msg, m.keys.GenerateMessage) && m.vimEditor.Mode() == vim.ModeNormal {
+		cmd := m.cfg.CommitEditor.GenerateCommitMessageCommand
+		if cmd == "" || m.generating || m.repoPath == "" {
+			return m, nil
+		}
+		m.generating = true
+		return m, tea.Batch(
+			generateCommitMessageCmd(cmd, m.repoPath),
+			func() tea.Msg {
+				return notification.NotifyMsg{
+					Message: "Generating commit message…",
+					Kind:    notification.Info,
+				}
+			},
+		)
 	}
 
 	// Forward all other keys to VimEditor
@@ -291,6 +342,9 @@ func (m Model) View() string {
 func (m Model) renderTopBar() string {
 	mode := m.modeString()
 	title := m.titleForAction()
+	if m.generating {
+		title += " — Generating…"
+	}
 
 	// Render mode badge with padding: " [NORMAL] "
 	badge := m.modeStyle().Render(" " + mode + " ")
@@ -471,6 +525,9 @@ func (m Model) buildInitialContent() string {
 	fmt.Fprintf(&b, "%s   %-16s Previous Message\n", c, m.keys.PrevMessage.Help().Key)
 	fmt.Fprintf(&b, "%s   %-16s Next Message\n", c, m.keys.NextMessage.Help().Key)
 	fmt.Fprintf(&b, "%s   %-16s Reset Message\n", c, m.keys.ResetMessage.Help().Key)
+	if m.cfg.CommitEditor.GenerateCommitMessageCommand != "" {
+		fmt.Fprintf(&b, "%s   %-16s Generate Message\n", c, m.keys.GenerateMessage.Help().Key)
+	}
 	fmt.Fprintf(&b, "%s\n", c)
 
 	// Branch info
@@ -517,6 +574,84 @@ func (m Model) buildInitialContent() string {
 	}
 
 	// Scissors and diff (if enabled)
+	if m.showDiff && len(m.diff) > 0 {
+		fmt.Fprintf(&b, "%s ------------------------ >8 ------------------------\n", c)
+		fmt.Fprintf(&b, "%s Do not modify or remove the line above.\n", c)
+		fmt.Fprintf(&b, "%s Everything below it will be ignored.\n", c)
+
+		for _, fd := range m.diff {
+			b.WriteString(m.formatFileDiff(fd))
+		}
+	}
+
+	return b.String()
+}
+
+// buildCommentContent generates just the comment/template portion of the buffer.
+// Used to preserve comments when replacing the user-editable message content.
+func (m Model) buildCommentContent() string {
+	c := m.commentChar
+	var b strings.Builder
+
+	// Git header comment
+	fmt.Fprintf(&b, "%s Please enter the commit message for your changes. Lines starting\n", c)
+	fmt.Fprintf(&b, "%s with '%s' will be ignored, and an empty message aborts the commit.\n", c, c)
+	fmt.Fprintf(&b, "%s\n", c)
+
+	// Commands section
+	fmt.Fprintf(&b, "%s Commands:\n", c)
+	fmt.Fprintf(&b, "%s   %-16s Close\n", c, m.keys.Close.Help().Key)
+	fmt.Fprintf(&b, "%s   %-16s Submit\n", c, "<c-c><c-c>")
+	fmt.Fprintf(&b, "%s   %-16s Abort\n", c, "<c-c><c-k>")
+	fmt.Fprintf(&b, "%s   %-16s Previous Message\n", c, m.keys.PrevMessage.Help().Key)
+	fmt.Fprintf(&b, "%s   %-16s Next Message\n", c, m.keys.NextMessage.Help().Key)
+	fmt.Fprintf(&b, "%s   %-16s Reset Message\n", c, m.keys.ResetMessage.Help().Key)
+	if m.cfg.CommitEditor.GenerateCommitMessageCommand != "" {
+		fmt.Fprintf(&b, "%s   %-16s Generate Message\n", c, m.keys.GenerateMessage.Help().Key)
+	}
+	fmt.Fprintf(&b, "%s\n", c)
+
+	// Branch info
+	if m.branch != "" {
+		fmt.Fprintf(&b, "%s On branch %s\n", c, m.branch)
+	}
+
+	// Status sections
+	if m.status != nil {
+		if len(m.status.Staged) > 0 {
+			fmt.Fprintf(&b, "%s Changes to be committed:\n", c)
+			for _, entry := range m.status.Staged {
+				modeText := git.ModeText[string(entry.Staged)]
+				if modeText == "" {
+					modeText = "modified"
+				}
+				fmt.Fprintf(&b, "%s    %s:   %s\n", c, modeText, entry.Path())
+			}
+			fmt.Fprintf(&b, "%s\n", c)
+		}
+
+		if len(m.status.Unstaged) > 0 {
+			fmt.Fprintf(&b, "%s Changes not staged for commit:\n", c)
+			for _, entry := range m.status.Unstaged {
+				modeText := git.ModeText[string(entry.Unstaged)]
+				if modeText == "" {
+					modeText = "modified"
+				}
+				fmt.Fprintf(&b, "%s    %s:   %s\n", c, modeText, entry.Path())
+			}
+			fmt.Fprintf(&b, "%s\n", c)
+		}
+
+		if len(m.status.Untracked) > 0 {
+			fmt.Fprintf(&b, "%s Untracked files:\n", c)
+			for _, entry := range m.status.Untracked {
+				fmt.Fprintf(&b, "%s    %s\n", c, entry.Path())
+			}
+			fmt.Fprintf(&b, "%s\n", c)
+		}
+	}
+
+	// Scissors and diff
 	if m.showDiff && len(m.diff) > 0 {
 		fmt.Fprintf(&b, "%s ------------------------ >8 ------------------------\n", c)
 		fmt.Fprintf(&b, "%s Do not modify or remove the line above.\n", c)
@@ -583,6 +718,24 @@ func (m Model) formatFileDiff(fd git.FileDiff) string {
 	}
 
 	return b.String()
+}
+
+// generateCommitMessageCmd runs an external command to generate a commit message.
+func generateCommitMessageCmd(command string, repoPath string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		cmd := exec.CommandContext(ctx, "sh", "-c", command)
+		cmd.Dir = repoPath
+
+		out, err := cmd.Output()
+		if err != nil {
+			return generateCommitMessageMsg{Err: fmt.Errorf("generate command: %w", err)}
+		}
+
+		return generateCommitMessageMsg{Message: string(out)}
+	}
 }
 
 // OpenCommitEditorCmd returns a command to open the commit editor.

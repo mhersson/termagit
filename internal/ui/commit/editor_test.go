@@ -2,6 +2,7 @@ package commit
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -296,6 +297,14 @@ func newTestModelWithOpts(t *testing.T, opts git.CommitOpts) Model {
 	return New(nil, opts, cfg, tokens, "commit")
 }
 
+func newTestModelWithGenerateCmd(t *testing.T, command string) Model {
+	t.Helper()
+	cfg := testConfig()
+	cfg.CommitEditor.GenerateCommitMessageCommand = command
+	tokens := testTokens()
+	return New(nil, git.CommitOpts{}, cfg, tokens, "commit")
+}
+
 func testConfig() *config.Config {
 	return &config.Config{
 		CommitEditor: config.CommitEditorConfig{
@@ -439,6 +448,145 @@ func TestEditorModel_i_SwitchesToInsertMode(t *testing.T) {
 	m = newModel.(Model)
 
 	assert.Equal(t, vim.ModeInsert, m.vimEditor.Mode())
+}
+
+func TestEditorModel_GenerateMessage_DisabledWhenNoCommand(t *testing.T) {
+	m := newTestModel(t) // testConfig() has empty GenerateCommitMessageCommand
+	m.vimEditor.SetMode(vim.ModeNormal)
+
+	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlG})
+	m = newModel.(Model)
+
+	assert.False(t, m.generating, "should not start generating when no command configured")
+	assert.Nil(t, cmd, "should return nil command")
+}
+
+func TestEditorModel_GenerateMessage_SetsGeneratingFlag(t *testing.T) {
+	m := newTestModelWithGenerateCmd(t, "echo 'test message'")
+	m.vimEditor.SetMode(vim.ModeNormal)
+	// repo is nil in tests; the guard returns nil. Verify with repoPath set directly.
+	m.repoPath = t.TempDir()
+
+	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlG})
+	m = newModel.(Model)
+
+	assert.True(t, m.generating, "should set generating flag")
+	require.NotNil(t, cmd, "should return a batch command")
+}
+
+func TestEditorModel_GenerateMessage_NoOpWhileGenerating(t *testing.T) {
+	m := newTestModelWithGenerateCmd(t, "echo 'test message'")
+	m.vimEditor.SetMode(vim.ModeNormal)
+	m.generating = true // Already generating
+
+	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlG})
+	m = newModel.(Model)
+
+	assert.True(t, m.generating, "should still be generating")
+	assert.Nil(t, cmd, "should not launch another command")
+}
+
+func TestEditorModel_GenerateMessage_OnlyInNormalMode(t *testing.T) {
+	m := newTestModelWithGenerateCmd(t, "echo 'test message'")
+	// Editor starts in insert mode
+	assert.Equal(t, vim.ModeInsert, m.vimEditor.Mode())
+
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlG})
+	m = newModel.(Model)
+
+	assert.False(t, m.generating, "should not generate in insert mode")
+}
+
+func TestEditorModel_GenerateMessageMsg_ReplacesContent(t *testing.T) {
+	m := newTestModelWithGenerateCmd(t, "dummy")
+	m.commentChar = "#"
+	m.branch = "main"
+	m.generating = true
+	m.vimEditor.SetContent("old message\n# comment line")
+
+	newModel, cmd := m.Update(generateCommitMessageMsg{Message: "feat: add new feature\n\nDetailed description"})
+	m = newModel.(Model)
+
+	assert.False(t, m.generating, "generating should be cleared")
+	content := m.vimEditor.Content()
+	assert.Contains(t, content, "feat: add new feature")
+	assert.Contains(t, content, "Detailed description")
+	// Should still contain comment lines
+	assert.Contains(t, content, "# Commands:")
+	// Should return a notification command
+	require.NotNil(t, cmd)
+}
+
+func TestEditorModel_GenerateMessageMsg_ErrorClearsFlag(t *testing.T) {
+	m := newTestModelWithGenerateCmd(t, "dummy")
+	m.generating = true
+	m.vimEditor.SetContent("original message")
+
+	newModel, cmd := m.Update(generateCommitMessageMsg{Err: fmt.Errorf("command failed")})
+	m = newModel.(Model)
+
+	assert.False(t, m.generating, "generating should be cleared on error")
+	assert.Equal(t, "original message", m.vimEditor.Content(), "content should not change on error")
+	require.NotNil(t, cmd, "should return error notification command")
+}
+
+func TestEditorModel_BuildInitialContent_ShowsGenerateHint(t *testing.T) {
+	m := newTestModelWithGenerateCmd(t, "/usr/local/bin/ai-commit")
+	m.commentChar = "#"
+	m.branch = "main"
+
+	content := m.buildInitialContent()
+
+	assert.Contains(t, content, "Generate Message")
+	assert.Contains(t, content, "<c-g>")
+}
+
+func TestEditorModel_BuildInitialContent_HidesGenerateHint(t *testing.T) {
+	m := newTestModel(t) // No generate command configured
+	m.commentChar = "#"
+	m.branch = "main"
+
+	content := m.buildInitialContent()
+
+	assert.NotContains(t, content, "Generate Message")
+}
+
+func TestEditorModel_View_ShowsGeneratingIndicator(t *testing.T) {
+	m := newTestModelWithGenerateCmd(t, "dummy")
+	m.width = 80
+	m.height = 24
+	m.generating = true
+
+	view := m.View()
+
+	assert.Contains(t, view, "Generating")
+}
+
+func TestGenerateCommitMessageCmd_RunsCommand(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping shell-out test in short mode")
+	}
+
+	cmd := generateCommitMessageCmd("echo 'hello world'", t.TempDir())
+	msg := cmd()
+
+	result, ok := msg.(generateCommitMessageMsg)
+	require.True(t, ok)
+	assert.NoError(t, result.Err)
+	assert.Equal(t, "hello world\n", result.Message)
+}
+
+func TestGenerateCommitMessageCmd_FailingCommand(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping shell-out test in short mode")
+	}
+
+	cmd := generateCommitMessageCmd("exit 1", t.TempDir())
+	msg := cmd()
+
+	result, ok := msg.(generateCommitMessageMsg)
+	require.True(t, ok)
+	assert.Error(t, result.Err)
 }
 
 func TestExtractMessage_FiltersCommentLines(t *testing.T) {

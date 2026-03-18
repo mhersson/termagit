@@ -203,6 +203,27 @@ func TestDefaults_CommitEditorConfigHasDefaults(t *testing.T) {
 	assert.True(t, cfg.CommitEditor.ShowStagedDiff)
 	assert.Equal(t, "split", cfg.CommitEditor.StagedDiffSplitKind)
 	assert.False(t, cfg.CommitEditor.SpellCheck)
+	assert.Empty(t, cfg.CommitEditor.GenerateCommitMessageCommand)
+}
+
+func TestLoad_GenerateCommitMessageCommand_Loaded(t *testing.T) {
+	dir := t.TempDir()
+	configDir := filepath.Join(dir, "conjit")
+	require.NoError(t, os.MkdirAll(configDir, 0o755))
+	t.Setenv("XDG_CONFIG_HOME", dir)
+
+	content := `
+[commit_editor]
+generate_commit_message_command = "/usr/local/bin/ai-commit"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.toml"), []byte(content), 0o644))
+
+	cfg, err := Load()
+	require.NoError(t, err)
+
+	assert.Equal(t, "/usr/local/bin/ai-commit", cfg.CommitEditor.GenerateCommitMessageCommand)
+	// Other defaults preserved
+	assert.True(t, cfg.CommitEditor.ShowStagedDiff)
 }
 
 func TestDefaults_CommitViewConfigHasDefaults(t *testing.T) {

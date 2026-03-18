@@ -46,3 +46,9 @@ type statusLoadedMsg struct {
 	Status *git.StatusResult
 	Err    error
 }
+
+// generateCommitMessageMsg delivers the result of an external commit message generator.
+type generateCommitMessageMsg struct {
+	Message string
+	Err     error
+}
