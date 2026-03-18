@@ -626,13 +626,20 @@ func renderItemWithLineTracking(m Model, sectionIdx, itemIdx int, item *Item, se
 		}
 
 		if onItem {
-			line := fmt.Sprintf("  %s %s %s", sign, padRight(modeText, 12), path)
+			var line string
+			if modeText == "" {
+				line = fmt.Sprintf("  %s %s", sign, path)
+			} else {
+				line = fmt.Sprintf("  %s %s %s", sign, padRight(modeText, 12), path)
+			}
 			b.WriteString(renderCursorLine(m, line))
 		} else {
 			b.WriteString("  ")
 			b.WriteString(sign)
 			b.WriteString(" ")
-			b.WriteString(styleForMode(m.tokens, item.Entry, sectionKind).Render(padRight(modeText, 12)))
+			if modeText != "" {
+				b.WriteString(styleForMode(m.tokens, item.Entry, sectionKind).Render(padRight(modeText, 12)))
+			}
 			b.WriteString(path)
 			b.WriteString("\n")
 		}

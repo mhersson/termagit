@@ -59,8 +59,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("open terminal: %w", err)
 	}
-	defer tty.Close()
-
+	defer tty.Close() //nolint:errcheck // best-effort cleanup
 	lipgloss.SetDefaultRenderer(lipgloss.NewRenderer(tty))
 
 	// Resolve theme: flag > config > fallback

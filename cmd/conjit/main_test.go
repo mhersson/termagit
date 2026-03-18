@@ -14,8 +14,7 @@ func TestOpenTTY(t *testing.T) {
 	if err != nil {
 		t.Fatalf("openTTY() returned error: %v", err)
 	}
-	defer tty.Close()
-
+	defer tty.Close() //nolint:errcheck // best-effort cleanup
 	// Verify the file descriptor is valid and read-write
 	info, err := tty.Stat()
 	if err != nil {

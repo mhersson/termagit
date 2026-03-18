@@ -2376,3 +2376,60 @@ func TestExtendAction_NoStagedChanges_ShowsWarning(t *testing.T) {
 		t.Errorf("expected Warning kind, got %s", notifyMsg.Kind)
 	}
 }
+
+func TestView_UntrackedFiles_NoModePadding(t *testing.T) {
+	// Untracked file entries must render as "  > filename" without the
+	// 12-char mode column that staged/unstaged entries have.
+	// Neogit skips mode padding entirely when mode text is empty.
+	untrackedEntry := git.NewStatusEntry("newfile.txt", git.FileStatusUntracked, git.FileStatusUntracked)
+	stagedEntry := git.NewStatusEntry("changed.go", git.FileStatusModified, git.FileStatusNone)
+
+	m := Model{
+		head: HeadState{Branch: "main"},
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Untracked files", Folded: false, Items: []Item{
+				{Entry: &untrackedEntry},
+			}},
+			{Kind: SectionStaged, Title: "Staged changes", Folded: false, Items: []Item{
+				{Entry: &stagedEntry},
+			}},
+		},
+	}
+
+	output := view(m)
+	lines := strings.Split(output, "\n")
+
+	// Find the untracked file line
+	var untrackedLine string
+	for _, line := range lines {
+		if strings.Contains(line, "newfile.txt") {
+			untrackedLine = line
+			break
+		}
+	}
+	if untrackedLine == "" {
+		t.Fatal("expected to find 'newfile.txt' in output")
+	}
+
+	// Untracked: should be "  > newfile.txt" — no mode column padding
+	if untrackedLine != "  > newfile.txt" {
+		t.Errorf("untracked file has wrong indentation:\ngot:  %q\nwant: %q", untrackedLine, "  > newfile.txt")
+	}
+
+	// Find the staged file line
+	var stagedLine string
+	for _, line := range lines {
+		if strings.Contains(line, "changed.go") {
+			stagedLine = line
+			break
+		}
+	}
+	if stagedLine == "" {
+		t.Fatal("expected to find 'changed.go' in output")
+	}
+
+	// Staged: should still have the padded mode column "  > modified    changed.go"
+	if !strings.Contains(stagedLine, "modified") {
+		t.Error("staged file should contain 'modified' mode text")
+	}
+}
