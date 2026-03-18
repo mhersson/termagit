@@ -77,6 +77,7 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.viewport.Width > 0 {
 			content, cursorLine := renderContent(m)
 			m.viewport.SetContent(content)
+			m.viewport.YOffset = 0
 			ensureCursorVisible(&m, cursorLine)
 		}
 		return m, cmd
@@ -100,9 +101,11 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Apply pending hunk cursor restore if this is the load we're waiting for
+		wasRestore := false
 		if m.pendingHunkRestore.active &&
 			msg.sectionIdx == m.pendingHunkRestore.sectionIdx &&
 			msg.itemIdx == m.pendingHunkRestore.itemIdx {
+			wasRestore = true
 			hunkIdx := m.pendingHunkRestore.hunkIdx
 			m.pendingHunkRestore = hunkRestore{} // clear
 
@@ -120,11 +123,18 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			// If no hunks, cursor stays on file item (Hunk=-1)
 		}
 
-		// Update viewport content and preserve screen position
+		// Update viewport content
 		if m.viewport.Width > 0 {
 			content, newCursorLine := renderContent(m)
 			m.viewport.SetContent(content)
-			preserveScreenPosition(&m, newCursorLine, screenRow)
+			if wasRestore {
+				// After a stage/unstage hunk restore, reset scroll to top
+				// so the hint bar stays visible.
+				m.viewport.YOffset = 0
+				ensureCursorVisible(&m, newCursorLine)
+			} else {
+				preserveScreenPosition(&m, newCursorLine, screenRow)
+			}
 		}
 		return m, nil
 

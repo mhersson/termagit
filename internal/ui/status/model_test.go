@@ -7,7 +7,9 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/conjit/internal/theme"
 )
 
 func TestSectionKind_AllTwelveValues(t *testing.T) {
@@ -1962,5 +1964,181 @@ func TestHunksLoadedMsg_WithPendingHunkRestore_NoHunksLeft(t *testing.T) {
 	// pendingHunkRestore should be cleared
 	if resultModel.pendingHunkRestore.active {
 		t.Error("expected pendingHunkRestore to be cleared")
+	}
+}
+
+func TestStatusLoadedMsg_HintBarVisibleAfterStageFromScrolledDiff(t *testing.T) {
+	// Regression: staging a file while scrolled down (e.g. viewing expanded
+	// inline diff) left viewport.YOffset stale, hiding the hint bar.
+	cfg, _ := config.Load()
+	tokens := theme.Compile(theme.Fallback().Raw())
+
+	m := Model{
+		cfg:     cfg,
+		tokens:  tokens,
+		keys:    DefaultKeyMap(),
+		loading: true,
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 30
+	m.width = 80
+	m.height = 30
+
+	// Initial load with unstaged files.
+	initialSections := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("file1.go")},
+			{Entry: makeEntry("file2.go")},
+		}},
+		{Kind: SectionRecentCommits, Title: "Recent Commits", Items: []Item{
+			{Commit: &git.LogEntry{AbbreviatedHash: "abc1234", Subject: "test"}},
+		}},
+	}
+
+	result, _ := update(m, statusLoadedMsg{
+		head:     HeadState{Branch: "main", AbbrevOid: "abc1234"},
+		sections: initialSections,
+	})
+	m = result.(Model)
+
+	// Expand the file's inline diff (many lines to force scrolling).
+	m.cursor = Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1}
+	m.sections[0].Items[0].Expanded = true
+	m.sections[0].Items[0].Hunks = []git.Hunk{
+		{Header: "@@ -1,30 +1,30 @@", Lines: makeDiffLines(40)},
+	}
+
+	// Navigate to a diff line deep in the expanded hunk.
+	m.cursor = Cursor{Section: 0, Item: 0, Hunk: 0, Line: 30}
+	content, cursorLine := renderContent(m)
+	m.viewport.SetContent(content)
+	ensureCursorVisible(&m, cursorLine)
+
+	// Sanity: viewport should now be scrolled down.
+	if m.viewport.YOffset == 0 {
+		t.Fatal("precondition: expected viewport to be scrolled down")
+	}
+
+	// Stage the file → save pendingRestore (same as handleStage).
+	m.pendingRestore = cursorRestore{
+		active:      true,
+		path:        "file1.go",
+		sectionKind: SectionUnstaged,
+		itemIndex:   0,
+		hunk:        0,
+	}
+
+	// Simulate statusLoadedMsg after staging: expanded state gone, file moved.
+	postStageSections := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("file2.go")},
+		}},
+		{Kind: SectionStaged, Title: "Staged changes", Items: []Item{
+			{Entry: makeEntry("file1.go")},
+		}},
+		{Kind: SectionRecentCommits, Title: "Recent Commits", Items: []Item{
+			{Commit: &git.LogEntry{AbbreviatedHash: "abc1234", Subject: "test"}},
+		}},
+	}
+
+	result2, _ := update(m, statusLoadedMsg{
+		head:     HeadState{Branch: "main", AbbrevOid: "abc1234"},
+		sections: postStageSections,
+	})
+	m = result2.(Model)
+
+	// The hint bar must be visible in the viewport.
+	viewContent := m.viewport.View()
+	if !strings.Contains(viewContent, "Hint:") {
+		t.Errorf("hint bar missing from viewport after stage+reload (YOffset=%d, cursor=%+v)",
+			m.viewport.YOffset, m.cursor)
+	}
+}
+
+func makeDiffLines(n int) []git.DiffLine {
+	lines := make([]git.DiffLine, n)
+	for i := range lines {
+		switch i % 3 {
+		case 0:
+			lines[i] = git.DiffLine{Op: git.DiffOpAdd, Content: "added line"}
+		case 1:
+			lines[i] = git.DiffLine{Op: git.DiffOpDelete, Content: "deleted line"}
+		default:
+			lines[i] = git.DiffLine{Op: git.DiffOpContext, Content: "context line"}
+		}
+	}
+	return lines
+}
+
+func TestHunksLoadedMsg_HintBarVisibleAfterHunkStageRestore(t *testing.T) {
+	// Regression: after staging a hunk, the two-phase restore (statusLoadedMsg
+	// expands the file, hunksLoadedMsg places cursor on hunk) used
+	// preserveScreenPosition which pushed YOffset > 0, hiding the hint bar.
+	cfg, _ := config.Load()
+	tokens := theme.Compile(theme.Fallback().Raw())
+
+	m := Model{
+		cfg:     cfg,
+		tokens:  tokens,
+		keys:    DefaultKeyMap(),
+		loading: true,
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 30
+	m.width = 80
+	m.height = 30
+
+	// Initial load with an unstaged file.
+	initialSections := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("file1.go")},
+		}},
+		{Kind: SectionRecentCommits, Title: "Recent Commits", Items: []Item{
+			{Commit: &git.LogEntry{AbbreviatedHash: "abc1234", Subject: "test"}},
+		}},
+	}
+
+	result, _ := update(m, statusLoadedMsg{
+		head:     HeadState{Branch: "main", AbbrevOid: "abc1234"},
+		sections: initialSections,
+	})
+	m = result.(Model)
+
+	// Simulate the state after statusLoadedMsg with hunk restore:
+	// The file is expanded, hunks are loading, pendingHunkRestore is set.
+	m.sections[0].Items[0].Expanded = true
+	m.sections[0].Items[0].HunksLoading = true
+	m.cursor = Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1}
+	m.pendingHunkRestore = hunkRestore{
+		active:     true,
+		sectionIdx: 0,
+		itemIdx:    0,
+		hunkIdx:    0,
+	}
+
+	// Re-render viewport (YOffset should be 0 from statusLoadedMsg fix).
+	content, cursorLine := renderContent(m)
+	m.viewport.SetContent(content)
+	m.viewport.YOffset = 0
+	ensureCursorVisible(&m, cursorLine)
+
+	// Now hunksLoadedMsg arrives with the loaded hunks.
+	hunks := []git.Hunk{
+		{Header: "@@ -1,10 +1,10 @@", Lines: makeDiffLines(10)},
+		{Header: "@@ -20,5 +20,8 @@", Lines: makeDiffLines(5)},
+	}
+
+	result2, _ := update(m, hunksLoadedMsg{
+		sectionIdx: 0,
+		itemIdx:    0,
+		hunks:      hunks,
+	})
+	m = result2.(Model)
+
+	// The hint bar must still be visible.
+	viewContent := m.viewport.View()
+	if !strings.Contains(viewContent, "Hint:") {
+		t.Errorf("hint bar missing from viewport after hunk restore (YOffset=%d, cursor=%+v)",
+			m.viewport.YOffset, m.cursor)
 	}
 }
