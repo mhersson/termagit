@@ -1,6 +1,8 @@
 package vim
 
 import (
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -41,15 +43,17 @@ type Editor struct {
 
 	width, height int
 	viewportTop   int // First visible line in the viewport
+	diffStartLine int // First line of the diff section (-1 = no diff section)
 }
 
 // NewEditor creates a new vim editor in insert mode (for commit editor UX).
 func NewEditor(tokens Tokens) *Editor {
 	return &Editor{
-		buffer: NewBuffer(""),
-		cursor: NewCursor(),
-		mode:   ModeInsert, // Commit editor starts in insert mode
-		tokens: tokens,
+		buffer:        NewBuffer(""),
+		cursor:        NewCursor(),
+		mode:          ModeInsert, // Commit editor starts in insert mode
+		tokens:        tokens,
+		diffStartLine: -1, // No diff section by default
 	}
 }
 
@@ -76,6 +80,19 @@ func (e *Editor) SetContent(content string) {
 	e.buffer.SetContent(content)
 	e.cursor.Clamp(e.buffer)
 	e.viewportTop = 0 // Reset viewport to show from the beginning
+	e.diffStartLine = e.findDiffStart()
+}
+
+// findDiffStart scans the buffer for the scissors line (">8") and returns the
+// line index where the diff section begins, or -1 if there is no scissors line.
+func (e *Editor) findDiffStart() int {
+	for i := 0; i < e.buffer.LineCount(); i++ {
+		line := e.buffer.Line(i)
+		if strings.Contains(line, ">8") || strings.Contains(line, "> 8") {
+			return i
+		}
+	}
+	return -1
 }
 
 // Line returns the current cursor line.

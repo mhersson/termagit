@@ -153,6 +153,88 @@ func TestRender_ViewportShowsTopAfterSetContent(t *testing.T) {
 	assert.True(t, strings.HasPrefix(view, "line content"), "viewport should show line 0 at top")
 }
 
+func TestLineStyle_BulletNotColoredAsDiff(t *testing.T) {
+	tokens := testTokens()
+	e := NewEditor(tokens)
+
+	// Simulate a commit message with a bullet list, followed by scissors + diff
+	content := "feat: add things\n" +
+		"\n" +
+		"- bullet item one\n" +
+		"+ plus prefix line\n" +
+		"# On branch main\n" +
+		"# ------------------------ >8 ------------------------\n" +
+		"diff --git a/file.go b/file.go\n" +
+		"@@ -1,3 +1,4 @@\n" +
+		" context\n" +
+		"-deleted line\n" +
+		"+added line\n"
+	e.SetContent(content)
+	e.SetSize(80, 24)
+
+	// "- bullet item one" is on line 2 (0-indexed), above scissors → Normal style
+	assert.Equal(t, tokens.Normal, e.lineStyle("- bullet item one", 2),
+		"bullet list in message area must not be colored as DiffDelete")
+
+	// "+ plus prefix line" is on line 3, above scissors → Normal style
+	assert.Equal(t, tokens.Normal, e.lineStyle("+ plus prefix line", 3),
+		"plus prefix in message area must not be colored as DiffAdd")
+
+	// "# On branch main" is on line 4, above scissors → Comment style (always)
+	assert.Equal(t, tokens.Comment, e.lineStyle("# On branch main", 4),
+		"comment lines should be styled everywhere")
+}
+
+func TestLineStyle_DiffBelowScissorsColored(t *testing.T) {
+	tokens := testTokens()
+	e := NewEditor(tokens)
+
+	content := "feat: add things\n" +
+		"# ------------------------ >8 ------------------------\n" +
+		"diff --git a/file.go b/file.go\n" +
+		"@@ -1,3 +1,4 @@\n" +
+		" context\n" +
+		"-deleted line\n" +
+		"+added line\n"
+	e.SetContent(content)
+	e.SetSize(80, 24)
+
+	// Line 2: "diff --git ..." → DiffHeader
+	assert.Equal(t, tokens.DiffHeader, e.lineStyle("diff --git a/file.go b/file.go", 2),
+		"diff header below scissors must be styled")
+
+	// Line 3: "@@ ..." → DiffHunkHeader
+	assert.Equal(t, tokens.DiffHunkHeader, e.lineStyle("@@ -1,3 +1,4 @@", 3),
+		"hunk header below scissors must be styled")
+
+	// Line 5: "-deleted line" → DiffDelete
+	assert.Equal(t, tokens.DiffDelete, e.lineStyle("-deleted line", 5),
+		"deleted line below scissors must be styled as DiffDelete")
+
+	// Line 6: "+added line" → DiffAdd
+	assert.Equal(t, tokens.DiffAdd, e.lineStyle("+added line", 6),
+		"added line below scissors must be styled as DiffAdd")
+}
+
+func TestLineStyle_NoScissorsAllNormal(t *testing.T) {
+	tokens := testTokens()
+	e := NewEditor(tokens)
+
+	// Content without scissors line — no diff section
+	content := "feat: add things\n" +
+		"\n" +
+		"- bullet item\n" +
+		"+ positive note\n"
+	e.SetContent(content)
+	e.SetSize(80, 24)
+
+	// Without scissors, "-" and "+" should be Normal (no diff section)
+	assert.Equal(t, tokens.Normal, e.lineStyle("- bullet item", 2),
+		"without scissors, bullet should be Normal")
+	assert.Equal(t, tokens.Normal, e.lineStyle("+ positive note", 3),
+		"without scissors, plus prefix should be Normal")
+}
+
 func TestRender_ViewportScrollsWithCursor(t *testing.T) {
 	e := NewEditor(testTokens())
 	e.SetSize(80, 3) // Only 3 visible lines

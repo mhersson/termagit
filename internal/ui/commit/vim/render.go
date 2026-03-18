@@ -37,7 +37,7 @@ func (e *Editor) View() string {
 			b.WriteString(e.renderLineWithCursor(line))
 		} else {
 			// Syntax-highlighted line rendering
-			b.WriteString(e.renderStyledLine(line))
+			b.WriteString(e.renderStyledLine(line, i))
 		}
 
 		if i < endLine-1 {
@@ -49,8 +49,23 @@ func (e *Editor) View() string {
 }
 
 // lineStyle returns the appropriate style for a line based on its content.
-func (e *Editor) lineStyle(line string) lipgloss.Style {
+// Diff syntax highlighting ('+', '-', '@@', 'diff --git', etc.) is only applied
+// when lineIdx is within the diff section (at or past the scissors line).
+// Comment lines ('#') are styled unconditionally.
+func (e *Editor) lineStyle(line string, lineIdx int) lipgloss.Style {
 	if len(line) == 0 {
+		return e.tokens.Normal
+	}
+
+	inDiffSection := e.diffStartLine >= 0 && lineIdx >= e.diffStartLine
+
+	// Comment lines are styled everywhere
+	if line[0] == '#' {
+		return e.tokens.Comment
+	}
+
+	// Diff styles only apply below the scissors line
+	if !inDiffSection {
 		return e.tokens.Normal
 	}
 
@@ -72,25 +87,21 @@ func (e *Editor) lineStyle(line string) lipgloss.Style {
 	firstChar := line[0]
 	switch firstChar {
 	case '+':
-		// Make sure it's not +++ (file header)
 		if !strings.HasPrefix(line, "+++") {
 			return e.tokens.DiffAdd
 		}
 	case '-':
-		// Make sure it's not --- (file header)
 		if !strings.HasPrefix(line, "---") {
 			return e.tokens.DiffDelete
 		}
-	case '#':
-		return e.tokens.Comment
 	}
 
 	return e.tokens.Normal
 }
 
 // renderStyledLine renders a line with syntax highlighting.
-func (e *Editor) renderStyledLine(line string) string {
-	style := e.lineStyle(line)
+func (e *Editor) renderStyledLine(line string, lineIdx int) string {
+	style := e.lineStyle(line, lineIdx)
 	return style.Render(line)
 }
 
