@@ -174,3 +174,48 @@ func TestRebaseAutosquash_SquashesFixupIntoTarget(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, logOut, "fixup!")
 }
+
+func TestRebaseAutosquash_WithUnstagedChanges_Succeeds(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Create base commit
+	require.NoError(t, os.WriteFile(filepath.Join(r.path, "base.txt"), []byte("base"), 0o644))
+	require.NoError(t, r.StageFile(ctx, "base.txt"))
+	_, err := r.Commit(ctx, CommitOpts{Message: "Base commit"})
+	require.NoError(t, err)
+
+	baseHash, err := r.runGit(ctx, "rev-parse", "HEAD")
+	require.NoError(t, err)
+	baseHash = strings.TrimSpace(baseHash)
+
+	// Create a normal commit after base
+	require.NoError(t, os.WriteFile(filepath.Join(r.path, "normal.txt"), []byte("normal"), 0o644))
+	require.NoError(t, r.StageFile(ctx, "normal.txt"))
+	_, err = r.Commit(ctx, CommitOpts{Message: "Normal commit"})
+	require.NoError(t, err)
+
+	// Create fixup commit targeting base
+	require.NoError(t, os.WriteFile(filepath.Join(r.path, "fix.txt"), []byte("fix"), 0o644))
+	require.NoError(t, r.StageFile(ctx, "fix.txt"))
+	_, err = r.Commit(ctx, CommitOpts{Fixup: baseHash, NoEdit: true})
+	require.NoError(t, err)
+
+	// Introduce an unstaged change (dirty worktree)
+	require.NoError(t, os.WriteFile(filepath.Join(r.path, "base.txt"), []byte("dirty"), 0o644))
+
+	// Autosquash must succeed despite dirty worktree (--autostash)
+	err = r.RebaseAutosquash(ctx, baseHash)
+	require.NoError(t, err, "RebaseAutosquash should succeed with unstaged changes")
+
+	// Fixup was squashed: 3 commits instead of 4
+	countAfter, err := r.runGit(ctx, "rev-list", "--count", "HEAD")
+	require.NoError(t, err)
+	require.Equal(t, "3", strings.TrimSpace(countAfter))
+
+	// Unstaged change must have been restored
+	content, err := os.ReadFile(filepath.Join(r.path, "base.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "dirty", string(content), "unstaged change should survive autosquash")
+}

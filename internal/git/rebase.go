@@ -260,7 +260,7 @@ func (r *Repository) RebaseCurrentStep() (int, error) {
 func (r *Repository) RebaseAutosquash(ctx context.Context, target string) error {
 	args := []string{
 		"-c", "sequence.editor=true",
-		"rebase", "-i", "--autosquash", "--keep-empty",
+		"rebase", "-i", "--autosquash", "--autostash", "--keep-empty",
 		target + "~1",
 	}
 	_, err := r.runGit(ctx, args...)
