@@ -155,7 +155,6 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		return handleCommitSelected(m, msg)
 
 	case commitselect.AbortedMsg:
-		m.commitSelect = nil
 		m.commitSpecialKind = commitSpecialNone
 		m.commitSpecialOpts = git.CommitOpts{}
 		return m, nil
@@ -173,9 +172,10 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.commitSpecialOpts = git.CommitOpts{}
 			return m, notifyCmd(2 * time.Second)
 		}
-		cs := commitselect.New(msg.commits, m.width, m.height)
-		m.commitSelect = &cs
-		return m, nil
+		// Send up to the app to take over the screen
+		return m, func() tea.Msg {
+			return commitselect.OpenCommitSelectMsg{Commits: msg.commits}
+		}
 	}
 
 	return m, nil
@@ -183,11 +183,6 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKeyMsg handles keyboard input.
 func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// If commit select overlay is active, delegate to it
-	if m.commitSelect != nil {
-		return handleCommitSelectKey(m, msg)
-	}
-
 	// If popup is active, delegate to it
 	if m.popup != nil {
 		return handlePopupKey(m, msg)
@@ -1412,35 +1407,20 @@ func handleOpenCommitPopup(m Model) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// openCommitSelect opens the commit select overlay for special commit actions.
-// It fetches recent commits and shows a list for the user to pick a target.
+// openCommitSelect initiates the commit select flow for special commit actions.
+// It fetches recent commits; once loaded, the app switches to the commit select screen.
 func openCommitSelect(m Model, opts git.CommitOpts, kind commitSpecialKind) (tea.Model, tea.Cmd) {
 	m.commitSpecialOpts = opts
 	m.commitSpecialKind = kind
 	return m, loadCommitsForSelectCmd(m.repo)
 }
 
-// handleCommitSelectKey delegates key handling to the commit select overlay.
-func handleCommitSelectKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	cs := *m.commitSelect
-	updated, cmd := cs.Update(msg)
-	csModel := updated.(commitselect.Model)
-	m.commitSelect = &csModel
-
-	if m.commitSelect.Done() {
-		// The SelectedMsg or AbortedMsg will be delivered via cmd
-		return m, cmd
-	}
-	return m, cmd
-}
-
-// handleCommitSelected handles the user selecting a commit in the commit select overlay.
+// handleCommitSelected handles the user selecting a commit in the commit select view.
 func handleCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.Model, tea.Cmd) {
 	opts := m.commitSpecialOpts
 	kind := m.commitSpecialKind
 
 	// Clear commit select state
-	m.commitSelect = nil
 	m.commitSpecialKind = commitSpecialNone
 	m.commitSpecialOpts = git.CommitOpts{}
 

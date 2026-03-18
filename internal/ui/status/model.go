@@ -8,7 +8,6 @@ import (
 	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/theme"
-	"github.com/mhersson/conjit/internal/ui/commitselect"
 	"github.com/mhersson/conjit/internal/ui/popup"
 )
 
@@ -211,8 +210,7 @@ type Model struct {
 	// Pending key for multi-key sequences (e.g., "gg")
 	pendingKey string
 
-	// Commit select overlay (for fixup, squash, alter, augment, revise, instant fixup/squash)
-	commitSelect       *commitselect.Model
+	// Pending commit special action (waiting for commit select result)
 	commitSpecialOpts  git.CommitOpts    // popup switches captured before commit select
 	commitSpecialKind  commitSpecialKind // which special action initiated the select
 

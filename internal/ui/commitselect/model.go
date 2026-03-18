@@ -6,13 +6,19 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/conjit/internal/theme"
 )
+
+// OpenCommitSelectMsg triggers opening the commit select view at the app level.
+type OpenCommitSelectMsg struct {
+	Commits []git.LogEntry
+}
 
 // SelectedMsg is sent when the user selects a commit.
 type SelectedMsg struct {
-	Hash    string // abbreviated commit hash
+	Hash     string // abbreviated commit hash
 	FullHash string // full 40-char commit hash
-	Subject string // commit subject line
+	Subject  string // commit subject line
 }
 
 // AbortedMsg is sent when the user aborts the selection.
@@ -21,6 +27,7 @@ type AbortedMsg struct{}
 // Model is the commit select view for picking a target commit.
 type Model struct {
 	commits []git.LogEntry
+	tokens  theme.Tokens
 	cursor  int
 	offset  int // scroll offset for viewport
 	width   int
@@ -30,9 +37,10 @@ type Model struct {
 }
 
 // New creates a new commit select model.
-func New(commits []git.LogEntry, width, height int) Model {
+func New(commits []git.LogEntry, tokens theme.Tokens, width, height int) Model {
 	return Model{
 		commits: commits,
+		tokens:  tokens,
 		width:   width,
 		height:  height,
 	}
@@ -46,6 +54,10 @@ func (m Model) Init() tea.Cmd {
 // Update implements tea.Model.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
@@ -141,10 +153,14 @@ func (m *Model) ensureVisible() {
 
 // View implements tea.Model.
 func (m Model) View() string {
+	if m.width == 0 || m.height == 0 {
+		return ""
+	}
+
 	var b strings.Builder
 
-	b.WriteString("Select a commit with <cr>, or <esc> to abort")
-	b.WriteString("\n")
+	b.WriteString(m.tokens.SubtleText.Render("Select a commit with <cr>, or <esc> to abort"))
+	b.WriteString("\n\n")
 
 	vis := m.visibleLines()
 	end := m.offset + vis
@@ -154,11 +170,18 @@ func (m Model) View() string {
 
 	for i := m.offset; i < end; i++ {
 		c := m.commits[i]
-		prefix := "  "
 		if i == m.cursor {
-			prefix = "> "
+			// Cursor line: full line with cursor styling
+			line := fmt.Sprintf("  %s %s", c.AbbreviatedHash, c.Subject)
+			b.WriteString(m.tokens.Cursor.Render(line))
+		} else {
+			// Normal line: styled hash + plain subject
+			b.WriteString("  ")
+			b.WriteString(m.tokens.Hash.Render(c.AbbreviatedHash))
+			b.WriteString(" ")
+			b.WriteString(c.Subject)
 		}
-		fmt.Fprintf(&b, "%s%s %s\n", prefix, c.AbbreviatedHash, c.Subject)
+		b.WriteString("\n")
 	}
 
 	return b.String()

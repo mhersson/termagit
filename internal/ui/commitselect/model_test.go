@@ -5,9 +5,14 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/conjit/internal/theme"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func testTokens() theme.Tokens {
+	return theme.Compile(theme.RawTokens{})
+}
 
 func testCommits() []git.LogEntry {
 	return []git.LogEntry{
@@ -18,20 +23,20 @@ func testCommits() []git.LogEntry {
 }
 
 func TestNew_InitializesWithCursorAtZero(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 	assert.Equal(t, 0, m.cursor)
 	assert.False(t, m.done)
 	assert.False(t, m.aborted)
 }
 
 func TestNew_EmptyCommits(t *testing.T) {
-	m := New(nil, 80, 24)
+	m := New(nil, testTokens(), 80, 24)
 	assert.Equal(t, 0, m.cursor)
 	assert.Empty(t, m.commits)
 }
 
 func TestUpdate_MoveDown(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	result := updated.(Model)
@@ -39,7 +44,7 @@ func TestUpdate_MoveDown(t *testing.T) {
 }
 
 func TestUpdate_MoveUp(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 	m.cursor = 2
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
@@ -48,7 +53,7 @@ func TestUpdate_MoveUp(t *testing.T) {
 }
 
 func TestUpdate_MoveDownWrapsAtBottom(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 	m.cursor = 2 // last item
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
@@ -57,7 +62,7 @@ func TestUpdate_MoveDownWrapsAtBottom(t *testing.T) {
 }
 
 func TestUpdate_MoveUpClampsAtTop(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 	m.cursor = 0
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
@@ -66,7 +71,7 @@ func TestUpdate_MoveUpClampsAtTop(t *testing.T) {
 }
 
 func TestUpdate_ArrowDownMovesCursor(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
 	result := updated.(Model)
@@ -74,7 +79,7 @@ func TestUpdate_ArrowDownMovesCursor(t *testing.T) {
 }
 
 func TestUpdate_ArrowUpMovesCursor(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 	m.cursor = 1
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
@@ -83,7 +88,7 @@ func TestUpdate_ArrowUpMovesCursor(t *testing.T) {
 }
 
 func TestUpdate_EnterSelectsCommit(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 	m.cursor = 1
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -101,7 +106,7 @@ func TestUpdate_EnterSelectsCommit(t *testing.T) {
 }
 
 func TestUpdate_EscapeAborts(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEscape})
 	result := updated.(Model)
@@ -115,7 +120,7 @@ func TestUpdate_EscapeAborts(t *testing.T) {
 }
 
 func TestUpdate_QAborts(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
 	result := updated.(Model)
@@ -129,7 +134,7 @@ func TestUpdate_QAborts(t *testing.T) {
 }
 
 func TestUpdate_EnterOnEmptyCommitsAborts(t *testing.T) {
-	m := New(nil, 80, 24)
+	m := New(nil, testTokens(), 80, 24)
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	result := updated.(Model)
@@ -143,13 +148,13 @@ func TestUpdate_EnterOnEmptyCommitsAborts(t *testing.T) {
 }
 
 func TestView_ContainsHeader(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 	view := m.View()
 	assert.Contains(t, view, "Select a commit with <cr>, or <esc> to abort")
 }
 
 func TestView_ContainsCommitHashes(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 	view := m.View()
 	assert.Contains(t, view, "abc1234")
 	assert.Contains(t, view, "def5678")
@@ -157,7 +162,7 @@ func TestView_ContainsCommitHashes(t *testing.T) {
 }
 
 func TestView_ContainsCommitSubjects(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 	view := m.View()
 	assert.Contains(t, view, "Add feature X")
 	assert.Contains(t, view, "Fix bug Y")
@@ -165,7 +170,7 @@ func TestView_ContainsCommitSubjects(t *testing.T) {
 }
 
 func TestDone_ReturnsState(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 	assert.False(t, m.Done())
 
 	m.done = true
@@ -173,7 +178,7 @@ func TestDone_ReturnsState(t *testing.T) {
 }
 
 func TestAborted_ReturnsState(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 	assert.False(t, m.Aborted())
 
 	m.aborted = true
@@ -181,7 +186,7 @@ func TestAborted_ReturnsState(t *testing.T) {
 }
 
 func TestSetSize_UpdatesDimensions(t *testing.T) {
-	m := New(testCommits(), 80, 24)
+	m := New(testCommits(), testTokens(), 80, 24)
 	m.SetSize(120, 40)
 	assert.Equal(t, 120, m.width)
 	assert.Equal(t, 40, m.height)
@@ -193,7 +198,7 @@ func TestUpdate_CtrlDScrollsDown(t *testing.T) {
 	for i := range commits {
 		commits[i] = git.LogEntry{AbbreviatedHash: "abc1234", Subject: "Commit"}
 	}
-	m := New(commits, 80, 10)
+	m := New(commits, testTokens(), 80, 10)
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlD})
 	result := updated.(Model)
@@ -205,7 +210,7 @@ func TestUpdate_CtrlUScrollsUp(t *testing.T) {
 	for i := range commits {
 		commits[i] = git.LogEntry{AbbreviatedHash: "abc1234", Subject: "Commit"}
 	}
-	m := New(commits, 80, 10)
+	m := New(commits, testTokens(), 80, 10)
 	m.cursor = 25
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
