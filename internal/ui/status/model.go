@@ -133,6 +133,15 @@ const (
 	PopupHelp
 )
 
+// cursorRestore holds info to restore cursor position after a status reload.
+type cursorRestore struct {
+	active      bool
+	path        string      // file path to find
+	sectionKind SectionKind // which section to look in after the operation
+	itemIndex   int         // original item index for clamping
+	hunk        int         // hunk index (-1 = on file)
+}
+
 // Model is the status buffer model.
 type Model struct {
 	repo   *git.Repository
@@ -159,6 +168,9 @@ type Model struct {
 	confirmMode ConfirmMode //nolint:unused // Phase 4 - used in update.go
 	confirmPath string      //nolint:unused // Phase 4 - used in view.go
 	confirmHunk int         //nolint:unused // Phase 4 - hunk index for ConfirmDiscardHunk
+
+	// Cursor restore after stage/unstage/discard
+	pendingRestore cursorRestore
 
 	// Peek file preview state
 	peekActive   bool            //nolint:unused // Phase 4 - used in view.go

@@ -40,8 +40,14 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.head = msg.head
 		m.sections = msg.sections
-		// Position cursor on first non-empty, non-hidden section
-		m.cursor = findFirstValidCursor(m.sections)
+
+		if m.pendingRestore.active {
+			m.cursor = restoreCursor(m.sections, m.pendingRestore)
+			m.pendingRestore = cursorRestore{}
+		} else {
+			// Position cursor on first non-empty, non-hidden section
+			m.cursor = findFirstValidCursor(m.sections)
+		}
 
 		// Update viewport content
 		if m.viewport.Width > 0 {
@@ -351,6 +357,9 @@ func handleConfirmKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // executeConfirmedAction executes the action after confirmation.
 func executeConfirmedAction(m Model) (tea.Model, tea.Cmd) {
+	// Save cursor context for restore after reload
+	m.pendingRestore = saveCursorContext(m)
+
 	switch m.confirmMode {
 	case ConfirmDiscard:
 		path := m.confirmPath
@@ -396,6 +405,9 @@ func handleStage(m Model) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Save cursor context for restore after reload
+	m.pendingRestore = saveCursorContext(m)
+
 	// If on a hunk, stage just the hunk
 	if m.cursor.Hunk >= 0 && len(item.Hunks) > m.cursor.Hunk {
 		return m, stageHunkCmd(m.repo, item.Entry.Path(), item.Hunks[m.cursor.Hunk])
@@ -426,6 +438,9 @@ func handleUnstage(m Model) (tea.Model, tea.Cmd) {
 	if sectionKind != SectionStaged {
 		return m, nil
 	}
+
+	// Save cursor context for restore after reload
+	m.pendingRestore = saveCursorContext(m)
 
 	// If on a hunk, unstage just the hunk
 	if m.cursor.Hunk >= 0 && len(item.Hunks) > m.cursor.Hunk {
@@ -996,6 +1011,66 @@ func findFirstValidCursor(sections []Section) Cursor {
 		}
 	}
 	return Cursor{Section: 0, Item: -1, Hunk: -1, Line: -1}
+}
+
+// restoreCursor tries to place the cursor near where the user was before a
+// status reload. It searches for the file path in the original section first,
+// then falls back to staying at the same index in that section, then falls
+// back to findFirstValidCursor.
+func restoreCursor(sections []Section, restore cursorRestore) Cursor {
+	// Find the section matching the original kind.
+	sectionIdx := -1
+	for i, s := range sections {
+		if s.Kind == restore.sectionKind {
+			sectionIdx = i
+			break
+		}
+	}
+
+	// If original section found, look for the file in it.
+	if sectionIdx >= 0 {
+		s := sections[sectionIdx]
+		for itemIdx, item := range s.Items {
+			if item.Entry != nil && item.Entry.Path() == restore.path {
+				return Cursor{Section: sectionIdx, Item: itemIdx, Hunk: -1, Line: -1}
+			}
+		}
+		// File not in original section (it moved). Clamp to same item index.
+		if len(s.Items) > 0 {
+			idx := restore.itemIndex
+			if idx >= len(s.Items) {
+				idx = len(s.Items) - 1
+			}
+			if idx < 0 {
+				idx = 0
+			}
+			return Cursor{Section: sectionIdx, Item: idx, Hunk: -1, Line: -1}
+		}
+		// Section is empty — try next visible section with items.
+		for i := sectionIdx + 1; i < len(sections); i++ {
+			if !sections[i].Hidden {
+				return Cursor{Section: i, Item: -1, Hunk: -1, Line: -1}
+			}
+		}
+		// Fall through to global fallback.
+	}
+
+	return findFirstValidCursor(sections)
+}
+
+// saveCursorContext builds a cursorRestore from the current model state.
+func saveCursorContext(m Model) cursorRestore {
+	item, sectionKind := getCurrentItem(m)
+	if item == nil || item.Entry == nil {
+		return cursorRestore{}
+	}
+	return cursorRestore{
+		active:      true,
+		path:        item.Entry.Path(),
+		sectionKind: sectionKind,
+		itemIndex:   m.cursor.Item,
+		hunk:        m.cursor.Hunk,
+	}
 }
 
 // diffKindForSection returns the diff kind for a section.

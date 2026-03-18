@@ -1435,3 +1435,362 @@ func TestRenderWithBlockCursor_UTF8Rune(t *testing.T) {
 		t.Error("expected second UTF-8 rune in output")
 	}
 }
+
+// === Cursor Restore Tests ===
+
+func makeEntry(path string) *git.StatusEntry {
+	e := git.NewStatusEntry(path, git.FileStatusNone, git.FileStatusNone)
+	return &e
+}
+
+func TestRestoreCursor_FileFoundInExpectedSection(t *testing.T) {
+	sections := []Section{
+		{Kind: SectionUntracked, Title: "Untracked files", Items: []Item{
+			{Entry: makeEntry("a.txt")},
+			{Entry: makeEntry("b.txt")},
+		}},
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("c.txt")},
+			{Entry: makeEntry("d.txt")},
+		}},
+	}
+
+	restore := cursorRestore{
+		active:      true,
+		path:        "d.txt",
+		sectionKind: SectionUnstaged,
+		hunk:        -1,
+	}
+
+	cur := restoreCursor(sections, restore)
+
+	if cur.Section != 1 {
+		t.Errorf("expected Section=1, got %d", cur.Section)
+	}
+	if cur.Item != 1 {
+		t.Errorf("expected Item=1, got %d", cur.Item)
+	}
+	if cur.Hunk != -1 {
+		t.Errorf("expected Hunk=-1, got %d", cur.Hunk)
+	}
+}
+
+func TestRestoreCursor_FileMovedToOtherSection(t *testing.T) {
+	// After staging "c.txt", it moves from unstaged to staged.
+	// The cursor should stay at the same item index in the original section,
+	// or clamp to the last item if the section shrunk.
+	sections := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("d.txt")},
+		}},
+		{Kind: SectionStaged, Title: "Staged changes", Items: []Item{
+			{Entry: makeEntry("c.txt")},
+		}},
+	}
+
+	restore := cursorRestore{
+		active:      true,
+		path:        "c.txt",
+		sectionKind: SectionUnstaged, // it was in unstaged before staging
+		hunk:        -1,
+	}
+
+	cur := restoreCursor(sections, restore)
+
+	// File is no longer in unstaged. Cursor should land on item 0 of unstaged
+	// (the item now at the position, or clamped).
+	if cur.Section != 0 {
+		t.Errorf("expected Section=0 (original section), got %d", cur.Section)
+	}
+	if cur.Item != 0 {
+		t.Errorf("expected Item=0 (clamped to remaining item), got %d", cur.Item)
+	}
+}
+
+func TestRestoreCursor_SectionGone(t *testing.T) {
+	// After staging the only unstaged file, the unstaged section becomes empty.
+	// Cursor should fall back to the next available section.
+	sections := []Section{
+		{Kind: SectionUntracked, Title: "Untracked files", Hidden: true},
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{}},
+		{Kind: SectionStaged, Title: "Staged changes", Items: []Item{
+			{Entry: makeEntry("c.txt")},
+		}},
+		{Kind: SectionRecentCommits, Title: "Recent Commits", Items: []Item{
+			{Entry: makeEntry("dummy")},
+		}},
+	}
+
+	restore := cursorRestore{
+		active:      true,
+		path:        "c.txt",
+		sectionKind: SectionUnstaged, // was the only file in unstaged
+		hunk:        -1,
+	}
+
+	cur := restoreCursor(sections, restore)
+
+	// Original section is empty, cursor should move to next visible section
+	// (SectionStaged at index 2)
+	if cur.Section == 1 && cur.Item == -1 {
+		// Acceptable: on the empty section header
+	} else if cur.Section == 2 {
+		// Also acceptable: moved to staged section
+	} else {
+		t.Errorf("expected cursor on staged section (2) or on empty unstaged header, got Section=%d Item=%d", cur.Section, cur.Item)
+	}
+}
+
+func TestRestoreCursor_HunkRestore(t *testing.T) {
+	// After staging a hunk, cursor should land on the file item (not hunk)
+	sections := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("a.txt")},
+			{Entry: makeEntry("big.txt"), Hunks: []git.Hunk{{}, {}}},
+		}},
+	}
+
+	restore := cursorRestore{
+		active:      true,
+		path:        "big.txt",
+		sectionKind: SectionUnstaged,
+		hunk:        1, // was on hunk 1
+	}
+
+	cur := restoreCursor(sections, restore)
+
+	if cur.Section != 0 {
+		t.Errorf("expected Section=0, got %d", cur.Section)
+	}
+	if cur.Item != 1 {
+		t.Errorf("expected Item=1, got %d", cur.Item)
+	}
+	// After reload, cursor should be on the file, not on a specific hunk
+	if cur.Hunk != -1 {
+		t.Errorf("expected Hunk=-1 (on file, not hunk), got %d", cur.Hunk)
+	}
+}
+
+func TestRestoreCursor_FallbackToFindFirst(t *testing.T) {
+	// When nothing matches at all, fall back to findFirstValidCursor
+	sections := []Section{
+		{Kind: SectionRecentCommits, Title: "Recent Commits", Items: []Item{
+			{Entry: makeEntry("whatever")},
+		}},
+	}
+
+	restore := cursorRestore{
+		active:      true,
+		path:        "gone.txt",
+		sectionKind: SectionUnstaged,
+		hunk:        -1,
+	}
+
+	cur := restoreCursor(sections, restore)
+
+	// Should fall back to first valid cursor
+	if cur.Section != 0 {
+		t.Errorf("expected fallback Section=0, got %d", cur.Section)
+	}
+	if cur.Item != -1 {
+		t.Errorf("expected fallback Item=-1 (header), got %d", cur.Item)
+	}
+}
+
+func TestRestoreCursor_ClampsItemIndex(t *testing.T) {
+	// Original section had 3 items, cursor was on item 2.
+	// After staging item 2, section now has 2 items. Cursor should clamp.
+	sections := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("a.txt")},
+			{Entry: makeEntry("b.txt")},
+		}},
+	}
+
+	restore := cursorRestore{
+		active:      true,
+		path:        "c.txt",            // no longer in unstaged
+		sectionKind: SectionUnstaged,
+		itemIndex:   2,                  // was at index 2
+		hunk:        -1,
+	}
+
+	cur := restoreCursor(sections, restore)
+
+	if cur.Section != 0 {
+		t.Errorf("expected Section=0, got %d", cur.Section)
+	}
+	// Item index 2 is out of bounds (only 2 items: 0,1), clamp to last item
+	if cur.Item != 1 {
+		t.Errorf("expected Item=1 (clamped), got %d", cur.Item)
+	}
+}
+
+func TestHandleStage_SetsPendingRestore(t *testing.T) {
+	entry := makeEntry("test.go")
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+				{Entry: entry},
+				{Entry: makeEntry("other.go")},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+	}
+
+	result, cmd := handleStage(m)
+	resultModel := result.(Model)
+
+	if cmd == nil {
+		t.Fatal("expected a command from handleStage")
+	}
+	if !resultModel.pendingRestore.active {
+		t.Error("expected pendingRestore.active=true after stage")
+	}
+	if resultModel.pendingRestore.path != "test.go" {
+		t.Errorf("expected pendingRestore.path=test.go, got %s", resultModel.pendingRestore.path)
+	}
+	if resultModel.pendingRestore.sectionKind != SectionUnstaged {
+		t.Errorf("expected pendingRestore.sectionKind=SectionUnstaged, got %d", resultModel.pendingRestore.sectionKind)
+	}
+	if resultModel.pendingRestore.itemIndex != 0 {
+		t.Errorf("expected pendingRestore.itemIndex=0, got %d", resultModel.pendingRestore.itemIndex)
+	}
+}
+
+func TestHandleUnstage_SetsPendingRestore(t *testing.T) {
+	entry := makeEntry("staged.go")
+	m := Model{
+		sections: []Section{
+			{Kind: SectionStaged, Title: "Staged changes", Items: []Item{
+				{Entry: makeEntry("first.go")},
+				{Entry: entry},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 1, Hunk: -1, Line: -1},
+	}
+
+	result, cmd := handleUnstage(m)
+	resultModel := result.(Model)
+
+	if cmd == nil {
+		t.Fatal("expected a command from handleUnstage")
+	}
+	if !resultModel.pendingRestore.active {
+		t.Error("expected pendingRestore.active=true after unstage")
+	}
+	if resultModel.pendingRestore.path != "staged.go" {
+		t.Errorf("expected pendingRestore.path=staged.go, got %s", resultModel.pendingRestore.path)
+	}
+	if resultModel.pendingRestore.sectionKind != SectionStaged {
+		t.Errorf("expected pendingRestore.sectionKind=SectionStaged, got %d", resultModel.pendingRestore.sectionKind)
+	}
+}
+
+func TestHandleStage_HunkSetsPendingRestore(t *testing.T) {
+	entry := makeEntry("patched.go")
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+				{Entry: entry, Hunks: []git.Hunk{{}, {}, {}}},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: 1, Line: -1},
+	}
+
+	result, cmd := handleStage(m)
+	resultModel := result.(Model)
+
+	if cmd == nil {
+		t.Fatal("expected a command from handleStage (hunk)")
+	}
+	if !resultModel.pendingRestore.active {
+		t.Error("expected pendingRestore.active=true after hunk stage")
+	}
+	if resultModel.pendingRestore.hunk != 1 {
+		t.Errorf("expected pendingRestore.hunk=1, got %d", resultModel.pendingRestore.hunk)
+	}
+}
+
+func TestExecuteConfirmedAction_SetsPendingRestore(t *testing.T) {
+	entry := makeEntry("discard.go")
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+				{Entry: entry},
+			}},
+		},
+		cursor:      Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+		confirmMode: ConfirmDiscard,
+		confirmPath: "discard.go",
+	}
+
+	result, _ := executeConfirmedAction(m)
+	resultModel := result.(Model)
+
+	if !resultModel.pendingRestore.active {
+		t.Error("expected pendingRestore.active=true after confirmed discard")
+	}
+	if resultModel.pendingRestore.path != "discard.go" {
+		t.Errorf("expected pendingRestore.path=discard.go, got %s", resultModel.pendingRestore.path)
+	}
+}
+
+func TestStatusLoadedMsg_UsesPendingRestore(t *testing.T) {
+	m := Model{
+		loading: true,
+		pendingRestore: cursorRestore{
+			active:      true,
+			path:        "target.go",
+			sectionKind: SectionUnstaged,
+			itemIndex:   0,
+			hunk:        -1,
+		},
+	}
+
+	newSections := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("target.go")},
+			{Entry: makeEntry("other.go")},
+		}},
+	}
+
+	result, _ := update(m, statusLoadedMsg{
+		head:     HeadState{Branch: "main"},
+		sections: newSections,
+	})
+	resultModel := result.(Model)
+
+	// Should restore cursor to "target.go" position
+	if resultModel.cursor.Section != 0 {
+		t.Errorf("expected cursor Section=0, got %d", resultModel.cursor.Section)
+	}
+	if resultModel.cursor.Item != 0 {
+		t.Errorf("expected cursor Item=0, got %d", resultModel.cursor.Item)
+	}
+	// pendingRestore should be cleared
+	if resultModel.pendingRestore.active {
+		t.Error("expected pendingRestore to be cleared after restore")
+	}
+}
+
+func TestStatusLoadedMsg_WithoutRestore_UsesDefault(t *testing.T) {
+	m := Model{loading: true}
+
+	newSections := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("a.go")},
+		}},
+	}
+
+	result, _ := update(m, statusLoadedMsg{
+		head:     HeadState{Branch: "main"},
+		sections: newSections,
+	})
+	resultModel := result.(Model)
+
+	// Without pending restore, should use findFirstValidCursor (section header)
+	if resultModel.cursor.Item != -1 {
+		t.Errorf("expected cursor on section header (Item=-1), got %d", resultModel.cursor.Item)
+	}
+}
