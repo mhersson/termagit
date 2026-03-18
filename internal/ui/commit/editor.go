@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/theme"
@@ -115,8 +116,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// Reserve 3 lines: title line + 2 blank lines before editor
-		m.vimEditor.SetSize(msg.Width-4, msg.Height-3)
+		// Reserve 2 lines: top bar + 1 blank line before editor
+		m.vimEditor.SetSize(msg.Width-4, msg.Height-2)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -274,18 +275,48 @@ func (m Model) View() string {
 
 	var b strings.Builder
 
-	// Title with mode indicator
-	title := m.titleForAction()
-	modeStr := m.modeString()
-	b.WriteString(m.tokens.Bold.Render(title))
-	b.WriteString(" ")
-	b.WriteString(m.tokens.Dim.Render(modeStr))
-	b.WriteString("\n\n")
+	// Top bar: mode badge (left) + centered title, full-width CursorBg background
+	b.WriteString(m.renderTopBar())
+	b.WriteString("\n")
 
 	// VimEditor content (includes the git-style template)
 	b.WriteString(m.vimEditor.View())
 
 	return b.String()
+}
+
+// renderTopBar renders the header bar with mode badge and centered title.
+// The CursorBg background covers the entire terminal width.
+// The mode badge sits on the left with its own colored background.
+func (m Model) renderTopBar() string {
+	mode := m.modeString()
+	title := m.titleForAction()
+
+	// Render mode badge with padding: " [NORMAL] "
+	badge := m.modeStyle().Render(" " + mode + " ")
+	badgeWidth := lipgloss.Width(badge)
+
+	// Calculate center position for the title within the full width
+	titleWidth := len(title)
+	centerPos := (m.width - titleWidth) / 2
+	gapAfterBadge := centerPos - badgeWidth
+	if gapAfterBadge < 1 {
+		gapAfterBadge = 1
+	}
+
+	// Title styled with bold + CursorBg background
+	titleStyle := m.tokens.Bold.Background(m.tokens.EditorBar.GetBackground())
+	styledTitle := titleStyle.Render(title)
+
+	// Gap and right fill use CursorBg background explicitly
+	gap := m.tokens.EditorBar.Render(strings.Repeat(" ", gapAfterBadge))
+	rightFill := m.width - badgeWidth - gapAfterBadge - titleWidth
+	if rightFill < 0 {
+		rightFill = 0
+	}
+	fill := m.tokens.EditorBar.Render(strings.Repeat(" ", rightFill))
+
+	return badge + gap + styledTitle + fill
 }
 
 // modeString returns a string representation of the current vim mode.
@@ -299,6 +330,20 @@ func (m Model) modeString() string {
 		return "[V-LINE]"
 	default:
 		return ""
+	}
+}
+
+// modeStyle returns the lipgloss style for the current vim mode badge.
+func (m Model) modeStyle() lipgloss.Style {
+	switch m.vimEditor.Mode() {
+	case vim.ModeNormal:
+		return m.tokens.EditorModeNormal
+	case vim.ModeInsert:
+		return m.tokens.EditorModeInsert
+	case vim.ModeVisualLine:
+		return m.tokens.EditorModeVisual
+	default:
+		return m.tokens.EditorModeNormal
 	}
 }
 
@@ -334,8 +379,8 @@ func (m Model) Aborted() bool {
 func (m *Model) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	// Reserve 3 lines: title line + 2 blank lines before editor
-	m.vimEditor.SetSize(width-4, height-3)
+	// Reserve 2 lines: top bar + 1 blank line before editor
+	m.vimEditor.SetSize(width-4, height-2)
 }
 
 // loadCommitHistoryCmd loads commit messages for history cycling.

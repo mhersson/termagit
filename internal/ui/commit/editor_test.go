@@ -2,6 +2,7 @@ package commit
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -244,6 +245,43 @@ func TestEditorModel_View_ShowsModeIndicator(t *testing.T) {
 	assert.Contains(t, view, "[NORMAL]")
 }
 
+func TestEditorModel_View_ModeBeforeTitle(t *testing.T) {
+	m := newTestModel(t)
+	m.width = 80
+	m.height = 24
+
+	view := m.View()
+	modeIdx := strings.Index(view, "[INSERT]")
+	titleIdx := strings.Index(view, "Create Commit")
+	require.NotEqual(t, -1, modeIdx, "mode indicator should be present")
+	require.NotEqual(t, -1, titleIdx, "title should be present")
+	assert.Less(t, modeIdx, titleIdx, "mode indicator should appear before title")
+}
+
+func TestEditorModel_View_TitleForEachAction(t *testing.T) {
+	actions := map[string]string{
+		"commit":  "Create Commit",
+		"amend":   "Amend Commit",
+		"reword":  "Reword Commit",
+		"extend":  "Extend Commit",
+		"fixup":   "Fixup Commit",
+		"squash":  "Squash Commit",
+	}
+
+	for action, expectedTitle := range actions {
+		t.Run(action, func(t *testing.T) {
+			cfg := testConfig()
+			tokens := testTokens()
+			m := New(nil, git.CommitOpts{}, cfg, tokens, action)
+			m.width = 80
+			m.height = 24
+
+			view := m.View()
+			assert.Contains(t, view, expectedTitle)
+		})
+	}
+}
+
 // Helper functions
 
 func newTestModel(t *testing.T) Model {
@@ -284,6 +322,10 @@ func testTokens() theme.Tokens {
 		PopupSection: "#ff8800",
 		Cursor:       "#ffffff",
 		CursorBg:     "#444444",
+		Background:   "#1e1e2e",
+		GraphBlue:    "#89b4fa",
+		GraphGreen:   "#a6e3a1",
+		GraphYellow:  "#f9e2af",
 	}
 	return theme.Compile(raw)
 }

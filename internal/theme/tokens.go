@@ -172,6 +172,12 @@ type Tokens struct {
 	Reverting lipgloss.Style
 	Bisecting lipgloss.Style
 
+	// Editor bar styles (derived from existing colors)
+	EditorBar        lipgloss.Style // Full-width bar background (CursorBg)
+	EditorModeNormal lipgloss.Style // Normal mode badge (blue bg)
+	EditorModeInsert lipgloss.Style // Insert mode badge (green bg)
+	EditorModeVisual lipgloss.Style // Visual mode badge (yellow bg)
+
 	// Misc styles
 	RebaseDone lipgloss.Style
 	SubtleText lipgloss.Style
@@ -247,6 +253,11 @@ func Compile(r RawTokens) Tokens {
 		Picking:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.Picking)).Bold(true),
 		Reverting: lipgloss.NewStyle().Foreground(lipgloss.Color(r.Reverting)).Bold(true),
 		Bisecting: lipgloss.NewStyle().Foreground(lipgloss.Color(r.Bisecting)).Bold(true),
+
+		EditorBar:        lipgloss.NewStyle().Background(lipgloss.Color(r.CursorBg)),
+		EditorModeNormal: lipgloss.NewStyle().Foreground(lipgloss.Color(r.Background)).Background(lipgloss.Color(r.GraphBlue)).Bold(true),
+		EditorModeInsert: lipgloss.NewStyle().Foreground(lipgloss.Color(r.Background)).Background(lipgloss.Color(r.GraphGreen)).Bold(true),
+		EditorModeVisual: lipgloss.NewStyle().Foreground(lipgloss.Color(r.Background)).Background(lipgloss.Color(r.GraphYellow)).Bold(true),
 
 		RebaseDone: lipgloss.NewStyle().Foreground(lipgloss.Color(r.RebaseDone)),
 		SubtleText: lipgloss.NewStyle().Foreground(lipgloss.Color(r.SubtleText)),
