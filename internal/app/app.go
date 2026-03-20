@@ -10,6 +10,7 @@ import (
 	"github.com/mhersson/conjit/internal/ui/cmdhistory"
 	"github.com/mhersson/conjit/internal/ui/commit"
 	"github.com/mhersson/conjit/internal/ui/commitselect"
+	"github.com/mhersson/conjit/internal/ui/commitview"
 	"github.com/mhersson/conjit/internal/ui/logview"
 	"github.com/mhersson/conjit/internal/ui/notification"
 	"github.com/mhersson/conjit/internal/ui/popup"
@@ -48,14 +49,16 @@ type Model struct {
 	tokens theme.Tokens
 	logger *cmdlog.Logger
 
-	active       Screen
-	status       status.Model
-	commitEditor commit.Model
-	commitSelect commitselect.Model
-	rebaseEditor rebaseeditor.Model
-	cmdHistory   *cmdhistory.Model
-	logView      *logview.Model
-	reflogView   *reflogview.Model
+	active         Screen
+	previousScreen Screen // for returning from commit view
+	status         status.Model
+	commitEditor   commit.Model
+	commitSelect   commitselect.Model
+	commitView     *commitview.Model
+	rebaseEditor   rebaseeditor.Model
+	cmdHistory     *cmdhistory.Model
+	logView        *logview.Model
+	reflogView     *reflogview.Model
 
 	notifications notification.Stack
 
@@ -120,6 +123,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case ScreenReflog:
 			if m.reflogView != nil {
 				m.reflogView.SetSize(msg.Width, msg.Height)
+			}
+		case ScreenCommitView:
+			if m.commitView != nil {
+				m.commitView.SetSize(msg.Width, msg.Height)
 			}
 		}
 		return m, nil
@@ -231,6 +238,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case reflogview.CloseReflogViewMsg:
 		m.active = ScreenStatus
 		return m, nil
+
+	// Commit view
+	case commitview.OpenCommitViewMsg:
+		return m.openCommitView(msg.CommitID, msg.Filter)
+
+	case commitview.CloseCommitViewMsg:
+		// Return to the screen that opened the commit view
+		m.active = m.previousScreen
+		return m, nil
 	}
 
 	// Delegate to active screen
@@ -272,6 +288,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.reflogView = &rv
 			return m, cmd
 		}
+	case ScreenCommitView:
+		if m.commitView != nil {
+			newCommitView, cmd := m.commitView.Update(msg)
+			cv := newCommitView.(commitview.Model)
+			m.commitView = &cv
+			return m, cmd
+		}
 	}
 
 	return m, nil
@@ -304,6 +327,23 @@ func (m Model) openReflogView(entries []git.ReflogEntry, ref string) (Model, tea
 	return m, nil
 }
 
+// openCommitView switches to the commit view screen.
+func (m Model) openCommitView(commitID string, filter []string) (Model, tea.Cmd) {
+	// Singleton pattern: if already viewing this commit, no-op
+	if m.active == ScreenCommitView && m.commitView != nil && m.commitView.CommitID() == commitID {
+		return m, nil
+	}
+
+	// Save current screen to return to on close
+	m.previousScreen = m.active
+
+	cv := commitview.New(m.repo, commitID, m.tokens, filter)
+	cv.SetSize(m.width, m.height)
+	m.commitView = &cv
+	m.active = ScreenCommitView
+	return m, cv.Init()
+}
+
 // View renders the model.
 func (m Model) View() string {
 	var base string
@@ -333,6 +373,12 @@ func (m Model) View() string {
 			base = m.reflogView.View()
 		} else {
 			base = "Reflog view not available"
+		}
+	case ScreenCommitView:
+		if m.commitView != nil {
+			base = m.commitView.View()
+		} else {
+			base = "Commit view not available"
 		}
 	default:
 		base = "Unknown screen"

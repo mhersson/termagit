@@ -100,5 +100,11 @@ func (t *tokyoNight) Raw() RawTokens {
 		RebaseDone: "#565f89", // dim
 		SubtleText: "#565f89", // dim
 		Stashes:    "#bb9af7", // magenta
+
+		// Commit view
+		CommitViewHeader:   "#7dcfff", // cyan (background like Neogit)
+		CommitViewHeaderFg: "#1a1b26", // bg (dark text on cyan)
+		FilePath:           "#7aa2f7", // blue (italic for paths)
+		Number:             "#ff9e64", // orange (numbers)
 	}
 }

@@ -100,5 +100,11 @@ func (t *everforestDark) Raw() RawTokens {
 		RebaseDone: "#7a8478", // grey
 		SubtleText: "#7a8478", // grey
 		Stashes:    "#d699b6", // purple
+
+		// Commit view
+		CommitViewHeader:   "#83c092", // aqua (cyan background like Neogit)
+		CommitViewHeaderFg: "#2d353b", // bg (dark text on cyan)
+		FilePath:           "#7fbbb3", // blue (italic for paths)
+		Number:             "#e69875", // orange (numbers)
 	}
 }

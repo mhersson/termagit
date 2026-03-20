@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/conjit/internal/ui/commitview"
 )
 
 // Model is the log view model.
@@ -187,7 +188,19 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, m.keys.Select):
-		// TODO: Open commit view (Phase 10)
+		// Open commit view for the selected commit
+		if len(m.commits) > 0 {
+			idx := m.cursor
+			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
+				idx = m.filtered[m.cursor]
+			}
+			if idx < len(m.commits) {
+				hash := m.commits[idx].Hash
+				return m, func() tea.Msg {
+					return commitview.OpenCommitViewMsg{CommitID: hash}
+				}
+			}
+		}
 		return m, nil
 	}
 

@@ -102,5 +102,11 @@ func (t *catppuccinMocha) Raw() RawTokens {
 		RebaseDone: "#6c7086", // overlay0
 		SubtleText: "#6c7086", // overlay0
 		Stashes:    "#cba6f7", // mauve
+
+		// Commit view
+		CommitViewHeader:   "#89dceb", // sky (cyan background like Neogit)
+		CommitViewHeaderFg: "#1e1e2e", // base (dark text on cyan)
+		FilePath:           "#89b4fa", // blue (italic for paths)
+		Number:             "#fab387", // peach (numbers)
 	}
 }

@@ -217,3 +217,109 @@ func TestUpdate_CtrlUScrollsUp(t *testing.T) {
 	result := updated.(Model)
 	assert.Less(t, result.cursor, 25, "ctrl-u should move cursor up")
 }
+
+// === New tests for Phase 10 enhancements ===
+
+func TestVisualMode_ToggleWithV(t *testing.T) {
+	m := New(testCommits(), testTokens(), 80, 24)
+
+	// Press 'v' to enter visual mode
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
+	result := updated.(Model)
+	assert.True(t, result.visualMode, "v should enable visual mode")
+
+	// Press 'v' again to exit visual mode
+	updated, _ = result.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
+	result = updated.(Model)
+	assert.False(t, result.visualMode, "v should disable visual mode")
+}
+
+func TestVisualMode_SelectsRange(t *testing.T) {
+	m := New(testCommits(), testTokens(), 80, 24)
+
+	// Enter visual mode
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
+	result := updated.(Model)
+
+	// Move down to select a range
+	updated, _ = result.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	result = updated.(Model)
+	updated, _ = result.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	result = updated.(Model)
+
+	// Press Enter to confirm selection
+	_, cmd := result.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	require.NotNil(t, cmd)
+	msg := cmd()
+	sel, ok := msg.(SelectedMsg)
+	require.True(t, ok)
+	// Should have all 3 commits selected (from index 0 to 2)
+	assert.Len(t, sel.Hashes, 3)
+}
+
+func TestSpaceTogglesSelection(t *testing.T) {
+	m := New(testCommits(), testTokens(), 80, 24)
+	m.multiSelect = true
+
+	// Space toggles selection and moves down
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeySpace})
+	result := updated.(Model)
+	assert.True(t, result.selected[0], "space should select current item")
+	assert.Equal(t, 1, result.cursor, "space should move cursor down")
+
+	// Toggle again at position 1
+	updated, _ = result.Update(tea.KeyMsg{Type: tea.KeySpace})
+	result = updated.(Model)
+	assert.True(t, result.selected[1], "space should select item at position 1")
+}
+
+func TestFilter_MatchesSubject(t *testing.T) {
+	m := New(testCommits(), testTokens(), 80, 24)
+
+	// Press '/' to enter filter mode
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	result := updated.(Model)
+	assert.True(t, result.filterActive, "/ should activate filter")
+
+	// Type filter text "bug"
+	result.filterInput.SetValue("bug")
+
+	// Press Enter to apply filter
+	updated, _ = result.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	result = updated.(Model)
+
+	assert.False(t, result.filterActive, "enter should deactivate filter mode")
+	assert.Equal(t, "bug", result.filterText)
+	assert.Len(t, result.filtered, 1, "should filter to one commit matching 'bug'")
+}
+
+func TestYank_CopiesSelectedHashes(t *testing.T) {
+	m := New(testCommits(), testTokens(), 80, 24)
+	m.multiSelect = true
+	m.selected = make([]bool, len(m.commits))
+	m.selected[0] = true
+	m.selected[2] = true
+
+	// Press 'y' to yank
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+
+	// Should produce a command (yank is typically handled by returning a cmd)
+	require.NotNil(t, cmd)
+}
+
+func TestSelectedMsg_ContainsMultipleHashes(t *testing.T) {
+	m := New(testCommits(), testTokens(), 80, 24)
+	m.multiSelect = true
+	m.selected = make([]bool, len(m.commits))
+	m.selected[0] = true
+	m.selected[2] = true
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	require.NotNil(t, cmd)
+	msg := cmd()
+	sel, ok := msg.(SelectedMsg)
+	require.True(t, ok)
+	assert.Len(t, sel.Hashes, 2)
+	assert.Contains(t, sel.Hashes, "abc1234567890abc1234567890abc1234567890ab")
+	assert.Contains(t, sel.Hashes, "ghi9012345678ghi9012345678ghi9012345678gh")
+}

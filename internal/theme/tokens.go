@@ -97,6 +97,12 @@ type RawTokens struct {
 	RebaseDone string `toml:"rebase_done"`
 	SubtleText string `toml:"subtle_text"`
 	Stashes    string `toml:"stashes"`
+
+	// Commit view
+	CommitViewHeader   string `toml:"commit_view_header"`    // bg for header bar
+	CommitViewHeaderFg string `toml:"commit_view_header_fg"` // fg for header bar
+	FilePath           string `toml:"file_path"`             // file paths in commit view
+	Number             string `toml:"number"`                // numbers in stat
 }
 
 // Tokens holds compiled lipgloss.Style values for rendering.
@@ -192,6 +198,11 @@ type Tokens struct {
 	RebaseDone lipgloss.Style
 	SubtleText lipgloss.Style
 	Stashes    lipgloss.Style
+
+	// Commit view styles
+	CommitViewHeader lipgloss.Style // NeogitCommitViewHeader: bg=cyan, fg=dark
+	FilePath         lipgloss.Style // Italic blue for file paths
+	Number           lipgloss.Style // Numbers in stat
 }
 
 // Compile converts RawTokens to compiled Tokens.
@@ -276,5 +287,11 @@ func Compile(r RawTokens) Tokens {
 		RebaseDone: lipgloss.NewStyle().Foreground(lipgloss.Color(r.RebaseDone)),
 		SubtleText: lipgloss.NewStyle().Foreground(lipgloss.Color(r.SubtleText)),
 		Stashes:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.Stashes)).Bold(true),
+
+		CommitViewHeader: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(r.CommitViewHeaderFg)).
+			Background(lipgloss.Color(r.CommitViewHeader)),
+		FilePath: lipgloss.NewStyle().Foreground(lipgloss.Color(r.FilePath)).Italic(true),
+		Number:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.Number)),
 	}
 }
