@@ -173,6 +173,24 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	case commitselect.SelectedMsg:
 		return handleCommitSelected(m, msg)
 
+	case commitview.CommitDataLoadedMsg:
+		// Forward to commit view if active
+		if m.commitView != nil {
+			cv := *m.commitView
+			newCV, cmd := cv.Update(msg)
+			cvModel := newCV.(commitview.Model)
+			m.commitView = &cvModel
+			return m, cmd
+		}
+		return m, nil
+
+	case commitview.CloseCommitViewMsg:
+		// Handle close from the overlay commit view - don't bubble up to app
+		if m.commitView != nil {
+			m.commitView = nil
+		}
+		return m, nil
+
 	case commitselect.AbortedMsg:
 		m.commitSpecialKind = commitSpecialNone
 		m.commitSpecialOpts = git.CommitOpts{}
@@ -200,6 +218,11 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKeyMsg handles keyboard input.
 func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// If commit view overlay is active, delegate to it
+	if m.commitView != nil {
+		return handleCommitViewKey(m, msg)
+	}
+
 	// If popup is active, delegate to it
 	if m.popup != nil {
 		return handlePopupKey(m, msg)
@@ -742,11 +765,13 @@ func handleGoToFile(m Model) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// If it's a commit, open commit view
+	// If it's a commit, open commit view as overlay
 	if item.Commit != nil {
-		return m, func() tea.Msg {
-			return commitview.OpenCommitViewMsg{CommitID: item.Commit.Hash}
-		}
+		cv := commitview.New(m.repo, item.Commit.Hash, m.tokens, nil)
+		cv.SetSize(m.width, m.height/2)
+		cv.SetOverlayMode(true)
+		m.commitView = &cv
+		return m, cv.Init()
 	}
 
 	// If it's a file, open in editor (stub for now)
@@ -1348,6 +1373,21 @@ func handleGoToBottom(m Model) (tea.Model, tea.Cmd) {
 	ensureCursorVisible(&m, cursorLine)
 
 	return m, nil
+}
+
+// handleCommitViewKey delegates key handling to the commit view overlay.
+func handleCommitViewKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	cv := *m.commitView
+	newCV, cmd := cv.Update(msg)
+	cvModel := newCV.(commitview.Model)
+	m.commitView = &cvModel
+
+	if cvModel.Done() {
+		m.commitView = nil
+		// Don't return the CloseCommitViewMsg command - we handle the close internally
+		return m, nil
+	}
+	return m, cmd
 }
 
 // handlePopupKey delegates key handling to the active popup.

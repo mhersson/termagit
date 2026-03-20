@@ -1,6 +1,8 @@
 package commitview
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -23,14 +25,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.overview = msg.Overview
 		m.signature = msg.Signature
 		m.diffs = msg.Diffs
-		// Build viewport content
-		m.viewport.SetContent(m.renderContent())
+		// Build viewport content and calculate total lines
+		content := m.renderContent()
+		m.totalLines = strings.Count(content, "\n")
+		if m.totalLines > 0 && !strings.HasSuffix(content, "\n") {
+			m.totalLines++ // Count the last line if it doesn't end with newline
+		}
+		m.viewport.SetContent(content)
+		m.cursorLine = 0
 		return m, nil
 
 	case tea.KeyMsg:
 		if m.loading {
 			// Only allow close while loading
 			if key.Matches(msg, m.keys.Close) || key.Matches(msg, m.keys.CloseEscape) {
+				m.done = true
 				return m, func() tea.Msg { return CloseCommitViewMsg{} }
 			}
 			return m, nil
@@ -47,14 +56,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Close), key.Matches(msg, m.keys.CloseEscape):
+		m.done = true
 		return m, func() tea.Msg { return CloseCommitViewMsg{} }
 
 	case key.Matches(msg, m.keys.MoveDown):
-		m.viewport.ScrollDown(1)
+		if m.cursorLine < m.totalLines-1 {
+			m.cursorLine++
+		}
+		// Ensure cursor visible
+		if m.cursorLine >= m.viewport.YOffset+m.viewport.Height {
+			m.viewport.YOffset = m.cursorLine - m.viewport.Height + 1
+		}
 		return m, nil
 
 	case key.Matches(msg, m.keys.MoveUp):
-		m.viewport.ScrollUp(1)
+		if m.cursorLine > 0 {
+			m.cursorLine--
+		}
+		// Ensure cursor visible
+		if m.cursorLine < m.viewport.YOffset {
+			m.viewport.YOffset = m.cursorLine
+		}
 		return m, nil
 
 	case key.Matches(msg, m.keys.PageDown):

@@ -19,6 +19,37 @@ func view(m Model) string {
 		return fmt.Sprintf("Error: %v", m.err)
 	}
 
+	// Overlay commit view if active (before popup check)
+	if m.commitView != nil {
+		content, cursorLine := renderContent(m)
+
+		// Apply viewport-like scrolling
+		lines := strings.Split(content, "\n")
+		startLine := m.viewport.YOffset
+		endLine := startLine + m.viewport.Height
+		if endLine > len(lines) {
+			endLine = len(lines)
+		}
+		if startLine > len(lines) {
+			startLine = len(lines)
+		}
+
+		// Ensure cursor is visible
+		if cursorLine < startLine {
+			startLine = cursorLine
+			endLine = startLine + m.viewport.Height
+		} else if cursorLine >= endLine {
+			endLine = cursorLine + 1
+			startLine = endLine - m.viewport.Height
+			if startLine < 0 {
+				startLine = 0
+			}
+		}
+
+		visibleContent := strings.Join(lines[startLine:endLine], "\n")
+		return renderCommitViewOverlay(m, visibleContent)
+	}
+
 	// Overlay popup if active
 	if m.popup != nil {
 		// Re-render content when popup is active to suppress block cursor
@@ -94,6 +125,34 @@ func renderPopupOverlay(m Model, statusContent string) string {
 
 	// Render popup
 	b.WriteString(popupView)
+
+	return b.String()
+}
+
+// renderCommitViewOverlay renders the commit view in the lower half of the terminal.
+func renderCommitViewOverlay(m Model, statusContent string) string {
+	cvContent := m.commitView.View()
+
+	// Split status content into lines
+	statusLines := strings.Split(statusContent, "\n")
+
+	// Split commit view content into lines
+	cvLines := strings.Split(cvContent, "\n")
+
+	var b strings.Builder
+
+	// Render status lines that appear above the commit view
+	maxStatusLines := m.height - len(cvLines)
+	if maxStatusLines < 0 {
+		maxStatusLines = 0
+	}
+	for i := 0; i < maxStatusLines && i < len(statusLines); i++ {
+		b.WriteString(statusLines[i])
+		b.WriteString("\n")
+	}
+
+	// Render commit view
+	b.WriteString(cvContent)
 
 	return b.String()
 }

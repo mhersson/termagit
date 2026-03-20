@@ -8,6 +8,7 @@ import (
 	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/conjit/internal/ui/commitview"
 	"github.com/mhersson/conjit/internal/ui/notification"
 	"github.com/mhersson/conjit/internal/ui/popup"
 )
@@ -222,6 +223,9 @@ type Model struct {
 
 	// Pending key for multi-key sequences (e.g., "gg")
 	pendingKey string
+
+	// Commit view overlay (nil = no commit view)
+	commitView *commitview.Model
 
 	// Pending commit special action (waiting for commit select result)
 	commitSpecialOpts  git.CommitOpts    // popup switches captured before commit select

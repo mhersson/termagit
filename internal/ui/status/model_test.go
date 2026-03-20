@@ -10,6 +10,7 @@ import (
 	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/conjit/internal/ui/commitview"
 	"github.com/mhersson/conjit/internal/ui/notification"
 	"github.com/mhersson/conjit/internal/ui/popup"
 )
@@ -2605,4 +2606,118 @@ func TestHandleUntrackStart_ConfirmViewShowsPrompt(t *testing.T) {
 	if !strings.Contains(v, "Untrack") {
 		t.Error("ConfirmView should include the untrack confirmation prompt")
 	}
+}
+
+// === Commit View Overlay Tests ===
+
+func TestModel_CommitViewOverlay_InitiallyNil(t *testing.T) {
+	m := New(nil, nil, Tokens{}, KeyMap{})
+	if m.commitView != nil {
+		t.Error("expected commitView to be nil initially")
+	}
+}
+
+func TestHandleGoToFile_OpensCommitViewOverlay(t *testing.T) {
+	commit := &git.LogEntry{
+		Hash:            "abc123def456",
+		AbbreviatedHash: "abc123d",
+		Subject:         "test commit",
+	}
+	m := Model{
+		sections: []Section{
+			{Kind: SectionRecentCommits, Title: "Recent Commits", Items: []Item{
+				{Commit: commit},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+		keys:   DefaultKeyMap(),
+		tokens: theme.Compile(theme.Fallback().Raw()),
+		width:  80,
+		height: 40,
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 40
+
+	result, cmd := handleGoToFile(m)
+	rm := result.(Model)
+
+	// commitView should be set
+	if rm.commitView == nil {
+		t.Fatal("expected commitView to be set after GoToFile on commit")
+	}
+
+	// commitView should have the correct commit ID
+	if rm.commitView.CommitID() != "abc123def456" {
+		t.Errorf("expected commitID=abc123def456, got %s", rm.commitView.CommitID())
+	}
+
+	// Should return an init command
+	if cmd == nil {
+		t.Error("expected Init command to be returned")
+	}
+}
+
+func TestHandleKeyMsg_DelegatesToCommitView(t *testing.T) {
+	tokens := theme.Compile(theme.Fallback().Raw())
+	cv := createTestCommitView(tokens)
+	cv.SetSize(80, 20)
+
+	m := Model{
+		sections: []Section{
+			{Kind: SectionRecentCommits, Title: "Recent Commits", Items: []Item{}},
+		},
+		cursor:     Cursor{Section: 0, Item: -1},
+		keys:       DefaultKeyMap(),
+		tokens:     tokens,
+		width:      80,
+		height:     40,
+		commitView: &cv,
+	}
+
+	// Press 'q' to close commit view
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
+	result, _ := handleKeyMsg(m, keyMsg)
+	rm := result.(Model)
+
+	// commitView should be cleared after close
+	if rm.commitView != nil {
+		t.Error("expected commitView to be nil after pressing q")
+	}
+}
+
+func TestHandleKeyMsg_CommitViewCursorMovement(t *testing.T) {
+	tokens := theme.Compile(theme.Fallback().Raw())
+	cv := createTestCommitView(tokens)
+	cv.SetSize(80, 20)
+
+	// Load data to enable cursor movement
+	info := &git.LogEntry{
+		Hash:        "abc123",
+		Subject:     "test",
+		AuthorName:  "Author",
+		AuthorEmail: "a@b.com",
+		AuthorDate:  "2024-01-01",
+	}
+	dataMsg := commitview.CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
+	newCV, _ := cv.Update(dataMsg)
+	cv = newCV.(commitview.Model)
+
+	m := Model{
+		sections:   []Section{},
+		keys:       DefaultKeyMap(),
+		tokens:     tokens,
+		width:      80,
+		height:     40,
+		commitView: &cv,
+	}
+
+	// Press 'j' to move cursor down in commit view
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
+	_, _ = handleKeyMsg(m, keyMsg)
+
+	// Just verify it doesn't crash - cursor movement is tested in commitview tests
+}
+
+func createTestCommitView(tokens theme.Tokens) commitview.Model {
+	return commitview.New(nil, "abc123", tokens, nil)
 }

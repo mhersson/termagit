@@ -160,3 +160,114 @@ func TestView_RendersCommitHeader(t *testing.T) {
 	assert.Contains(t, view, "Commit")
 	assert.Contains(t, view, "abc123def456789")
 }
+
+func TestModel_Done_InitiallyFalse(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	assert.False(t, m.Done())
+}
+
+func TestModel_Done_TrueAfterClose(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 24)
+	m.loading = false
+	m.ready = true
+
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
+	newM, _ := m.Update(keyMsg)
+	model := newM.(Model)
+
+	assert.True(t, model.Done())
+}
+
+func TestModel_SetOverlayMode(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	assert.False(t, m.overlayMode)
+
+	m.SetOverlayMode(true)
+	assert.True(t, m.overlayMode)
+}
+
+func TestModel_CursorMovement_Down(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 24)
+
+	// Set up data with multiple lines
+	info := &git.LogEntry{
+		Hash:        "abc123",
+		Subject:     "Test commit",
+		AuthorName:  "Author",
+		AuthorEmail: "a@b.com",
+		AuthorDate:  "2024-01-01",
+	}
+	overview := &git.CommitOverview{
+		Summary: "1 file changed",
+		Files:   []git.CommitOverviewFile{{Path: "test.go", Changes: "10"}},
+	}
+
+	msg := CommitDataLoadedMsg{Info: info, Overview: overview}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	// Cursor should start at 0
+	assert.Equal(t, 0, model.cursorLine)
+
+	// Move down
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+
+	assert.Equal(t, 1, model.cursorLine)
+}
+
+func TestModel_CursorMovement_Up(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 24)
+
+	info := &git.LogEntry{
+		Hash:        "abc123",
+		Subject:     "Test commit",
+		AuthorName:  "Author",
+		AuthorEmail: "a@b.com",
+		AuthorDate:  "2024-01-01",
+	}
+
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	// Move down first
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+	assert.Equal(t, 1, model.cursorLine)
+
+	// Move back up
+	keyMsg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+
+	assert.Equal(t, 0, model.cursorLine)
+}
+
+func TestModel_CursorMovement_StaysInBounds(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 24)
+
+	info := &git.LogEntry{
+		Hash:        "abc123",
+		Subject:     "Test",
+		AuthorName:  "A",
+		AuthorEmail: "a@b.com",
+		AuthorDate:  "2024-01-01",
+	}
+
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	// Move up at boundary should stay at 0
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+	assert.Equal(t, 0, model.cursorLine)
+}

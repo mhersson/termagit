@@ -28,6 +28,12 @@ type Model struct {
 	width    int
 	height   int
 	err      error
+
+	// Cursor and overlay mode fields
+	cursorLine  int  // current cursor position (0-indexed line)
+	totalLines  int  // total navigable lines
+	overlayMode bool // true when rendered as split overlay
+	done        bool // true when view should close
 }
 
 // New creates a new commit view model.
@@ -74,5 +80,18 @@ func (m *Model) UpdateCommit(commitID string, filter []string) tea.Cmd {
 	m.overview = nil
 	m.signature = nil
 	m.diffs = nil
+	m.cursorLine = 0
+	m.totalLines = 0
+	m.done = false
 	return m.loadCommitDataCmd()
+}
+
+// Done returns whether the view should be closed.
+func (m Model) Done() bool {
+	return m.done
+}
+
+// SetOverlayMode sets whether the view is rendered as a split overlay.
+func (m *Model) SetOverlayMode(overlay bool) {
+	m.overlayMode = overlay
 }
