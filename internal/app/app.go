@@ -10,9 +10,11 @@ import (
 	"github.com/mhersson/conjit/internal/ui/cmdhistory"
 	"github.com/mhersson/conjit/internal/ui/commit"
 	"github.com/mhersson/conjit/internal/ui/commitselect"
+	"github.com/mhersson/conjit/internal/ui/logview"
 	"github.com/mhersson/conjit/internal/ui/notification"
 	"github.com/mhersson/conjit/internal/ui/popup"
 	"github.com/mhersson/conjit/internal/ui/rebaseeditor"
+	"github.com/mhersson/conjit/internal/ui/reflogview"
 	"github.com/mhersson/conjit/internal/ui/status"
 )
 
@@ -52,6 +54,8 @@ type Model struct {
 	commitSelect commitselect.Model
 	rebaseEditor rebaseeditor.Model
 	cmdHistory   *cmdhistory.Model
+	logView      *logview.Model
+	reflogView   *reflogview.Model
 
 	notifications notification.Stack
 
@@ -108,6 +112,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case ScreenCmdHistory:
 			if m.cmdHistory != nil {
 				m.cmdHistory.SetSize(msg.Width, msg.Height)
+			}
+		case ScreenLog:
+			if m.logView != nil {
+				m.logView.SetSize(msg.Width, msg.Height)
+			}
+		case ScreenReflog:
+			if m.reflogView != nil {
+				m.reflogView.SetSize(msg.Width, msg.Height)
 			}
 		}
 		return m, nil
@@ -203,6 +215,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case rebaseeditor.RebaseEditorAbortMsg:
 		m.active = ScreenStatus
 		return m, m.status.Init()
+
+	// Log view
+	case status.OpenLogViewMsg:
+		return m.openLogView(msg.Commits, msg.HasMore, msg.Branch)
+
+	case logview.CloseLogViewMsg:
+		m.active = ScreenStatus
+		return m, nil
+
+	// Reflog view
+	case status.OpenReflogViewMsg:
+		return m.openReflogView(msg.Entries, msg.Ref)
+
+	case reflogview.CloseReflogViewMsg:
+		m.active = ScreenStatus
+		return m, nil
 	}
 
 	// Delegate to active screen
@@ -230,6 +258,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cmdHistory = &ch
 			return m, cmd
 		}
+	case ScreenLog:
+		if m.logView != nil {
+			newLogView, cmd := m.logView.Update(msg)
+			lv := newLogView.(logview.Model)
+			m.logView = &lv
+			return m, cmd
+		}
+	case ScreenReflog:
+		if m.reflogView != nil {
+			newReflogView, cmd := m.reflogView.Update(msg)
+			rv := newReflogView.(reflogview.Model)
+			m.reflogView = &rv
+			return m, cmd
+		}
 	}
 
 	return m, nil
@@ -241,6 +283,24 @@ func (m Model) openCmdHistory() (Model, tea.Cmd) {
 	ch := cmdhistory.New(entries, m.tokens, m.width, m.height)
 	m.cmdHistory = &ch
 	m.active = ScreenCmdHistory
+	return m, nil
+}
+
+// openLogView switches to the log view screen.
+func (m Model) openLogView(commits []git.LogEntry, hasMore bool, branch string) (Model, tea.Cmd) {
+	lv := logview.New(commits, m.repo, m.tokens, nil, hasMore, branch)
+	lv.SetSize(m.width, m.height)
+	m.logView = &lv
+	m.active = ScreenLog
+	return m, nil
+}
+
+// openReflogView switches to the reflog view screen.
+func (m Model) openReflogView(entries []git.ReflogEntry, ref string) (Model, tea.Cmd) {
+	rv := reflogview.New(entries, m.tokens, ref)
+	rv.SetSize(m.width, m.height)
+	m.reflogView = &rv
+	m.active = ScreenReflog
 	return m, nil
 }
 
@@ -262,6 +322,18 @@ func (m Model) View() string {
 		}
 	case ScreenRebaseEditor:
 		base = m.rebaseEditor.View()
+	case ScreenLog:
+		if m.logView != nil {
+			base = m.logView.View()
+		} else {
+			base = "Log view not available"
+		}
+	case ScreenReflog:
+		if m.reflogView != nil {
+			base = m.reflogView.View()
+		} else {
+			base = "Reflog view not available"
+		}
 	default:
 		base = "Unknown screen"
 	}

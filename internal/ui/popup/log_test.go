@@ -89,15 +89,15 @@ func TestLogPopup_LogCurrent(t *testing.T) {
 	}
 }
 
-func TestLogPopup_GraphEnabled(t *testing.T) {
+func TestLogPopup_GraphDisabled(t *testing.T) {
 	tokens := testTokens()
 	p := NewLogPopup(tokens, nil)
 
-	// Graph should be enabled by default
+	// Graph should be disabled by default
 	for _, sw := range p.switches {
 		if sw.Label == "graph" {
-			if !sw.Enabled {
-				t.Error("graph switch should be enabled by default")
+			if sw.Enabled {
+				t.Error("graph switch should be disabled by default")
 			}
 			return
 		}

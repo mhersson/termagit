@@ -32,7 +32,7 @@ func NewLogPopup(tokens theme.Tokens, state *State) Popup {
 	p.AddSwitch("R", "reflog", "Show reflog", false)
 
 	// Formatting switches
-	p.AddSwitch("g", "graph", "Show graph", true) // enabled by default
+	p.AddSwitch("g", "graph", "Show graph", false)
 	p.AddSwitch("c", "color", "Show color", false)
 	p.AddSwitch("d", "decorate", "Show decorations", true) // enabled by default
 

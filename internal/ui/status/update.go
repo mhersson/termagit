@@ -1359,6 +1359,8 @@ func handlePopupAction(m Model, kind PopupKind, result popup.Result) (tea.Model,
 		return handlePullPopupAction(m, result)
 	case PopupFetch:
 		return handleFetchPopupAction(m, result)
+	case PopupLog:
+		return handleLogPopupAction(m, result)
 	default:
 		// For now, just show a notification with the action
 		// The actual git operations will be wired up as needed
@@ -2063,5 +2065,136 @@ func fetchCmd(repo *git.Repository, opts git.FetchOpts) tea.Cmd {
 		}
 		err := repo.Fetch(context.Background(), opts)
 		return operationDoneMsg{err: err, op: "Fetch"}
+	}
+}
+
+// handleLogPopupAction handles actions from the log popup.
+func handleLogPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	opts := buildLogOpts(result)
+
+	// Log actions
+	switch result.Action {
+	case "l": // current branch
+		branch := m.head.Branch
+		if branch == "" {
+			branch = "HEAD"
+		}
+		return m, loadLogCmd(m.repo, opts, branch)
+
+	case "h": // HEAD
+		return m, loadLogCmd(m.repo, opts, "HEAD")
+
+	case "u": // related (upstream)
+		if m.head.UpstreamRemote == "" {
+			return m, notifyAppCmd("No upstream configured", notification.Warning)
+		}
+		branch := m.head.UpstreamRemote + "/" + m.head.UpstreamBranch
+		return m, loadLogCmd(m.repo, opts, branch)
+
+	case "L": // local branches
+		opts.All = false
+		opts.Branch = ""
+		return m, loadLogCmd(m.repo, opts, m.head.Branch)
+
+	case "b": // all branches
+		opts.All = true
+		return m, loadLogCmd(m.repo, opts, "")
+
+	case "a": // all references
+		opts.All = true
+		opts.Decorate = true
+		return m, loadLogCmd(m.repo, opts, "")
+
+	// Reflog actions
+	case "r": // current branch reflog
+		branch := m.head.Branch
+		if branch == "" {
+			branch = "HEAD"
+		}
+		return m, loadReflogCmd(m.repo, branch)
+
+	case "H": // HEAD reflog
+		return m, loadReflogCmd(m.repo, "HEAD")
+
+	case "O": // other (prompt for ref) - not implemented yet
+		return m, notifyAppCmd("Other reflog not yet implemented", notification.Warning)
+
+	case "o": // other branch - not implemented yet
+		return m, notifyAppCmd("Other branch log not yet implemented", notification.Warning)
+
+	default:
+		return m, notifyAppCmd("Unknown log action: "+result.Action, notification.Warning)
+	}
+}
+
+// buildLogOpts builds LogOpts from popup result switches and options.
+func buildLogOpts(result popup.Result) git.LogOpts {
+	maxCount := 256
+	if maxStr, ok := result.Options["max-count"]; ok && maxStr != "" {
+		if n, err := parseMaxCount(maxStr); err == nil {
+			maxCount = n
+		}
+	}
+
+	return git.LogOpts{
+		MaxCount:    maxCount,
+		Author:      result.Options["author"],
+		Grep:        result.Options["grep"],
+		Since:       result.Options["since"],
+		Until:       result.Options["until"],
+		NoMerges:    result.Switches["no-merges"],
+		FirstParent: result.Switches["first-parent"],
+		Reverse:     result.Switches["reverse"],
+		Graph:       result.Switches["graph"],
+		Decorate:    result.Switches["decorate"],
+	}
+}
+
+// parseMaxCount parses the max-count string to an int.
+func parseMaxCount(s string) (int, error) {
+	var n int
+	_, err := fmt.Sscanf(s, "%d", &n)
+	return n, err
+}
+
+// loadLogCmd loads commits and opens the log view.
+func loadLogCmd(repo *git.Repository, opts git.LogOpts, branch string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return notification.NotifyMsg{Message: "No repository", Kind: notification.Error}
+		}
+
+		opts.Branch = branch
+		opts.Decorate = true // Always show decorations in log view
+
+		commits, hasMore, err := repo.Log(context.Background(), opts)
+		if err != nil {
+			return notification.NotifyMsg{Message: "Failed to load log: " + err.Error(), Kind: notification.Error}
+		}
+
+		return OpenLogViewMsg{
+			Commits: commits,
+			HasMore: hasMore,
+			Branch:  branch,
+		}
+	}
+}
+
+// loadReflogCmd loads reflog entries and opens the reflog view.
+func loadReflogCmd(repo *git.Repository, ref string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return notification.NotifyMsg{Message: "No repository", Kind: notification.Error}
+		}
+
+		entries, err := repo.Reflog(context.Background(), ref, 256)
+		if err != nil {
+			return notification.NotifyMsg{Message: "Failed to load reflog: " + err.Error(), Kind: notification.Error}
+		}
+
+		return OpenReflogViewMsg{
+			Entries: entries,
+			Ref:     ref,
+		}
 	}
 }

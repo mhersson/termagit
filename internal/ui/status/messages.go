@@ -63,3 +63,16 @@ type closePeekMsg struct{}
 
 // OpenCmdHistoryMsg is sent when the user presses $ to open command history.
 type OpenCmdHistoryMsg struct{}
+
+// OpenLogViewMsg is sent to open the log view with the given commits.
+type OpenLogViewMsg struct {
+	Commits []git.LogEntry
+	HasMore bool
+	Branch  string
+}
+
+// OpenReflogViewMsg is sent to open the reflog view with the given entries.
+type OpenReflogViewMsg struct {
+	Entries []git.ReflogEntry
+	Ref     string
+}
