@@ -9,6 +9,7 @@ import (
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/ui/commit"
 	"github.com/mhersson/conjit/internal/ui/commitselect"
+	"github.com/mhersson/conjit/internal/ui/commitview"
 	"github.com/mhersson/conjit/internal/ui/notification"
 	"github.com/mhersson/conjit/internal/ui/popup"
 )
@@ -399,6 +400,9 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.CommandHistory):
 		return m, func() tea.Msg { return OpenCmdHistoryMsg{} }
 
+	case key.Matches(msg, m.keys.GoToFile):
+		return handleGoToFile(m)
+
 	// Other stub keys
 	case key.Matches(msg, m.keys.ShowRefs),
 		key.Matches(msg, m.keys.Command),
@@ -406,7 +410,6 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		key.Matches(msg, m.keys.GoToParentRepo),
 		key.Matches(msg, m.keys.Rename),
 		key.Matches(msg, m.keys.PeekFile),
-		key.Matches(msg, m.keys.GoToFile),
 		key.Matches(msg, m.keys.VSplitOpen),
 		key.Matches(msg, m.keys.SplitOpen),
 		key.Matches(msg, m.keys.TabOpen),
@@ -730,6 +733,28 @@ func handleOpenTree(m Model) (tea.Model, tea.Cmd) {
 	}
 
 	return m, openTreeCmd(m.repo.Path(), item.Entry.Path())
+}
+
+// handleGoToFile opens the commit view for commits, or the file for files.
+func handleGoToFile(m Model) (tea.Model, tea.Cmd) {
+	item, _ := getCurrentItem(m)
+	if item == nil {
+		return m, nil
+	}
+
+	// If it's a commit, open commit view
+	if item.Commit != nil {
+		return m, func() tea.Msg {
+			return commitview.OpenCommitViewMsg{CommitID: item.Commit.Hash}
+		}
+	}
+
+	// If it's a file, open in editor (stub for now)
+	if item.Entry != nil {
+		return m, notifyAppCmd("File opening not yet implemented", notification.Warning)
+	}
+
+	return m, nil
 }
 
 // getCurrentItem returns the current item and its section kind.
