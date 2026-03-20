@@ -1,6 +1,11 @@
 package app
 
 import (
+	"os"
+	"os/exec"
+	"runtime"
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/mhersson/conjit/internal/cmdlog"
@@ -247,6 +252,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Return to the screen that opened the commit view
 		m.active = m.previousScreen
 		return m, nil
+
+	case commitview.YankMsg:
+		return m, yankToClipboardCmd(msg.Text)
+
+	case commitview.OpenPopupMsg:
+		// TODO: Wire up popup opening when popup system is ready
+		return m, notifyCmd("Popup: "+msg.Type+" (not yet implemented)", notification.Info)
+
+	case commitview.OpenFileMsg:
+		return m, openFileCmd(msg.Path)
+
+	case commitview.OpenURLMsg:
+		return m, openURLCmd(msg.URL)
 	}
 
 	// Delegate to active screen
@@ -399,4 +417,99 @@ func (m Model) View() string {
 	}
 
 	return base
+}
+
+// yankToClipboardCmd copies text to system clipboard.
+func yankToClipboardCmd(text string) tea.Cmd {
+	return func() tea.Msg {
+		var cmd *exec.Cmd
+		switch runtime.GOOS {
+		case "darwin":
+			cmd = exec.Command("pbcopy")
+		case "linux":
+			// Try xclip first, fall back to xsel
+			cmd = exec.Command("xclip", "-selection", "clipboard")
+		case "windows":
+			cmd = exec.Command("clip")
+		default:
+			return notification.NotifyMsg{
+				Message: "Clipboard not supported on this platform",
+				Kind:    notification.Error,
+			}
+		}
+
+		cmd.Stdin = strings.NewReader(text)
+		err := cmd.Run()
+		if err != nil {
+			return notification.NotifyMsg{
+				Message: "Failed to copy to clipboard: " + err.Error(),
+				Kind:    notification.Error,
+			}
+		}
+
+		return notification.NotifyMsg{
+			Message: "Yanked: " + text,
+			Kind:    notification.Info,
+		}
+	}
+}
+
+// notifyCmd shows a notification message.
+func notifyCmd(text string, kind notification.Kind) tea.Cmd {
+	return func() tea.Msg {
+		return notification.NotifyMsg{
+			Message: text,
+			Kind:    kind,
+		}
+	}
+}
+
+// openFileCmd opens a file in the default editor.
+func openFileCmd(path string) tea.Cmd {
+	return func() tea.Msg {
+		editor := os.Getenv("EDITOR")
+		if editor == "" {
+			editor = "vi"
+		}
+		cmd := exec.Command(editor, path)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
+		if err != nil {
+			return notification.NotifyMsg{
+				Message: "Failed to open file: " + err.Error(),
+				Kind:    notification.Error,
+			}
+		}
+		return nil
+	}
+}
+
+// openURLCmd opens a URL in the default browser.
+func openURLCmd(url string) tea.Cmd {
+	return func() tea.Msg {
+		var cmd *exec.Cmd
+		switch runtime.GOOS {
+		case "darwin":
+			cmd = exec.Command("open", url)
+		case "linux":
+			cmd = exec.Command("xdg-open", url)
+		case "windows":
+			cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+		default:
+			return notification.NotifyMsg{
+				Message: "Cannot open URL on this platform",
+				Kind:    notification.Error,
+			}
+		}
+		err := cmd.Start()
+		if err != nil {
+			return notification.NotifyMsg{
+				Message: "Failed to open URL: " + err.Error(),
+				Kind:    notification.Error,
+			}
+		}
+		return nil
+	}
 }

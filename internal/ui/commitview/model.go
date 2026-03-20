@@ -62,9 +62,8 @@ func (m Model) CommitID() string {
 func (m *Model) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	// Reserve lines for header (we'll calculate properly in view)
-	headerHeight := 8 // approximate header height
-	m.viewport = viewport.New(width, height-headerHeight)
+	// Use full height for viewport - content is self-contained
+	m.viewport = viewport.New(width, height)
 }
 
 // UpdateCommit changes to a different commit (singleton support).

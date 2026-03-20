@@ -14,20 +14,18 @@ func (m Model) View() string {
 		return ""
 	}
 
+	var content string
+
 	if m.loading {
-		return "Loading commit " + m.commitID + "..."
+		content = "Loading commit " + m.commitID + "..."
+	} else if m.err != nil {
+		content = fmt.Sprintf("Error: %v", m.err)
+	} else if !m.ready || m.info == nil {
+		content = "No commit data"
+	} else {
+		// Render content with cursor highlighting
+		content = m.renderContentWithCursor()
 	}
-
-	if m.err != nil {
-		return fmt.Sprintf("Error: %v", m.err)
-	}
-
-	if !m.ready || m.info == nil {
-		return "No commit data"
-	}
-
-	// Render content with cursor highlighting
-	content := m.renderContentWithCursor()
 
 	// Add top border in overlay mode
 	if m.overlayMode {
@@ -47,7 +45,14 @@ func (m Model) View() string {
 		endLine = len(lines)
 	}
 
-	return strings.Join(lines[startLine:endLine], "\n")
+	visibleLines := lines[startLine:endLine]
+
+	// Pad with empty lines to fill the full allocated height
+	for len(visibleLines) < m.height {
+		visibleLines = append(visibleLines, "")
+	}
+
+	return strings.Join(visibleLines, "\n")
 }
 
 // renderContentWithCursor builds the commit view content with cursor highlighting.

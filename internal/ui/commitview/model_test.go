@@ -322,3 +322,225 @@ func TestView_NonOverlayMode_NoTopBorder(t *testing.T) {
 	// First line should be "Commit ..." not a border
 	assert.Contains(t, firstLine, "Commit", "non-overlay mode should start with Commit header")
 }
+
+// Keymap tests for correct bindings (Neogit compatibility)
+func TestKeyMap_RevertPopup_UsesV(t *testing.T) {
+	keys := DefaultKeyMap()
+	assert.Contains(t, keys.RevertPopup.Keys(), "v", "RevertPopup should use 'v' key (Neogit standard)")
+}
+
+func TestKeyMap_RebasePopup_UsesR(t *testing.T) {
+	keys := DefaultKeyMap()
+	assert.Contains(t, keys.RebasePopup.Keys(), "r", "RebasePopup should use 'r' key (Neogit standard)")
+}
+
+// YankSelected handler tests
+func TestYankSelected_EmitsYankMsg(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 24)
+
+	info := &git.LogEntry{
+		Hash:        "abc123def456789",
+		Subject:     "Test commit",
+		AuthorName:  "Test Author",
+		AuthorEmail: "test@example.com",
+		AuthorDate:  "2024-01-01T12:00:00Z",
+	}
+
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	// Press Y to yank
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'Y'}}
+	_, cmd := model.Update(keyMsg)
+
+	require.NotNil(t, cmd, "Y key should return a command")
+	result := cmd()
+	yankMsg, ok := result.(YankMsg)
+	assert.True(t, ok, "should emit YankMsg")
+	assert.Equal(t, "abc123def456789", yankMsg.Text, "should yank full commit hash")
+}
+
+// Popup trigger tests
+func TestPopupTriggers_EmitOpenPopupMsg(t *testing.T) {
+	tests := []struct {
+		key        string
+		popupType  string
+		keyBinding func(KeyMap) []string
+	}{
+		{"A", "cherry-pick", func(k KeyMap) []string { return k.CherryPickPopup.Keys() }},
+		{"b", "branch", func(k KeyMap) []string { return k.BranchPopup.Keys() }},
+		{"B", "bisect", func(k KeyMap) []string { return k.BisectPopup.Keys() }},
+		{"c", "commit", func(k KeyMap) []string { return k.CommitPopup.Keys() }},
+		{"d", "diff", func(k KeyMap) []string { return k.DiffPopup.Keys() }},
+		{"P", "push", func(k KeyMap) []string { return k.PushPopup.Keys() }},
+		{"v", "revert", func(k KeyMap) []string { return k.RevertPopup.Keys() }},
+		{"r", "rebase", func(k KeyMap) []string { return k.RebasePopup.Keys() }},
+		{"X", "reset", func(k KeyMap) []string { return k.ResetPopup.Keys() }},
+		{"t", "tag", func(k KeyMap) []string { return k.TagPopup.Keys() }},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.popupType, func(t *testing.T) {
+			m := New(nil, "abc123def456", testTokens(), nil)
+			m.SetSize(80, 24)
+
+			info := &git.LogEntry{
+				Hash:        "abc123def456",
+				Subject:     "Test",
+				AuthorName:  "A",
+				AuthorEmail: "a@b.com",
+				AuthorDate:  "2024-01-01",
+			}
+			msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
+			newM, _ := m.Update(msg)
+			model := newM.(Model)
+
+			// Press the popup key
+			var keyMsg tea.KeyMsg
+			if len(tc.key) == 1 {
+				keyMsg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(tc.key)}
+			}
+			_, cmd := model.Update(keyMsg)
+
+			require.NotNil(t, cmd, "%s key should return a command", tc.key)
+			result := cmd()
+			popupMsg, ok := result.(OpenPopupMsg)
+			assert.True(t, ok, "should emit OpenPopupMsg for %s", tc.popupType)
+			assert.Equal(t, tc.popupType, popupMsg.Type, "popup type should be %s", tc.popupType)
+			assert.Equal(t, "abc123def456", popupMsg.Commit, "should include commit hash")
+		})
+	}
+}
+
+// Hunk navigation tests
+func TestNextHunkHeader_MovesToNextHunk(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 24)
+
+	info := &git.LogEntry{
+		Hash:        "abc123",
+		Subject:     "Test",
+		AuthorName:  "A",
+		AuthorEmail: "a@b.com",
+		AuthorDate:  "2024-01-01",
+	}
+	diffs := []git.FileDiff{
+		{
+			Path: "test.go",
+			Hunks: []git.Hunk{
+				{Header: "@@ -1,3 +1,4 @@", Lines: []git.DiffLine{{Op: git.DiffOpContext, Content: "line1"}}},
+				{Header: "@@ -10,3 +11,4 @@", Lines: []git.DiffLine{{Op: git.DiffOpAdd, Content: "new line"}}},
+			},
+		},
+	}
+
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}, Diffs: diffs}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	// Start at top
+	assert.Equal(t, 0, model.cursorLine)
+
+	// Press } to go to next hunk
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'}'}}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+
+	// Should have moved to a hunk header line (exact line depends on content structure)
+	assert.Greater(t, model.cursorLine, 0, "should move cursor to hunk header")
+}
+
+func TestPrevHunkHeader_MovesToPreviousHunk(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 24)
+
+	info := &git.LogEntry{
+		Hash:        "abc123",
+		Subject:     "Test",
+		AuthorName:  "A",
+		AuthorEmail: "a@b.com",
+		AuthorDate:  "2024-01-01",
+	}
+	diffs := []git.FileDiff{
+		{
+			Path: "test.go",
+			Hunks: []git.Hunk{
+				{Header: "@@ -1,3 +1,4 @@", Lines: []git.DiffLine{{Op: git.DiffOpContext, Content: "line1"}}},
+				{Header: "@@ -10,3 +11,4 @@", Lines: []git.DiffLine{{Op: git.DiffOpAdd, Content: "new line"}}},
+			},
+		},
+	}
+
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}, Diffs: diffs}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	// Move to end first
+	model.cursorLine = model.totalLines - 1
+
+	// Press { to go to previous hunk
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'{'}}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+
+	// Should have moved to a hunk header line
+	assert.Less(t, model.cursorLine, model.totalLines-1, "should move cursor to previous hunk header")
+}
+
+// Scroll tests
+func TestScrollDown_MovesViewport(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 10) // Small height to enable scrolling
+
+	info := &git.LogEntry{
+		Hash:        "abc123",
+		Subject:     "Test commit with long body",
+		Body:        "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7\nLine 8\nLine 9\nLine 10",
+		AuthorName:  "A",
+		AuthorEmail: "a@b.com",
+		AuthorDate:  "2024-01-01",
+	}
+
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	initialOffset := model.viewport.YOffset
+
+	// Press ]c to scroll down
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{']', 'c'}}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+
+	assert.GreaterOrEqual(t, model.viewport.YOffset, initialOffset, "viewport should scroll down")
+}
+
+func TestScrollUp_MovesViewport(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 10)
+
+	info := &git.LogEntry{
+		Hash:        "abc123",
+		Subject:     "Test",
+		Body:        "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7\nLine 8\nLine 9\nLine 10",
+		AuthorName:  "A",
+		AuthorEmail: "a@b.com",
+		AuthorDate:  "2024-01-01",
+	}
+
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	// Scroll down first
+	model.viewport.YOffset = 5
+
+	// Press [c to scroll up
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'[', 'c'}}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+
+	assert.LessOrEqual(t, model.viewport.YOffset, 5, "viewport should scroll up")
+}

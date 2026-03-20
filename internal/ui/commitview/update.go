@@ -95,20 +95,208 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.viewport.HalfPageUp()
 		return m, nil
 
+	// Hunk navigation
+	case key.Matches(msg, m.keys.NextHunkHeader):
+		m.cursorLine = m.findNextHunkHeader(m.cursorLine)
+		m.ensureCursorVisible()
+		return m, nil
+
+	case key.Matches(msg, m.keys.PrevHunkHeader):
+		m.cursorLine = m.findPrevHunkHeader(m.cursorLine)
+		m.ensureCursorVisible()
+		return m, nil
+
+	// Scroll
+	case key.Matches(msg, m.keys.ScrollDown):
+		m.viewport.YOffset++
+		if m.viewport.YOffset > m.totalLines-m.viewport.Height {
+			m.viewport.YOffset = m.totalLines - m.viewport.Height
+		}
+		if m.viewport.YOffset < 0 {
+			m.viewport.YOffset = 0
+		}
+		return m, nil
+
+	case key.Matches(msg, m.keys.ScrollUp):
+		m.viewport.YOffset--
+		if m.viewport.YOffset < 0 {
+			m.viewport.YOffset = 0
+		}
+		return m, nil
+
+	// Yank
 	case key.Matches(msg, m.keys.YankSelected):
 		if m.info != nil {
 			return m, yankCmd(m.info.Hash)
 		}
 		return m, nil
+
+	// Actions
+	case key.Matches(msg, m.keys.OpenFileInWorktree):
+		filePath := m.getCurrentFilePath()
+		if filePath != "" {
+			return m, func() tea.Msg {
+				return OpenFileMsg{Path: filePath}
+			}
+		}
+		return m, nil
+
+	case key.Matches(msg, m.keys.OpenCommitLink):
+		if m.info != nil {
+			return m, func() tea.Msg {
+				// URL would be constructed from repo remote + commit hash
+				return OpenURLMsg{URL: m.info.Hash}
+			}
+		}
+		return m, nil
+
+	// Popup triggers
+	case key.Matches(msg, m.keys.CherryPickPopup):
+		return m, m.openPopupCmd("cherry-pick")
+
+	case key.Matches(msg, m.keys.BranchPopup):
+		return m, m.openPopupCmd("branch")
+
+	case key.Matches(msg, m.keys.BisectPopup):
+		return m, m.openPopupCmd("bisect")
+
+	case key.Matches(msg, m.keys.CommitPopup):
+		return m, m.openPopupCmd("commit")
+
+	case key.Matches(msg, m.keys.DiffPopup):
+		return m, m.openPopupCmd("diff")
+
+	case key.Matches(msg, m.keys.PushPopup):
+		return m, m.openPopupCmd("push")
+
+	case key.Matches(msg, m.keys.RevertPopup):
+		return m, m.openPopupCmd("revert")
+
+	case key.Matches(msg, m.keys.RebasePopup):
+		return m, m.openPopupCmd("rebase")
+
+	case key.Matches(msg, m.keys.ResetPopup):
+		return m, m.openPopupCmd("reset")
+
+	case key.Matches(msg, m.keys.TagPopup):
+		return m, m.openPopupCmd("tag")
 	}
 
 	return m, nil
 }
 
-// yankCmd copies text to clipboard using OSC 52.
+// openPopupCmd returns a command that emits OpenPopupMsg.
+func (m Model) openPopupCmd(popupType string) tea.Cmd {
+	commitHash := ""
+	if m.info != nil {
+		commitHash = m.info.Hash
+	}
+	return func() tea.Msg {
+		return OpenPopupMsg{Type: popupType, Commit: commitHash}
+	}
+}
+
+// yankCmd returns a command that emits YankMsg.
 func yankCmd(text string) tea.Cmd {
 	return func() tea.Msg {
-		// Return clipboard write message (handled by app)
-		return nil
+		return YankMsg{Text: text}
 	}
+}
+
+// ensureCursorVisible adjusts viewport to keep cursor in view.
+func (m *Model) ensureCursorVisible() {
+	if m.cursorLine < m.viewport.YOffset {
+		m.viewport.YOffset = m.cursorLine
+	} else if m.cursorLine >= m.viewport.YOffset+m.viewport.Height {
+		m.viewport.YOffset = m.cursorLine - m.viewport.Height + 1
+	}
+}
+
+// findNextHunkHeader finds the next hunk header line after the current cursor position.
+func (m Model) findNextHunkHeader(from int) int {
+	hunkLines := m.getHunkHeaderLines()
+	for _, line := range hunkLines {
+		if line > from {
+			return line
+		}
+	}
+	// Wrap or stay at end
+	if len(hunkLines) > 0 {
+		return hunkLines[len(hunkLines)-1]
+	}
+	return from
+}
+
+// findPrevHunkHeader finds the previous hunk header line before the current cursor position.
+func (m Model) findPrevHunkHeader(from int) int {
+	hunkLines := m.getHunkHeaderLines()
+	for i := len(hunkLines) - 1; i >= 0; i-- {
+		if hunkLines[i] < from {
+			return hunkLines[i]
+		}
+	}
+	// Wrap or stay at start
+	if len(hunkLines) > 0 {
+		return hunkLines[0]
+	}
+	return from
+}
+
+// getHunkHeaderLines returns line numbers of all hunk headers in the content.
+func (m Model) getHunkHeaderLines() []int {
+	var lines []int
+	lineNum := 0
+
+	// Skip header lines (same structure as renderContent)
+	lineNum++ // Commit header
+	lineNum++ // Author
+	lineNum++ // AuthorDate
+
+	// Committer lines (if different)
+	if m.info != nil && m.info.CommitterName != "" && m.info.CommitterName != m.info.AuthorName {
+		lineNum++ // Committer
+		lineNum++ // CommitDate
+	}
+
+	lineNum++ // Blank line
+	lineNum++ // Subject
+
+	// Body lines
+	if m.info != nil && m.info.Body != "" {
+		lineNum++ // Blank line
+		bodyLines := strings.Split(m.info.Body, "\n")
+		lineNum += len(bodyLines)
+	}
+
+	// File overview
+	if m.overview != nil && len(m.overview.Files) > 0 {
+		lineNum++ // Blank line
+		lineNum++ // Summary
+		lineNum += len(m.overview.Files)
+	}
+
+	// Diffs - find hunk headers
+	if len(m.diffs) > 0 {
+		lineNum++ // Blank line before diffs
+		for _, diff := range m.diffs {
+			lineNum++ // File header
+			for _, hunk := range diff.Hunks {
+				lines = append(lines, lineNum) // This is a hunk header
+				lineNum++                      // Hunk header line
+				lineNum += len(hunk.Lines)     // Hunk content lines
+			}
+		}
+	}
+
+	return lines
+}
+
+// getCurrentFilePath returns the file path at the current cursor position.
+func (m Model) getCurrentFilePath() string {
+	if len(m.diffs) == 0 {
+		return ""
+	}
+	// Simple implementation: return first diff file path
+	// A more complete implementation would track which file the cursor is in
+	return m.diffs[0].Path
 }

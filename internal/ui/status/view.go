@@ -129,30 +129,40 @@ func renderPopupOverlay(m Model, statusContent string) string {
 	return b.String()
 }
 
-// renderCommitViewOverlay renders the commit view in the lower half of the terminal.
+// renderCommitViewOverlay renders the commit view in the lower portion of the terminal.
 func renderCommitViewOverlay(m Model, statusContent string) string {
 	cvContent := m.commitView.View()
 
-	// Split status content into lines
+	// Split content into lines
 	statusLines := strings.Split(statusContent, "\n")
-
-	// Split commit view content into lines
 	cvLines := strings.Split(cvContent, "\n")
 
-	var b strings.Builder
-
-	// Render status lines that appear above the commit view
-	maxStatusLines := m.height - len(cvLines)
+	// Commit view gets 60% of screen height (matches SetSize in update.go)
+	cvHeight := m.height * 60 / 100
+	maxStatusLines := m.height - cvHeight
 	if maxStatusLines < 0 {
 		maxStatusLines = 0
 	}
-	for i := 0; i < maxStatusLines && i < len(statusLines); i++ {
-		b.WriteString(statusLines[i])
+
+	var b strings.Builder
+
+	// Render status lines, padding to fill maxStatusLines
+	for i := 0; i < maxStatusLines; i++ {
+		if i < len(statusLines) {
+			b.WriteString(statusLines[i])
+		}
 		b.WriteString("\n")
 	}
 
-	// Render commit view
-	b.WriteString(cvContent)
+	// Render commit view content, padding to fill cvHeight
+	for i := 0; i < cvHeight; i++ {
+		if i < len(cvLines) {
+			b.WriteString(cvLines[i])
+		}
+		if i < cvHeight-1 {
+			b.WriteString("\n")
+		}
+	}
 
 	return b.String()
 }

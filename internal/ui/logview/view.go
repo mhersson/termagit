@@ -126,10 +126,12 @@ func (m Model) renderCommitViewOverlay() string {
 		b.WriteString("\n")
 	}
 
-	// Render commit view content (may be less than cvHeight if content is short)
-	for i := 0; i < len(cvLines) && i < cvHeight; i++ {
-		b.WriteString(cvLines[i])
-		if i < len(cvLines)-1 || i < cvHeight-1 {
+	// Render commit view content
+	for i := 0; i < cvHeight; i++ {
+		if i < len(cvLines) {
+			b.WriteString(cvLines[i])
+		}
+		if i < cvHeight-1 {
 			b.WriteString("\n")
 		}
 	}

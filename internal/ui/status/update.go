@@ -768,7 +768,7 @@ func handleGoToFile(m Model) (tea.Model, tea.Cmd) {
 	// If it's a commit, open commit view as overlay
 	if item.Commit != nil {
 		cv := commitview.New(m.repo, item.Commit.Hash, m.tokens, nil)
-		cv.SetSize(m.width, m.height/2)
+		cv.SetSize(m.width, m.height*60/100)
 		cv.SetOverlayMode(true)
 		m.commitView = &cv
 		return m, cv.Init()

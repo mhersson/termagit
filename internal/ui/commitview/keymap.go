@@ -32,6 +32,7 @@ type KeyMap struct {
 	DiffPopup       key.Binding
 	PushPopup       key.Binding
 	RevertPopup     key.Binding
+	RebasePopup     key.Binding
 	ResetPopup      key.Binding
 	BisectPopup     key.Binding
 	TagPopup        key.Binding
@@ -109,7 +110,8 @@ func DefaultKeyMap() KeyMap {
 		CommitPopup:     key.NewBinding(key.WithKeys("c")),
 		DiffPopup:       key.NewBinding(key.WithKeys("d")),
 		PushPopup:       key.NewBinding(key.WithKeys("P")),
-		RevertPopup:     key.NewBinding(key.WithKeys("r")),
+		RevertPopup:     key.NewBinding(key.WithKeys("v")),
+		RebasePopup:     key.NewBinding(key.WithKeys("r")),
 		ResetPopup:      key.NewBinding(key.WithKeys("X")),
 		BisectPopup:     key.NewBinding(key.WithKeys("B")),
 		TagPopup:        key.NewBinding(key.WithKeys("t")),
