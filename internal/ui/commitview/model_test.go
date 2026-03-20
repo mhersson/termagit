@@ -271,3 +271,54 @@ func TestModel_CursorMovement_StaysInBounds(t *testing.T) {
 	model = newM.(Model)
 	assert.Equal(t, 0, model.cursorLine)
 }
+
+func TestView_OverlayMode_HasTopBorder(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 24)
+	m.SetOverlayMode(true)
+
+	info := &git.LogEntry{
+		Hash:        "abc123def456789",
+		Subject:     "Test commit",
+		AuthorName:  "Test Author",
+		AuthorEmail: "test@example.com",
+		AuthorDate:  "2024-01-01T12:00:00Z",
+	}
+
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	view := model.View()
+
+	// Should start with the border character in overlay mode
+	assert.Contains(t, view, "─", "overlay mode should have top border")
+}
+
+func TestView_NonOverlayMode_NoTopBorder(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 24)
+	// overlayMode is false by default
+
+	info := &git.LogEntry{
+		Hash:        "abc123def456789",
+		Subject:     "Test commit",
+		AuthorName:  "Test Author",
+		AuthorEmail: "test@example.com",
+		AuthorDate:  "2024-01-01T12:00:00Z",
+	}
+
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	view := model.View()
+	lines := make([]byte, 0)
+	for i := 0; i < len(view) && view[i] != '\n'; i++ {
+		lines = append(lines, view[i])
+	}
+	firstLine := string(lines)
+
+	// First line should be "Commit ..." not a border
+	assert.Contains(t, firstLine, "Commit", "non-overlay mode should start with Commit header")
+}

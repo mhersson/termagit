@@ -34,6 +34,8 @@ type Model struct {
 
 	pendingKey string // for "gg" sequence
 
+	commitView *commitview.Model // overlay (nil = not showing)
+
 	width  int
 	height int
 }
@@ -76,11 +78,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		// Update commit view size if active (70% of screen)
+		if m.commitView != nil {
+			m.commitView.SetSize(m.width, m.height*70/100)
+		}
 		return m, nil
 
 	case tea.KeyMsg:
 		newM, cmd := m.handleKey(msg)
 		return newM, cmd
+
+	case commitview.CommitDataLoadedMsg:
+		// Forward to commit view if active
+		if m.commitView != nil {
+			cv := *m.commitView
+			newCV, cmd := cv.Update(msg)
+			cvModel := newCV.(commitview.Model)
+			m.commitView = &cvModel
+			return m, cmd
+		}
+		return m, nil
+
+	case commitview.CloseCommitViewMsg:
+		// Handle close from the overlay commit view - don't bubble up to app
+		if m.commitView != nil {
+			m.commitView = nil
+		}
+		return m, nil
 
 	case CommitsLoadedMsg:
 		m.loading = false
@@ -105,6 +129,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	// Delegate to commit view if active
+	if m.commitView != nil {
+		return m.handleCommitViewKey(msg)
+	}
+
 	// Handle filter mode
 	if m.filterActive {
 		return m.handleFilterKey(msg)
@@ -188,7 +217,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, m.keys.Select):
-		// Open commit view for the selected commit
+		// Open commit view as overlay for the selected commit
 		if len(m.commits) > 0 {
 			idx := m.cursor
 			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
@@ -196,9 +225,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 			}
 			if idx < len(m.commits) {
 				hash := m.commits[idx].Hash
-				return m, func() tea.Msg {
-					return commitview.OpenCommitViewMsg{CommitID: hash}
-				}
+				cv := commitview.New(m.repo, hash, m.tokens, nil)
+				cv.SetSize(m.width, m.height*70/100)
+				cv.SetOverlayMode(true)
+				m.commitView = &cv
+				return m, cv.Init()
 			}
 		}
 		return m, nil
@@ -225,6 +256,19 @@ func (m Model) handleFilterKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	m.filterInput, cmd = m.filterInput.Update(msg)
+	return m, cmd
+}
+
+func (m Model) handleCommitViewKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	cv := *m.commitView
+	newCV, cmd := cv.Update(msg)
+	cvModel := newCV.(commitview.Model)
+	m.commitView = &cvModel
+
+	if cvModel.Done() {
+		m.commitView = nil
+		return m, nil // Don't bubble CloseCommitViewMsg
+	}
 	return m, cmd
 }
 

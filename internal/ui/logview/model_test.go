@@ -229,3 +229,55 @@ func TestLogModel_YankHash_CopiesHash(t *testing.T) {
 	// Should return a command for yanking
 	require.NotNil(t, cmd)
 }
+
+func TestLogModel_SelectOpensCommitViewOverlay(t *testing.T) {
+	commits := testCommits()
+	m := New(commits, nil, testTokens(), nil, false, "main")
+	m.width = 80
+	m.height = 24
+
+	// Press Enter to select
+	newM, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Commit view overlay should be set
+	require.NotNil(t, newM.commitView)
+	assert.True(t, newM.commitView.CommitID() != "")
+	require.NotNil(t, cmd) // Init cmd for loading commit data
+}
+
+func TestLogModel_CommitViewOverlay_QClosesOverlay(t *testing.T) {
+	commits := testCommits()
+	m := New(commits, nil, testTokens(), nil, false, "main")
+	m.width = 80
+	m.height = 24
+
+	// First open commit view
+	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
+	require.NotNil(t, m.commitView)
+
+	// Press q to close commit view
+	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+
+	// Commit view should be closed
+	assert.Nil(t, m.commitView)
+}
+
+func TestLogModel_CommitViewOverlay_KeysDelegatedToCommitView(t *testing.T) {
+	commits := testCommits()
+	m := New(commits, nil, testTokens(), nil, false, "main")
+	m.width = 80
+	m.height = 24
+
+	// First open commit view
+	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
+	require.NotNil(t, m.commitView)
+
+	// j should be delegated to commit view, not move log cursor
+	origLogCursor := m.cursor
+	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+
+	// Log cursor should not have changed
+	assert.Equal(t, origLogCursor, m.cursor)
+	// Commit view should still be active
+	assert.NotNil(t, m.commitView)
+}

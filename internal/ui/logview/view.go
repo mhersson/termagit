@@ -15,6 +15,16 @@ func (m Model) View() string {
 		return ""
 	}
 
+	// Check for commit view overlay first
+	if m.commitView != nil {
+		return m.renderCommitViewOverlay()
+	}
+
+	return m.renderLogContent()
+}
+
+// renderLogContent renders the log view content.
+func (m Model) renderLogContent() string {
 	var b strings.Builder
 	linesUsed := 0
 
@@ -87,6 +97,41 @@ func (m Model) View() string {
 			m.tokens.GraphBlue.Bold(true).Render("to show more history")
 		b.WriteString(hint)
 		b.WriteString("\n")
+	}
+
+	return b.String()
+}
+
+// renderCommitViewOverlay renders the commit view in the lower portion of the terminal.
+func (m Model) renderCommitViewOverlay() string {
+	cvContent := m.commitView.View()
+	logContent := m.renderLogContent()
+
+	// Split content into lines
+	logLines := strings.Split(logContent, "\n")
+	cvLines := strings.Split(cvContent, "\n")
+
+	// Commit view gets 70% of screen height
+	cvHeight := m.height * 70 / 100
+	maxLogLines := m.height - cvHeight
+	if maxLogLines < 0 {
+		maxLogLines = 0
+	}
+
+	var b strings.Builder
+
+	// Render log lines that appear above the commit view
+	for i := 0; i < maxLogLines && i < len(logLines); i++ {
+		b.WriteString(logLines[i])
+		b.WriteString("\n")
+	}
+
+	// Render commit view content (may be less than cvHeight if content is short)
+	for i := 0; i < len(cvLines) && i < cvHeight; i++ {
+		b.WriteString(cvLines[i])
+		if i < len(cvLines)-1 || i < cvHeight-1 {
+			b.WriteString("\n")
+		}
 	}
 
 	return b.String()

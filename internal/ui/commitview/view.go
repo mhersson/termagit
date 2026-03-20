@@ -29,6 +29,12 @@ func (m Model) View() string {
 	// Render content with cursor highlighting
 	content := m.renderContentWithCursor()
 
+	// Add top border in overlay mode
+	if m.overlayMode {
+		border := strings.Repeat("─", m.width)
+		content = m.tokens.PopupBorder.Render(border) + "\n" + content
+	}
+
 	// Apply viewport scrolling
 	lines := strings.Split(content, "\n")
 	startLine := m.viewport.YOffset
