@@ -152,7 +152,7 @@ func (n Notification) View(tokens theme.Tokens, maxWidth int) string {
 		textStyle = tokens.NotificationError
 	}
 
-	content := textStyle.Render(icon + " " + n.Message)
+	content := textStyle.Render(icon + "  " + n.Message)
 	box := n.borderStyle(tokens)
 
 	// Limit width
@@ -321,7 +321,7 @@ type ConfirmDialog struct {
 // View renders the confirmation dialog as a bordered box with icon and key hints.
 func (d ConfirmDialog) View(tokens theme.Tokens, maxWidth int) string {
 	icon := "⚠"
-	content := tokens.ConfirmText.Render(icon+" "+d.Message) +
+	content := tokens.ConfirmText.Render(icon+"  "+d.Message) +
 		"  " +
 		tokens.ConfirmKey.Render("y") +
 		tokens.ConfirmText.Render("/") +
