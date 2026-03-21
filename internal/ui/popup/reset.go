@@ -15,13 +15,13 @@ func NewResetPopup(tokens theme.Tokens, state *State) Popup {
 		{Key: "b", Label: "branch"},
 	})
 
-	// Reset this group
+	// Reset this group — padded labels for alignment (matches Neogit)
 	p.AddActionGroup("Reset this", []Action{
-		{Key: "m", Label: "mixed (HEAD and index)"},
-		{Key: "s", Label: "soft (HEAD only)"},
-		{Key: "h", Label: "hard (HEAD, index and files)"},
-		{Key: "k", Label: "keep (HEAD and index, keeping uncommitted)"},
-		{Key: "i", Label: "index (only)"},
+		{Key: "m", Label: "mixed    (HEAD and index)"},
+		{Key: "s", Label: "soft     (HEAD only)"},
+		{Key: "h", Label: "hard     (HEAD, index and files)"},
+		{Key: "k", Label: "keep     (HEAD and index, keeping uncommitted)"},
+		{Key: "i", Label: "index    (only)"},
 		{Key: "w", Label: "worktree (only)"},
 	})
 

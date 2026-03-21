@@ -26,7 +26,8 @@ type Option struct {
 	Label       string // CLI flag name
 	Description string
 	Value       string
-	Persisted   bool // whether to persist across sessions (default true)
+	Persisted   bool     // whether to persist across sessions (default true)
+	Choices     []string // if non-empty, cycle through these instead of free-text input
 }
 
 // Config represents a git config item displayed in a popup.
@@ -151,6 +152,18 @@ func (p *Popup) AddOption(key, label, description, value string) {
 	})
 }
 
+// AddOptionWithChoices adds an option with predefined choices that cycle on toggle.
+func (p *Popup) AddOptionWithChoices(key, label, description, value string, choices []string) {
+	p.options = append(p.options, Option{
+		Key:         key,
+		Label:       label,
+		Description: description,
+		Value:       value,
+		Persisted:   true,
+		Choices:     choices,
+	})
+}
+
 // AddConfig adds a config item to the popup.
 func (p *Popup) AddConfig(key, label, description, value string) {
 	p.config = append(p.config, Config{
@@ -235,7 +248,10 @@ func (p Popup) handleKey(msg tea.KeyMsg) (Popup, tea.Cmd) {
 		p.pendingKey = ""
 		for i := range p.options {
 			if p.options[i].Key == keyStr {
-				if p.options[i].Value != "" {
+				if len(p.options[i].Choices) > 0 {
+					// Cycle through choices: empty → first → second → ... → empty
+					p.options[i].Value = cycleChoice(p.options[i].Value, p.options[i].Choices)
+				} else if p.options[i].Value != "" {
 					// Toggle off: clear the value
 					p.options[i].Value = ""
 				} else {
@@ -302,6 +318,22 @@ func (p Popup) handleOptionInput(msg tea.KeyMsg) (Popup, tea.Cmd) {
 		p.optionInput, cmd = p.optionInput.Update(msg)
 		return p, cmd
 	}
+}
+
+// cycleChoice returns the next choice in the list, wrapping to empty after the last.
+func cycleChoice(current string, choices []string) string {
+	if current == "" {
+		return choices[0]
+	}
+	for i, c := range choices {
+		if c == current {
+			if i+1 < len(choices) {
+				return choices[i+1]
+			}
+			return "" // wrap around to empty
+		}
+	}
+	return choices[0] // current not in choices, start from first
 }
 
 func (p *Popup) disableIncompatible(label string) {

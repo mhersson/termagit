@@ -23,14 +23,17 @@ func NewMergePopup(tokens theme.Tokens, state *State, inMerge bool) Popup {
 		p.SetIncompatible("f", "n")
 
 		// Options
-		p.AddOption("s", "strategy", "Strategy", "")
-		p.AddOption("X", "strategy-option", "Strategy Option", "")
+		p.AddOptionWithChoices("s", "strategy", "Strategy", "",
+			[]string{"octopus", "ours", "resolve", "subtree", "recursive"})
+		p.AddOptionWithChoices("X", "strategy-option", "Strategy Option", "",
+			[]string{"ours", "theirs", "patience"})
 
 		// Whitespace switches (Neogit uses cli_prefix = "-")
 		p.AddSwitch("b", "Xignore-space-change", "Ignore changes in amount of whitespace", false)
 		p.AddSwitch("w", "Xignore-all-space", "Ignore whitespace when comparing lines", false)
 
-		p.AddOption("A", "Xdiff-algorithm", "Diff algorithm", "")
+		p.AddOptionWithChoices("A", "Xdiff-algorithm", "Diff algorithm", "",
+			[]string{"default", "minimal", "patience", "histogram"})
 		p.AddOption("S", "gpg-sign", "Sign using gpg", "")
 
 		// Actions

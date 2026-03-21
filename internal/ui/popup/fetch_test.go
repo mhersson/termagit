@@ -8,7 +8,7 @@ import (
 
 func TestFetchPopup_Switches(t *testing.T) {
 	tokens := testTokens()
-	p := NewFetchPopup(tokens, nil)
+	p := NewFetchPopup(tokens, nil, FetchPopupParams{})
 
 	// Should have prune, tags, force switches
 	expectedSwitches := []string{"prune", "tags", "force"}
@@ -25,7 +25,7 @@ func TestFetchPopup_Switches(t *testing.T) {
 
 func TestFetchPopup_ActionGroups(t *testing.T) {
 	tokens := testTokens()
-	p := NewFetchPopup(tokens, nil)
+	p := NewFetchPopup(tokens, nil, FetchPopupParams{})
 
 	// Should have Fetch from, Fetch, Configure groups
 	expectedGroups := []string{"Fetch from", "Fetch", "Configure"}
@@ -42,7 +42,7 @@ func TestFetchPopup_ActionGroups(t *testing.T) {
 
 func TestFetchPopup_FetchAllRemotes(t *testing.T) {
 	tokens := testTokens()
-	p := NewFetchPopup(tokens, nil)
+	p := NewFetchPopup(tokens, nil, FetchPopupParams{})
 	p.SetSize(80, 24)
 
 	// Press 'a' to fetch all remotes

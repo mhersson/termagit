@@ -579,6 +579,66 @@ func TestPopup_OptionInput_UnknownKey_Noop(t *testing.T) {
 	}
 }
 
+func TestPopup_AddOptionWithChoices(t *testing.T) {
+	tokens := testTokens()
+	p := New("Test", tokens)
+	p.AddOptionWithChoices("s", "strategy", "Strategy", "", []string{"octopus", "ours", "resolve"})
+
+	if len(p.options) != 1 {
+		t.Fatalf("expected 1 option, got %d", len(p.options))
+	}
+
+	opt := p.options[0]
+	if len(opt.Choices) != 3 {
+		t.Errorf("expected 3 choices, got %d", len(opt.Choices))
+	}
+	if opt.Choices[0] != "octopus" {
+		t.Errorf("expected first choice 'octopus', got %q", opt.Choices[0])
+	}
+}
+
+func TestPopup_OptionWithChoices_CyclesValues(t *testing.T) {
+	tokens := testTokens()
+	p := New("Test", tokens)
+	p.AddOptionWithChoices("s", "strategy", "Strategy", "", []string{"ours", "theirs", "patience"})
+
+	// =s when empty should set first choice
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'='}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+
+	if p.options[0].Value != "ours" {
+		t.Errorf("expected 'ours', got %q", p.options[0].Value)
+	}
+	// Should not be editing (no text input mode)
+	if p.editingOption >= 0 {
+		t.Error("should not enter editing mode for choices option")
+	}
+
+	// =s again should cycle to next
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'='}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+
+	if p.options[0].Value != "theirs" {
+		t.Errorf("expected 'theirs', got %q", p.options[0].Value)
+	}
+
+	// =s again → patience
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'='}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+
+	if p.options[0].Value != "patience" {
+		t.Errorf("expected 'patience', got %q", p.options[0].Value)
+	}
+
+	// =s again wraps → clears (empty string)
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'='}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+
+	if p.options[0].Value != "" {
+		t.Errorf("expected empty after full cycle, got %q", p.options[0].Value)
+	}
+}
+
 func testTokens() theme.Tokens {
 	raw := theme.RawTokens{
 		Normal:       "#ffffff",

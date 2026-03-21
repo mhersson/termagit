@@ -28,7 +28,7 @@ func TestYankPopup_Actions(t *testing.T) {
 	expectedActions := map[string]string{
 		"Y": "Hash",
 		"s": "Subject",
-		"m": "Message",
+		"m": "Message (subject and body)",
 		"b": "Message body",
 		"u": "URL",
 		"d": "Diff",

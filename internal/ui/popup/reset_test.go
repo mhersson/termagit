@@ -29,11 +29,11 @@ func TestResetPopup_ResetThisActions(t *testing.T) {
 
 	// Reset this group should have mixed, soft, hard, keep, index, worktree
 	expectedActions := map[string]string{
-		"m": "mixed (HEAD and index)",
-		"s": "soft (HEAD only)",
-		"h": "hard (HEAD, index and files)",
-		"k": "keep (HEAD and index, keeping uncommitted)",
-		"i": "index (only)",
+		"m": "mixed    (HEAD and index)",
+		"s": "soft     (HEAD only)",
+		"h": "hard     (HEAD, index and files)",
+		"k": "keep     (HEAD and index, keeping uncommitted)",
+		"i": "index    (only)",
 		"w": "worktree (only)",
 	}
 

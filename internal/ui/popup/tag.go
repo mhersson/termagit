@@ -10,7 +10,7 @@ func NewTagPopup(tokens theme.Tokens, state *State) Popup {
 	p := New("Tag", tokens)
 
 	// Switches
-	p.AddSwitch("f", "force", "Force", false)
+	p.AddSwitchNonPersisted("f", "force", "Force", false)
 	p.AddSwitch("a", "annotate", "Annotate", false)
 	p.AddSwitch("s", "sign", "Sign", false)
 

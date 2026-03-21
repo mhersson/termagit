@@ -13,7 +13,7 @@ func NewYankPopup(tokens theme.Tokens, state *State, hasURL, hasTags bool) Popup
 	actions := []Action{
 		{Key: "Y", Label: "Hash"},
 		{Key: "s", Label: "Subject"},
-		{Key: "m", Label: "Message"},
+		{Key: "m", Label: "Message (subject and body)"},
 		{Key: "b", Label: "Message body"},
 	}
 

@@ -1041,3 +1041,461 @@ func resetBranchToUpstreamCmd(repo *git.Repository) tea.Cmd {
 		return operationDoneMsg{err: err, op: "Reset branch to " + remote + "/" + branch}
 	}
 }
+
+// --- Merge commands ---
+
+// mergeCmd creates a command that executes a git merge.
+func mergeCmd(repo *git.Repository, opts git.MergeOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Merge"}
+		}
+		err := repo.Merge(context.Background(), opts)
+		return operationDoneMsg{err: err, op: "Merge"}
+	}
+}
+
+// mergeCommitCmd creates a command that commits an in-progress merge.
+func mergeCommitCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Merge commit"}
+		}
+		err := repo.MergeCommit(context.Background())
+		return operationDoneMsg{err: err, op: "Merge commit"}
+	}
+}
+
+// mergeAbortCmd creates a command that aborts an in-progress merge.
+func mergeAbortCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Merge abort"}
+		}
+		err := repo.MergeAbort(context.Background())
+		return operationDoneMsg{err: err, op: "Merge abort"}
+	}
+}
+
+// --- Cherry-pick commands ---
+
+// cherryPickCmd creates a command that cherry-picks commits.
+func cherryPickCmd(repo *git.Repository, hashes []string, opts git.CherryPickOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Cherry-pick"}
+		}
+		err := repo.CherryPick(context.Background(), hashes, opts)
+		return operationDoneMsg{err: err, op: "Cherry-pick"}
+	}
+}
+
+// cherryPickApplyCmd creates a command that applies cherry-pick changes without committing.
+func cherryPickApplyCmd(repo *git.Repository, hashes []string, opts git.CherryPickOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Cherry-pick apply"}
+		}
+		err := repo.CherryPickApply(context.Background(), hashes, opts)
+		return operationDoneMsg{err: err, op: "Cherry-pick apply"}
+	}
+}
+
+// cherryPickContinueCmd creates a command that continues an in-progress cherry-pick.
+func cherryPickContinueCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Cherry-pick continue"}
+		}
+		err := repo.CherryPickContinue(context.Background())
+		return operationDoneMsg{err: err, op: "Cherry-pick continue"}
+	}
+}
+
+// cherryPickSkipCmd creates a command that skips the current commit in a cherry-pick.
+func cherryPickSkipCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Cherry-pick skip"}
+		}
+		err := repo.CherryPickSkip(context.Background())
+		return operationDoneMsg{err: err, op: "Cherry-pick skip"}
+	}
+}
+
+// cherryPickAbortCmd creates a command that aborts an in-progress cherry-pick.
+func cherryPickAbortCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Cherry-pick abort"}
+		}
+		err := repo.CherryPickAbort(context.Background())
+		return operationDoneMsg{err: err, op: "Cherry-pick abort"}
+	}
+}
+
+// --- Revert commands ---
+
+// revertCmd creates a command that reverts commits.
+func revertCmd(repo *git.Repository, hashes []string, opts git.RevertOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Revert"}
+		}
+		err := repo.Revert(context.Background(), hashes, opts)
+		return operationDoneMsg{err: err, op: "Revert"}
+	}
+}
+
+// revertChangesCmd creates a command that applies reverse changes without committing.
+func revertChangesCmd(repo *git.Repository, hashes []string, opts git.RevertOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Revert changes"}
+		}
+		err := repo.RevertChanges(context.Background(), hashes, opts)
+		return operationDoneMsg{err: err, op: "Revert changes"}
+	}
+}
+
+// revertContinueCmd creates a command that continues an in-progress revert.
+func revertContinueCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Revert continue"}
+		}
+		err := repo.RevertContinue(context.Background())
+		return operationDoneMsg{err: err, op: "Revert continue"}
+	}
+}
+
+// revertSkipCmd creates a command that skips the current commit in a revert.
+func revertSkipCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Revert skip"}
+		}
+		err := repo.RevertSkip(context.Background())
+		return operationDoneMsg{err: err, op: "Revert skip"}
+	}
+}
+
+// revertAbortCmd creates a command that aborts an in-progress revert.
+func revertAbortCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Revert abort"}
+		}
+		err := repo.RevertAbort(context.Background())
+		return operationDoneMsg{err: err, op: "Revert abort"}
+	}
+}
+
+// --- Stash commands ---
+
+// stashPushCmd creates a command that pushes to the stash.
+func stashPushCmd(repo *git.Repository, opts git.StashOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Stash push"}
+		}
+		err := repo.Stash(context.Background(), opts)
+		return operationDoneMsg{err: err, op: "Stash push"}
+	}
+}
+
+// stashPopCmd creates a command that pops a stash entry.
+func stashPopCmd(repo *git.Repository, index int) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Stash pop"}
+		}
+		err := repo.StashPop(context.Background(), index)
+		return operationDoneMsg{err: err, op: "Stash pop"}
+	}
+}
+
+// stashApplyCmd creates a command that applies a stash entry.
+func stashApplyCmd(repo *git.Repository, index int) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Stash apply"}
+		}
+		err := repo.StashApply(context.Background(), index)
+		return operationDoneMsg{err: err, op: "Stash apply"}
+	}
+}
+
+// stashDropCmd creates a command that drops a stash entry.
+func stashDropCmd(repo *git.Repository, index int) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Stash drop"}
+		}
+		err := repo.StashDrop(context.Background(), index)
+		return operationDoneMsg{err: err, op: "Stash drop"}
+	}
+}
+
+// stashBranchCmd creates a command that creates a branch from a stash entry.
+func stashBranchCmd(repo *git.Repository, name string, index int) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Stash branch"}
+		}
+		err := repo.StashBranch(context.Background(), name, index)
+		return operationDoneMsg{err: err, op: "Stash branch"}
+	}
+}
+
+// stashRenameCmd creates a command that renames a stash entry.
+func stashRenameCmd(repo *git.Repository, index int, newName string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Stash rename"}
+		}
+		err := repo.StashRename(context.Background(), index, newName)
+		return operationDoneMsg{err: err, op: "Stash rename"}
+	}
+}
+
+// stashSnapshotCmd creates a stash snapshot (stash push + stash apply to restore state).
+func stashSnapshotCmd(repo *git.Repository, opts git.StashOpts, label string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Stash snapshot"}
+		}
+		ctx := context.Background()
+		opts.Message = label
+		// Push to stash
+		if err := repo.Stash(ctx, opts); err != nil {
+			return operationDoneMsg{err: err, op: "Stash snapshot"}
+		}
+		// Apply the stash immediately to restore working state
+		if err := repo.StashApply(ctx, 0); err != nil {
+			return operationDoneMsg{err: err, op: "Stash snapshot (apply)"}
+		}
+		return operationDoneMsg{op: "Stash snapshot"}
+	}
+}
+
+// --- Reset commands ---
+
+// resetCmd creates a command that executes a git reset.
+func resetCmd(repo *git.Repository, target string, mode git.ResetMode) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Reset"}
+		}
+		err := repo.Reset(context.Background(), target, mode)
+		return operationDoneMsg{err: err, op: "Reset"}
+	}
+}
+
+// resetFileCmd creates a command that resets a single file.
+func resetFileCmd(repo *git.Repository, path string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Reset file"}
+		}
+		err := repo.ResetFile(context.Background(), path, "HEAD")
+		return operationDoneMsg{err: err, op: "Reset file"}
+	}
+}
+
+// --- Tag commands ---
+
+// tagCreateCmd creates a command that creates a tag.
+func tagCreateCmd(repo *git.Repository, name, hash string, opts git.TagOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Tag create"}
+		}
+		err := repo.CreateTag(context.Background(), name, hash, opts)
+		return operationDoneMsg{err: err, op: "Tag create"}
+	}
+}
+
+// tagDeleteCmd creates a command that deletes a tag.
+func tagDeleteCmd(repo *git.Repository, name string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Tag delete"}
+		}
+		err := repo.DeleteTag(context.Background(), name)
+		return operationDoneMsg{err: err, op: "Tag delete"}
+	}
+}
+
+// tagPruneCmd creates a command that prunes remote tags.
+func tagPruneCmd(repo *git.Repository, remote string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Tag prune"}
+		}
+		err := repo.PruneRemoteTags(context.Background(), remote)
+		return operationDoneMsg{err: err, op: "Tag prune"}
+	}
+}
+
+// --- Remote commands ---
+
+// remoteAddCmd creates a command that adds a remote.
+func remoteAddCmd(repo *git.Repository, name, url string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Remote add"}
+		}
+		err := repo.AddRemote(context.Background(), name, url)
+		return operationDoneMsg{err: err, op: "Remote add"}
+	}
+}
+
+// remoteRemoveCmd creates a command that removes a remote.
+func remoteRemoveCmd(repo *git.Repository, name string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Remote remove"}
+		}
+		err := repo.RemoveRemote(context.Background(), name)
+		return operationDoneMsg{err: err, op: "Remote remove"}
+	}
+}
+
+// remoteRenameCmd creates a command that renames a remote.
+func remoteRenameCmd(repo *git.Repository, oldName, newName string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Remote rename"}
+		}
+		err := repo.RenameRemote(context.Background(), oldName, newName)
+		return operationDoneMsg{err: err, op: "Remote rename"}
+	}
+}
+
+// remotePruneCmd creates a command that prunes stale remote tracking branches.
+func remotePruneCmd(repo *git.Repository, name string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Remote prune"}
+		}
+		err := repo.PruneRemote(context.Background(), name)
+		return operationDoneMsg{err: err, op: "Remote prune"}
+	}
+}
+
+// --- Worktree commands ---
+
+// worktreeAddCmd creates a command that adds a worktree.
+func worktreeAddCmd(repo *git.Repository, path, branch string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Worktree add"}
+		}
+		err := repo.AddWorktree(context.Background(), path, branch)
+		return operationDoneMsg{err: err, op: "Worktree add"}
+	}
+}
+
+// worktreeRemoveCmd creates a command that removes a worktree.
+func worktreeRemoveCmd(repo *git.Repository, path string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Worktree remove"}
+		}
+		err := repo.RemoveWorktree(context.Background(), path, false)
+		return operationDoneMsg{err: err, op: "Worktree remove"}
+	}
+}
+
+// worktreeMoveCmd creates a command that moves a worktree.
+func worktreeMoveCmd(repo *git.Repository, oldPath, newPath string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Worktree move"}
+		}
+		err := repo.MoveWorktree(context.Background(), oldPath, newPath)
+		return operationDoneMsg{err: err, op: "Worktree move"}
+	}
+}
+
+// --- Bisect commands ---
+
+// bisectStartCmd creates a command that starts a bisect session.
+func bisectStartCmd(repo *git.Repository, opts git.BisectOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Bisect start"}
+		}
+		err := repo.BisectStart(context.Background(), "HEAD", nil, opts)
+		return operationDoneMsg{err: err, op: "Bisect start"}
+	}
+}
+
+// bisectGoodCmd creates a command that marks a commit as good.
+func bisectGoodCmd(repo *git.Repository, hash string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Bisect good"}
+		}
+		err := repo.BisectGood(context.Background(), hash)
+		return operationDoneMsg{err: err, op: "Bisect good"}
+	}
+}
+
+// bisectBadCmd creates a command that marks a commit as bad.
+func bisectBadCmd(repo *git.Repository, hash string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Bisect bad"}
+		}
+		err := repo.BisectBad(context.Background(), hash)
+		return operationDoneMsg{err: err, op: "Bisect bad"}
+	}
+}
+
+// bisectSkipCmd creates a command that marks a commit as untestable.
+func bisectSkipCmd(repo *git.Repository, hash string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Bisect skip"}
+		}
+		err := repo.BisectSkip(context.Background(), hash)
+		return operationDoneMsg{err: err, op: "Bisect skip"}
+	}
+}
+
+// bisectResetCmd creates a command that resets/ends a bisect session.
+func bisectResetCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Bisect reset"}
+		}
+		err := repo.BisectReset(context.Background())
+		return operationDoneMsg{err: err, op: "Bisect reset"}
+	}
+}
+
+// bisectRunCmd creates a command that runs an automated bisect with a script.
+func bisectRunCmd(repo *git.Repository, script string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Bisect run"}
+		}
+		err := repo.BisectRun(context.Background(), script, nil)
+		return operationDoneMsg{err: err, op: "Bisect run"}
+	}
+}
+
+// --- Ignore commands ---
+
+// ignoreCmd creates a command that adds an ignore rule.
+func ignoreCmd(repo *git.Repository, pattern string, scope git.IgnoreScope) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Ignore"}
+		}
+		err := repo.AddIgnoreRule(context.Background(), pattern, scope)
+		return operationDoneMsg{err: err, op: "Ignore"}
+	}
+}

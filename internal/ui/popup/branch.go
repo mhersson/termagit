@@ -6,7 +6,7 @@ import (
 
 // NewBranchPopup creates the branch popup matching Neogit exactly.
 // Source: neogit/lua/neogit/popups/branch/init.lua
-func NewBranchPopup(tokens theme.Tokens, state *State, branch string, showConfig bool) Popup {
+func NewBranchPopup(tokens theme.Tokens, state *State, branch string, showConfig, hasUpstream bool) Popup {
 	p := New("Branch", tokens)
 
 	// Config items (only when on a branch)
@@ -43,13 +43,16 @@ func NewBranchPopup(tokens theme.Tokens, state *State, branch string, showConfig
 	})
 
 	// Do group
-	p.AddActionGroup("Do", []Action{
+	doActions := []Action{
 		{Key: "C", Label: "Configure..."},
 		{Key: "m", Label: "rename"},
 		{Key: "X", Label: "reset"},
 		{Key: "D", Label: "delete"},
-		// "o" (pull request) shown only if upstream exists - omitted for now
-	})
+	}
+	if hasUpstream {
+		doActions = append(doActions, Action{Key: "o", Label: "pull request"})
+	}
+	p.AddActionGroup("Do", doActions)
 
 	// Apply saved state if provided
 	if state != nil {

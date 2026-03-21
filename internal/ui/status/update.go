@@ -1499,9 +1499,33 @@ func handlePopupAction(m Model, kind PopupKind, result popup.Result) (tea.Model,
 		return handleFetchPopupAction(m, result)
 	case PopupLog:
 		return handleLogPopupAction(m, result)
+	case PopupMerge:
+		return handleMergePopupAction(m, result)
+	case PopupCherryPick:
+		return handleCherryPickPopupAction(m, result)
+	case PopupRevert:
+		return handleRevertPopupAction(m, result)
+	case PopupStash:
+		return handleStashPopupAction(m, result)
+	case PopupReset:
+		return handleResetPopupAction(m, result)
+	case PopupTag:
+		return handleTagPopupAction(m, result)
+	case PopupRemote:
+		return handleRemotePopupAction(m, result)
+	case PopupWorktree:
+		return handleWorktreePopupAction(m, result)
+	case PopupBisect:
+		return handleBisectPopupAction(m, result)
+	case PopupIgnore:
+		return handleIgnorePopupAction(m, result)
+	case PopupDiff:
+		return handleDiffPopupAction(m, result)
+	case PopupMargin:
+		return handleMarginPopupAction(m, result)
+	case PopupHelp:
+		return handleHelpPopupAction(m, result)
 	default:
-		// For now, just show a notification with the action
-		// The actual git operations will be wired up as needed
 		return m, notifyAppCmd("Action: "+result.Action, notification.Info)
 	}
 }
@@ -1702,6 +1726,21 @@ func handleCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.Model, tea
 		return handleRebaseCommitSelected(m, msg)
 	}
 
+	// Check if this is a cherry-pick commit selection
+	if m.cherryPickActionKind != cherryPickActionNone {
+		return handleCherryPickCommitSelected(m, msg)
+	}
+
+	// Check if this is a revert commit selection
+	if m.revertActionKind != revertActionNone {
+		return handleRevertCommitSelected(m, msg)
+	}
+
+	// Check if this is a reset commit selection
+	if m.resetActionKind != resetActionNone {
+		return handleResetCommitSelected(m, msg)
+	}
+
 	opts := m.commitSpecialOpts
 	kind := m.commitSpecialKind
 
@@ -1772,7 +1811,8 @@ func handleRebaseCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.Mode
 func handleOpenBranchPopup(m Model) (tea.Model, tea.Cmd) {
 	branch := m.head.Branch
 	showConfig := branch != "" && !m.head.Detached
-	p := popup.NewBranchPopup(m.tokens, nil, branch, showConfig)
+	hasUpstream := m.head.UpstreamRemote != ""
+	p := popup.NewBranchPopup(m.tokens, nil, branch, showConfig, hasUpstream)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
 	m.popupKind = PopupBranch
@@ -1781,7 +1821,12 @@ func handleOpenBranchPopup(m Model) (tea.Model, tea.Cmd) {
 
 // handleOpenPushPopup opens the push popup.
 func handleOpenPushPopup(m Model) (tea.Model, tea.Cmd) {
-	p := popup.NewPushPopup(m.tokens, nil, m.head.Branch, m.head.Detached)
+	p := popup.NewPushPopup(m.tokens, nil, popup.PushPopupParams{
+		Branch:          m.head.Branch,
+		IsDetached:      m.head.Detached,
+		PushRemoteLabel: resolveRemoteLabel(m.head.PushRemote, m.head.PushBranch),
+		UpstreamLabel:   resolveRemoteLabel(m.head.UpstreamRemote, m.head.UpstreamBranch),
+	})
 	p.SetSize(m.width, m.height)
 	m.popup = &p
 	m.popupKind = PopupPush
@@ -1790,7 +1835,12 @@ func handleOpenPushPopup(m Model) (tea.Model, tea.Cmd) {
 
 // handleOpenPullPopup opens the pull popup.
 func handleOpenPullPopup(m Model) (tea.Model, tea.Cmd) {
-	p := popup.NewPullPopup(m.tokens, nil, m.head.Branch)
+	p := popup.NewPullPopup(m.tokens, nil, popup.PullPopupParams{
+		Branch:          m.head.Branch,
+		IsDetached:      m.head.Detached,
+		PushRemoteLabel: resolveRemoteLabel(m.head.PushRemote, m.head.PushBranch),
+		UpstreamLabel:   resolveRemoteLabel(m.head.UpstreamRemote, m.head.UpstreamBranch),
+	})
 	p.SetSize(m.width, m.height)
 	m.popup = &p
 	m.popupKind = PopupPull
@@ -1799,7 +1849,10 @@ func handleOpenPullPopup(m Model) (tea.Model, tea.Cmd) {
 
 // handleOpenFetchPopup opens the fetch popup.
 func handleOpenFetchPopup(m Model) (tea.Model, tea.Cmd) {
-	p := popup.NewFetchPopup(m.tokens, nil)
+	p := popup.NewFetchPopup(m.tokens, nil, popup.FetchPopupParams{
+		PushRemoteLabel: resolveRemoteLabel(m.head.PushRemote, m.head.PushBranch),
+		UpstreamLabel:   resolveRemoteLabel(m.head.UpstreamRemote, m.head.UpstreamBranch),
+	})
 	p.SetSize(m.width, m.height)
 	m.popup = &p
 	m.popupKind = PopupFetch
@@ -1829,7 +1882,8 @@ func handleOpenRebasePopup(m Model) (tea.Model, tea.Cmd) {
 // handleOpenRevertPopup opens the revert popup.
 func handleOpenRevertPopup(m Model) (tea.Model, tea.Cmd) {
 	inProgress := isInSequencer(m.sections, "revert")
-	p := popup.NewRevertPopup(m.tokens, nil, inProgress)
+	hasHunk := cursorOnHunk(m)
+	p := popup.NewRevertPopup(m.tokens, nil, inProgress, hasHunk)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
 	m.popupKind = PopupRevert
@@ -2050,6 +2104,29 @@ func isInRebase(sections []Section) bool {
 }
 
 // isInSequencer checks if there's an active sequencer operation of the given type.
+// resolveRemoteLabel builds "remote/branch" from the two parts.
+// Returns empty string if either is empty, so callers fall back to the default label.
+func resolveRemoteLabel(remote, branch string) string {
+	if remote == "" || branch == "" {
+		return ""
+	}
+	return remote + "/" + branch
+}
+
+// cursorOnHunk returns true if the cursor is positioned on an expanded hunk.
+func cursorOnHunk(m Model) bool {
+	sec := m.cursor.Section
+	item := m.cursor.Item
+	if sec < 0 || sec >= len(m.sections) {
+		return false
+	}
+	s := m.sections[sec]
+	if item < 0 || item >= len(s.Items) {
+		return false
+	}
+	return s.Items[item].Expanded && len(s.Items[item].Hunks) > 0
+}
+
 func isInSequencer(sections []Section, action string) bool {
 	for _, s := range sections {
 		if s.Kind == SectionSequencer && len(s.Items) > 0 {
@@ -2501,7 +2578,55 @@ func handleInputPromptKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case inputPromptReflogRef:
 			return m, loadReflogCmd(m.repo, name)
 		case inputPromptWorktreePath:
-			return m, notifyAppCmd("Worktree creation not yet available", notification.Warning)
+			return m, worktreeAddCmd(m.repo, name, m.head.Branch)
+		case inputPromptTagName:
+			return m, tagCreateCmd(m.repo, name, "HEAD", git.TagOpts{})
+		case inputPromptTagRelease:
+			return m, tagCreateCmd(m.repo, name, "HEAD", git.TagOpts{Annotate: true})
+		case inputPromptTagDelete:
+			return m, tagDeleteCmd(m.repo, name)
+		case inputPromptRemoteName:
+			// Store name, now prompt for URL
+			m.confirmPath = name // reuse confirmPath to carry the remote name
+			return openBranchInput(m, inputPromptRemoteURL, "Remote URL: ")
+		case inputPromptRemoteURL:
+			remoteName := m.confirmPath
+			m.confirmPath = ""
+			return m, remoteAddCmd(m.repo, remoteName, name)
+		case inputPromptRemoteRename:
+			// name is the new name; confirmPath holds the old name
+			oldName := m.confirmPath
+			m.confirmPath = ""
+			return m, remoteRenameCmd(m.repo, oldName, name)
+		case inputPromptRemoteRemove:
+			return m, remoteRemoveCmd(m.repo, name)
+		case inputPromptRemotePrune:
+			return m, remotePruneCmd(m.repo, name)
+		case inputPromptWorktreeCreate:
+			return m, worktreeAddCmd(m.repo, name, m.head.Branch)
+		case inputPromptWorktreeMove:
+			oldPath := m.confirmPath
+			m.confirmPath = ""
+			return m, worktreeMoveCmd(m.repo, oldPath, name)
+		case inputPromptWorktreeDelete:
+			return m, worktreeRemoveCmd(m.repo, name)
+		case inputPromptBisectScript:
+			return m, bisectRunCmd(m.repo, name)
+		case inputPromptStashMessage:
+			opts := git.StashOpts{Message: name}
+			return m, stashPushCmd(m.repo, opts)
+		case inputPromptStashRename:
+			idx, ok := getStashIndex(m)
+			if !ok {
+				return m, notifyAppCmd("No stash selected", notification.Warning)
+			}
+			return m, stashRenameCmd(m.repo, idx, name)
+		case inputPromptStashBranch:
+			idx, ok := getStashIndex(m)
+			if !ok {
+				return m, notifyAppCmd("No stash selected", notification.Warning)
+			}
+			return m, stashBranchCmd(m.repo, name, idx)
 		default:
 			return m, nil
 		}
@@ -2639,7 +2764,641 @@ func handleBranchSelected(m Model, msg branchselect.SelectedMsg) (tea.Model, tea
 		return m, loadLogCmd(m.repo, logOpts, msg.Name)
 	case branchActionBranchConfigure:
 		return m, notifyAppCmd("Branch config for "+msg.Name+" (popup not yet available)", notification.Info)
+	case branchActionMergeBranch:
+		opts := m.mergeOpts
+		opts.Branch = msg.Name
+		kind := m.mergeActionKind
+		m.mergeActionKind = mergeActionNone
+		m.mergeOpts = git.MergeOpts{}
+		switch kind {
+		case mergeActionEdit:
+			// merge + edit: just pass through, the editor will open
+		case mergeActionNoCommit:
+			opts.NoCommit = true
+		case mergeActionSquash:
+			opts.Squash = true
+		case mergeActionDissolve:
+			opts.Squash = true
+			opts.NoCommit = true
+		default:
+			// mergeActionMerge, mergeActionAbsorb — default merge
+		}
+		return m, tea.Batch(
+			mergeCmd(m.repo, opts),
+			notifyAppCmd("Merging "+msg.Name+"...", notification.Info),
+		)
+	case branchActionWorktreeCheckout:
+		return m, worktreeAddCmd(m.repo, "", msg.Name)
 	default:
 		return m, nil
 	}
+}
+
+// --- Merge popup action handling ---
+
+// handleMergePopupAction handles actions from the merge popup.
+func handleMergePopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	inMerge := isInMerge(m.sections)
+
+	if inMerge {
+		switch result.Action {
+		case "m": // Commit merge
+			return m, mergeCommitCmd(m.repo)
+		case "a": // Abort merge
+			return m, mergeAbortCmd(m.repo)
+		default:
+			return m, notifyAppCmd("Unknown merge action: "+result.Action, notification.Warning)
+		}
+	}
+
+	opts := buildMergeOpts(result)
+
+	var kind mergeActionKind
+	switch result.Action {
+	case "m":
+		kind = mergeActionMerge
+	case "e":
+		kind = mergeActionEdit
+	case "n":
+		kind = mergeActionNoCommit
+	case "a":
+		kind = mergeActionAbsorb
+	case "p": // Preview merge
+		return m, notifyAppCmd("Merge preview not yet implemented", notification.Info)
+	case "s":
+		kind = mergeActionSquash
+	case "i":
+		kind = mergeActionDissolve
+	default:
+		return m, notifyAppCmd("Unknown merge action: "+result.Action, notification.Warning)
+	}
+
+	m.mergeActionKind = kind
+	m.mergeOpts = opts
+	m.branchActionKind = branchActionMergeBranch
+	return m, loadAllBranchesCmd(m.repo)
+}
+
+// buildMergeOpts builds MergeOpts from popup result switches and options.
+func buildMergeOpts(result popup.Result) git.MergeOpts {
+	return git.MergeOpts{
+		FFOnly:         result.Switches["ff-only"],
+		NoFF:           result.Switches["no-ff"],
+		Strategy:       result.Options["strategy"],
+		StrategyOption: result.Options["strategy-option"],
+		DiffAlgorithm:  result.Options["Xdiff-algorithm"],
+		GpgSign:        result.Options["gpg-sign"],
+	}
+}
+
+// --- Cherry-pick popup action handling ---
+
+// handleCherryPickPopupAction handles actions from the cherry-pick popup.
+func handleCherryPickPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	inProgress := isInSequencer(m.sections, "pick")
+
+	if inProgress {
+		switch result.Action {
+		case "A": // Continue
+			return m, cherryPickContinueCmd(m.repo)
+		case "s": // Skip
+			return m, cherryPickSkipCmd(m.repo)
+		case "a": // Abort
+			return m, cherryPickAbortCmd(m.repo)
+		default:
+			return m, notifyAppCmd("Unknown cherry-pick action: "+result.Action, notification.Warning)
+		}
+	}
+
+	opts := buildCherryPickOpts(result)
+
+	var kind cherryPickActionKind
+	switch result.Action {
+	case "A":
+		kind = cherryPickActionPick
+	case "a":
+		kind = cherryPickActionApply
+	case "h":
+		kind = cherryPickActionHarvest
+	case "m":
+		kind = cherryPickActionSquash
+	case "d":
+		kind = cherryPickActionDonate
+	case "n":
+		kind = cherryPickActionSpinout
+	case "s":
+		kind = cherryPickActionSpinoff
+	default:
+		return m, notifyAppCmd("Unknown cherry-pick action: "+result.Action, notification.Warning)
+	}
+
+	m.cherryPickActionKind = kind
+	m.cherryPickOpts = opts
+	return m, loadCommitsForSelectCmd(m.repo)
+}
+
+// buildCherryPickOpts builds CherryPickOpts from popup result switches and options.
+func buildCherryPickOpts(result popup.Result) git.CherryPickOpts {
+	mainline := 0
+	if ml, ok := result.Options["mainline"]; ok && ml != "" {
+		if n, err := parseMaxCount(ml); err == nil {
+			mainline = n
+		}
+	}
+
+	return git.CherryPickOpts{
+		Mainline:           mainline,
+		Strategy:           result.Options["strategy"],
+		GpgSign:            result.Options["gpg-sign"],
+		FF:                 result.Switches["ff"],
+		ReferenceInMessage: result.Switches["x"],
+		Edit:               result.Switches["edit"],
+		Signoff:            result.Switches["signoff"],
+	}
+}
+
+// handleCherryPickCommitSelected handles the user selecting a commit for a cherry-pick action.
+func handleCherryPickCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.Model, tea.Cmd) {
+	opts := m.cherryPickOpts
+	kind := m.cherryPickActionKind
+
+	// Clear cherry-pick select state
+	m.cherryPickActionKind = cherryPickActionNone
+	m.cherryPickOpts = git.CherryPickOpts{}
+
+	hashes := []string{msg.FullHash}
+
+	switch kind {
+	case cherryPickActionPick:
+		return m, cherryPickCmd(m.repo, hashes, opts)
+	case cherryPickActionApply:
+		return m, cherryPickApplyCmd(m.repo, hashes, opts)
+	case cherryPickActionHarvest:
+		// Harvest: cherry-pick but don't remove from source
+		return m, cherryPickCmd(m.repo, hashes, opts)
+	case cherryPickActionSquash:
+		// Squash: cherry-pick --no-commit (apply changes without commit)
+		return m, cherryPickApplyCmd(m.repo, hashes, opts)
+	case cherryPickActionDonate, cherryPickActionSpinout, cherryPickActionSpinoff:
+		return m, notifyAppCmd("Cherry-pick action not yet implemented", notification.Info)
+	default:
+		return m, nil
+	}
+}
+
+// --- Revert popup action handling ---
+
+// handleRevertPopupAction handles actions from the revert popup.
+func handleRevertPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	inProgress := isInSequencer(m.sections, "revert")
+
+	if inProgress {
+		switch result.Action {
+		case "v": // Continue
+			return m, revertContinueCmd(m.repo)
+		case "s": // Skip
+			return m, revertSkipCmd(m.repo)
+		case "a": // Abort
+			return m, revertAbortCmd(m.repo)
+		default:
+			return m, notifyAppCmd("Unknown revert action: "+result.Action, notification.Warning)
+		}
+	}
+
+	opts := buildRevertOpts(result)
+
+	switch result.Action {
+	case "v": // Commit(s) — needs commit select
+		m.revertActionKind = revertActionCommit
+		m.revertOpts = opts
+		return m, loadCommitsForSelectCmd(m.repo)
+	case "V": // Changes (no commit) — needs commit select
+		m.revertActionKind = revertActionChanges
+		m.revertOpts = opts
+		return m, loadCommitsForSelectCmd(m.repo)
+	case "h": // Hunk — revert the current hunk
+		return handleRevertHunk(m)
+	default:
+		return m, notifyAppCmd("Unknown revert action: "+result.Action, notification.Warning)
+	}
+}
+
+// buildRevertOpts builds RevertOpts from popup result switches and options.
+func buildRevertOpts(result popup.Result) git.RevertOpts {
+	mainline := 0
+	if ml, ok := result.Options["mainline"]; ok && ml != "" {
+		if n, err := parseMaxCount(ml); err == nil {
+			mainline = n
+		}
+	}
+
+	return git.RevertOpts{
+		Mainline: mainline,
+		Strategy: result.Options["strategy"],
+		GpgSign:  result.Options["gpg-sign"],
+		Edit:     result.Switches["edit"],
+		NoEdit:   result.Switches["no-edit"],
+		Signoff:  result.Switches["signoff"],
+	}
+}
+
+// handleRevertCommitSelected handles the user selecting a commit for a revert action.
+func handleRevertCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.Model, tea.Cmd) {
+	opts := m.revertOpts
+	kind := m.revertActionKind
+
+	// Clear revert select state
+	m.revertActionKind = revertActionNone
+	m.revertOpts = git.RevertOpts{}
+
+	hashes := []string{msg.FullHash}
+
+	switch kind {
+	case revertActionCommit:
+		return m, revertCmd(m.repo, hashes, opts)
+	case revertActionChanges:
+		return m, revertChangesCmd(m.repo, hashes, opts)
+	default:
+		return m, nil
+	}
+}
+
+// handleRevertHunk reverts the hunk under the cursor using a reverse patch.
+func handleRevertHunk(m Model) (tea.Model, tea.Cmd) {
+	item, _ := getCurrentItem(m)
+	if item == nil || item.Entry == nil || !item.Expanded || m.cursor.Hunk < 0 {
+		return m, notifyAppCmd("No hunk selected", notification.Warning)
+	}
+	if m.cursor.Hunk >= len(item.Hunks) {
+		return m, notifyAppCmd("No hunk selected", notification.Warning)
+	}
+	hunk := item.Hunks[m.cursor.Hunk]
+	// Apply the hunk in reverse to the worktree
+	return m, discardHunkCmd(m.repo, item.Entry.Path(), hunk)
+}
+
+// --- Stash popup action handling ---
+
+// handleStashPopupAction handles actions from the stash popup.
+func handleStashPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	opts := buildStashOpts(result)
+
+	switch result.Action {
+	// Stash group
+	case "z": // both
+		return m, stashPushCmd(m.repo, opts)
+	case "i": // index
+		opts.KeepIndex = true
+		return m, stashPushCmd(m.repo, opts)
+	case "w": // worktree
+		// Stash only worktree changes (keep index)
+		opts.KeepIndex = true
+		return m, stashPushCmd(m.repo, opts)
+	case "x": // keeping index
+		opts.KeepIndex = true
+		return m, stashPushCmd(m.repo, opts)
+	case "P": // push (with message)
+		return openBranchInput(m, inputPromptStashMessage, "Stash message: ")
+
+	// Snapshot group
+	case "Z": // snapshot both
+		return m, stashSnapshotCmd(m.repo, opts, "snapshot")
+	case "I": // snapshot index
+		opts.KeepIndex = true
+		return m, stashSnapshotCmd(m.repo, opts, "index snapshot")
+	case "W": // snapshot worktree
+		return m, stashSnapshotCmd(m.repo, opts, "worktree snapshot")
+	case "r": // to wip ref
+		return m, notifyAppCmd("Stash to WIP ref not yet implemented", notification.Info)
+
+	// Use group
+	case "p": // pop
+		idx, ok := getStashIndex(m)
+		if !ok {
+			idx = 0
+		}
+		return m, stashPopCmd(m.repo, idx)
+	case "a": // apply
+		idx, ok := getStashIndex(m)
+		if !ok {
+			idx = 0
+		}
+		return m, stashApplyCmd(m.repo, idx)
+	case "d": // drop
+		idx, ok := getStashIndex(m)
+		if !ok {
+			idx = 0
+		}
+		return m, stashDropCmd(m.repo, idx)
+
+	// Inspect group
+	case "l": // list
+		return m, notifyAppCmd("Stash list view not yet implemented", notification.Info)
+	case "v": // show
+		return m, notifyAppCmd("Stash show not yet implemented", notification.Info)
+
+	// Transform group
+	case "b": // branch
+		return openBranchInput(m, inputPromptStashBranch, "Stash branch name: ")
+	case "B": // branch here
+		return openBranchInput(m, inputPromptStashBranch, "Stash branch name: ")
+	case "m": // rename
+		return openBranchInput(m, inputPromptStashRename, "New stash message: ")
+	case "f": // format patch
+		return m, notifyAppCmd("Stash format-patch not yet implemented", notification.Info)
+
+	default:
+		return m, notifyAppCmd("Unknown stash action: "+result.Action, notification.Warning)
+	}
+}
+
+// buildStashOpts builds StashOpts from popup result switches.
+func buildStashOpts(result popup.Result) git.StashOpts {
+	return git.StashOpts{
+		IncludeUntracked: result.Switches["include-untracked"],
+		All:              result.Switches["all"],
+	}
+}
+
+// --- Reset popup action handling ---
+
+// handleResetPopupAction handles actions from the reset popup.
+func handleResetPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	switch result.Action {
+	case "f": // file — reset the file under cursor
+		path, ok := getCursorFilePath(m)
+		if !ok {
+			return m, notifyAppCmd("No file selected", notification.Warning)
+		}
+		return m, resetFileCmd(m.repo, path)
+	case "b": // branch — select commit to reset branch to
+		m.resetActionKind = resetActionBranch
+		m.resetMode = git.ResetMixed
+		return m, loadCommitsForSelectCmd(m.repo)
+	default:
+		// m/s/h/k/i/w — reset modes, need commit select for target
+		mode, ok := resetModeForAction(result.Action)
+		if !ok {
+			return m, notifyAppCmd("Unknown reset action: "+result.Action, notification.Warning)
+		}
+		m.resetActionKind = resetActionBranch
+		m.resetMode = mode
+		return m, loadCommitsForSelectCmd(m.repo)
+	}
+}
+
+// resetModeForAction maps a reset popup action key to a git.ResetMode.
+func resetModeForAction(action string) (git.ResetMode, bool) {
+	switch action {
+	case "m":
+		return git.ResetMixed, true
+	case "s":
+		return git.ResetSoft, true
+	case "h":
+		return git.ResetHard, true
+	case "k":
+		return git.ResetKeep, true
+	case "i":
+		return git.ResetIndex, true
+	case "w":
+		return git.ResetWorktree, true
+	default:
+		return "", false
+	}
+}
+
+// handleResetCommitSelected handles the user selecting a commit for a reset action.
+func handleResetCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.Model, tea.Cmd) {
+	mode := m.resetMode
+
+	// Clear reset select state
+	m.resetActionKind = resetActionNone
+	m.resetMode = ""
+
+	return m, resetCmd(m.repo, msg.FullHash, mode)
+}
+
+// --- Tag popup action handling ---
+
+// handleTagPopupAction handles actions from the tag popup.
+func handleTagPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	switch result.Action {
+	case "t": // create tag
+		return openBranchInput(m, inputPromptTagName, "Tag name: ")
+	case "r": // release tag
+		return openBranchInput(m, inputPromptTagRelease, "Release tag name: ")
+	case "x": // delete tag
+		return openBranchInput(m, inputPromptTagDelete, "Delete tag: ")
+	case "p": // prune
+		remote := defaultRemote(m.head)
+		return m, tagPruneCmd(m.repo, remote)
+	default:
+		return m, notifyAppCmd("Unknown tag action: "+result.Action, notification.Warning)
+	}
+}
+
+// buildTagOpts builds TagOpts from popup result switches and options.
+func buildTagOpts(result popup.Result) git.TagOpts {
+	return git.TagOpts{
+		Force:     result.Switches["force"],
+		Annotate:  result.Switches["annotate"],
+		Sign:      result.Switches["sign"],
+		LocalUser: result.Options["local-user"],
+	}
+}
+
+// --- Remote popup action handling ---
+
+// handleRemotePopupAction handles actions from the remote popup.
+func handleRemotePopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	switch result.Action {
+	case "a": // Add
+		return openBranchInput(m, inputPromptRemoteName, "Remote name: ")
+	case "r": // Rename
+		return openBranchInput(m, inputPromptRemoteRename, "Rename remote to: ")
+	case "x": // Remove
+		return openBranchInput(m, inputPromptRemoteRemove, "Remove remote: ")
+	case "C": // Configure
+		return m, notifyAppCmd("Remote configure not yet implemented", notification.Info)
+	case "p": // Prune stale branches
+		return openBranchInput(m, inputPromptRemotePrune, "Prune remote: ")
+	case "P": // Prune stale refspecs
+		return openBranchInput(m, inputPromptRemotePrune, "Prune refspecs for remote: ")
+	case "b": // Update default branch
+		return m, notifyAppCmd("Update default branch not yet implemented", notification.Info)
+	case "z": // Unshallow
+		return m, notifyAppCmd("Unshallow not yet implemented", notification.Info)
+	default:
+		return m, notifyAppCmd("Unknown remote action: "+result.Action, notification.Warning)
+	}
+}
+
+// --- Worktree popup action handling ---
+
+// handleWorktreePopupAction handles actions from the worktree popup.
+func handleWorktreePopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	switch result.Action {
+	case "w": // Checkout — select branch for worktree
+		m.branchActionKind = branchActionWorktreeCheckout
+		return m, loadAllBranchesCmd(m.repo)
+	case "W": // Create — prompt for path
+		return openBranchInput(m, inputPromptWorktreeCreate, "Worktree path: ")
+	case "g": // Goto — prompt for path
+		return m, notifyAppCmd("Goto worktree: switch not supported in terminal", notification.Info)
+	case "m": // Move — prompt for destination
+		return openBranchInput(m, inputPromptWorktreeMove, "Move worktree to: ")
+	case "D": // Delete — prompt for path
+		return openBranchInput(m, inputPromptWorktreeDelete, "Delete worktree path: ")
+	default:
+		return m, notifyAppCmd("Unknown worktree action: "+result.Action, notification.Warning)
+	}
+}
+
+// --- Bisect popup action handling ---
+
+// handleBisectPopupAction handles actions from the bisect popup.
+func handleBisectPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	opts := buildBisectOpts(result)
+
+	switch result.Action {
+	case "B": // Start
+		return m, bisectStartCmd(m.repo, opts)
+	case "S": // Scripted / Run script
+		return openBranchInput(m, inputPromptBisectScript, "Bisect script: ")
+	case "b": // Bad
+		hash := getCommitHashAtCursor(m)
+		return m, bisectBadCmd(m.repo, hash)
+	case "g": // Good
+		hash := getCommitHashAtCursor(m)
+		return m, bisectGoodCmd(m.repo, hash)
+	case "s": // Skip
+		hash := getCommitHashAtCursor(m)
+		return m, bisectSkipCmd(m.repo, hash)
+	case "r": // Reset
+		return m, bisectResetCmd(m.repo)
+	default:
+		return m, notifyAppCmd("Unknown bisect action: "+result.Action, notification.Warning)
+	}
+}
+
+// buildBisectOpts builds BisectOpts from popup result switches.
+func buildBisectOpts(result popup.Result) git.BisectOpts {
+	return git.BisectOpts{
+		NoCheckout:  result.Switches["no-checkout"],
+		FirstParent: result.Switches["first-parent"],
+	}
+}
+
+// --- Ignore popup action handling ---
+
+// handleIgnorePopupAction handles actions from the ignore popup.
+func handleIgnorePopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	path, ok := getCursorFilePath(m)
+	if !ok {
+		return m, notifyAppCmd("No file selected to ignore", notification.Warning)
+	}
+
+	pattern := git.IgnorePatternForPath(path)
+
+	var scope git.IgnoreScope
+	switch result.Action {
+	case "t": // shared at top-level
+		scope = git.IgnoreScopeTopLevel
+	case "s": // shared in sub-directory
+		scope = git.IgnoreScopeSubdir
+	case "p": // privately for this repository
+		scope = git.IgnoreScopePrivate
+	case "g": // globally for this user
+		scope = git.IgnoreScopeGlobal
+	default:
+		return m, notifyAppCmd("Unknown ignore action: "+result.Action, notification.Warning)
+	}
+
+	return m, ignoreCmd(m.repo, pattern, scope)
+}
+
+// --- Diff popup action handling ---
+
+// handleDiffPopupAction handles actions from the diff popup.
+func handleDiffPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	switch result.Action {
+	case "d": // this — expand inline diff for current item
+		return handleToggle(m)
+	case "h": // this..HEAD — show diff for commit vs HEAD
+		return m, notifyAppCmd("Diff commit..HEAD not yet implemented", notification.Info)
+	case "r": // range
+		return m, notifyAppCmd("Diff range not yet implemented", notification.Info)
+	case "p": // paths
+		return m, notifyAppCmd("Diff paths not yet implemented", notification.Info)
+	case "u": // unstaged
+		return m, notifyAppCmd("Diff unstaged view not yet implemented", notification.Info)
+	case "s": // staged
+		return m, notifyAppCmd("Diff staged view not yet implemented", notification.Info)
+	case "w": // worktree
+		return m, notifyAppCmd("Diff worktree view not yet implemented", notification.Info)
+	case "c": // Commit
+		return m, notifyAppCmd("Diff commit view not yet implemented", notification.Info)
+	case "t": // Stash
+		return m, notifyAppCmd("Diff stash view not yet implemented", notification.Info)
+	default:
+		return m, notifyAppCmd("Unknown diff action: "+result.Action, notification.Warning)
+	}
+}
+
+// --- Margin popup action handling ---
+
+// handleMarginPopupAction handles actions from the margin popup.
+func handleMarginPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	switch result.Action {
+	case "g": // Refresh buffer
+		return m, loadStatusCmd(m.repo, m.cfg)
+	case "L": // Toggle visibility
+		return m, notifyAppCmd("Margin visibility toggled", notification.Info)
+	case "l": // Cycle style
+		return m, notifyAppCmd("Margin style cycled", notification.Info)
+	case "d": // Toggle details
+		return m, notifyAppCmd("Margin details toggled", notification.Info)
+	case "x": // Toggle shortstat
+		return m, notifyAppCmd("Margin shortstat toggled", notification.Info)
+	default:
+		return m, notifyAppCmd("Unknown margin action: "+result.Action, notification.Warning)
+	}
+}
+
+// --- Help popup action handling ---
+
+// handleHelpPopupAction handles actions from the help popup.
+// When the user presses a key in the help popup, the popup returns that key
+// as the action. We show a notification with what was selected.
+func handleHelpPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	return m, notifyAppCmd("Action: "+result.Action, notification.Info)
+}
+
+// --- Helper functions for popup handlers ---
+
+// getStashIndex returns the stash index for the item under the cursor, if any.
+func getStashIndex(m Model) (int, bool) {
+	item, _ := getCurrentItem(m)
+	if item == nil || item.Stash == nil {
+		return 0, false
+	}
+	return item.Stash.Index, true
+}
+
+// getCursorFilePath returns the file path of the item under the cursor, if it's a file item.
+func getCursorFilePath(m Model) (string, bool) {
+	item, _ := getCurrentItem(m)
+	if item == nil || item.Entry == nil {
+		return "", false
+	}
+	return item.Entry.Path(), true
+}
+
+// getCommitHashAtCursor returns the commit hash at the cursor, or "" if not on a commit.
+func getCommitHashAtCursor(m Model) string {
+	item, _ := getCurrentItem(m)
+	if item == nil || item.Commit == nil {
+		return ""
+	}
+	return item.Commit.Hash
 }

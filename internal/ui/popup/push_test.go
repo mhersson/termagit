@@ -8,7 +8,7 @@ import (
 
 func TestPushPopup_Switches(t *testing.T) {
 	tokens := testTokens()
-	p := NewPushPopup(tokens, nil, "main", false)
+	p := NewPushPopup(tokens, nil, PushPopupParams{Branch: "main"})
 
 	// Should have all Neogit push switches
 	expectedSwitches := []string{
@@ -28,7 +28,7 @@ func TestPushPopup_Switches(t *testing.T) {
 
 func TestPushPopup_ForceNotPersisted(t *testing.T) {
 	tokens := testTokens()
-	p := NewPushPopup(tokens, nil, "main", false)
+	p := NewPushPopup(tokens, nil, PushPopupParams{Branch: "main"})
 
 	// force-with-lease and force should not be persisted
 	for _, sw := range p.switches {
@@ -42,7 +42,7 @@ func TestPushPopup_ForceNotPersisted(t *testing.T) {
 
 func TestPushPopup_ActionGroups_NotDetached(t *testing.T) {
 	tokens := testTokens()
-	p := NewPushPopup(tokens, nil, "main", false)
+	p := NewPushPopup(tokens, nil, PushPopupParams{Branch: "main"})
 
 	// When not detached, should have "Push main to" group
 	if len(p.groups) < 1 {
@@ -56,7 +56,7 @@ func TestPushPopup_ActionGroups_NotDetached(t *testing.T) {
 
 func TestPushPopup_ActionGroups_Detached(t *testing.T) {
 	tokens := testTokens()
-	p := NewPushPopup(tokens, nil, "", true)
+	p := NewPushPopup(tokens, nil, PushPopupParams{IsDetached: true})
 
 	// When detached, should have "Push" group without branch name
 	if len(p.groups) < 1 {
@@ -68,9 +68,39 @@ func TestPushPopup_ActionGroups_Detached(t *testing.T) {
 	}
 }
 
+func TestPushPopup_DynamicLabels(t *testing.T) {
+	tokens := testTokens()
+	p := NewPushPopup(tokens, nil, PushPopupParams{
+		Branch:          "main",
+		PushRemoteLabel: "origin/main",
+		UpstreamLabel:   "upstream/main",
+	})
+
+	// First group actions should use resolved labels
+	if p.groups[0].Actions[0].Label != "origin/main" {
+		t.Errorf("expected 'origin/main', got %q", p.groups[0].Actions[0].Label)
+	}
+	if p.groups[0].Actions[1].Label != "upstream/main" {
+		t.Errorf("expected 'upstream/main', got %q", p.groups[0].Actions[1].Label)
+	}
+}
+
+func TestPushPopup_FallbackLabels(t *testing.T) {
+	tokens := testTokens()
+	p := NewPushPopup(tokens, nil, PushPopupParams{Branch: "main"})
+
+	// Without resolved labels, should fall back to defaults
+	if p.groups[0].Actions[0].Label != "pushRemote" {
+		t.Errorf("expected 'pushRemote', got %q", p.groups[0].Actions[0].Label)
+	}
+	if p.groups[0].Actions[1].Label != "@{upstream}" {
+		t.Errorf("expected '@{upstream}', got %q", p.groups[0].Actions[1].Label)
+	}
+}
+
 func TestPushPopup_PushToRemote(t *testing.T) {
 	tokens := testTokens()
-	p := NewPushPopup(tokens, nil, "main", false)
+	p := NewPushPopup(tokens, nil, PushPopupParams{Branch: "main"})
 	p.SetSize(80, 24)
 
 	// Press 'p' to push to remote

@@ -20,7 +20,8 @@ func NewCherryPickPopup(tokens theme.Tokens, state *State, inProgress bool) Popu
 	} else {
 		// Options (not in-progress)
 		p.AddOption("m", "mainline", "Replay merge relative to parent", "")
-		p.AddOption("s", "strategy", "Strategy", "")
+		p.AddOptionWithChoices("s", "strategy", "Strategy", "",
+			[]string{"octopus", "ours", "resolve", "subtree", "recursive"})
 
 		// Switches (not in-progress)
 		p.AddSwitch("F", "ff", "Attempt fast-forward", true) // enabled by default in Neogit

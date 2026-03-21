@@ -156,10 +156,8 @@ func (n Notification) View(tokens theme.Tokens, maxWidth int) string {
 	box := n.borderStyle(tokens)
 
 	// Limit width
-	innerMax := maxWidth - 4 // border + padding
-	if innerMax > 0 {
+	if maxWidth > 4 {
 		box = box.MaxWidth(maxWidth)
-		_ = innerMax
 	}
 
 	return box.Render(content)
@@ -332,10 +330,8 @@ func (d ConfirmDialog) View(tokens theme.Tokens, maxWidth int) string {
 		BorderForeground(tokens.ConfirmBorder.GetForeground()).
 		Padding(0, 1)
 
-	innerMax := maxWidth - 4
-	if innerMax > 0 {
+	if maxWidth > 4 {
 		box = box.MaxWidth(maxWidth)
-		_ = innerMax
 	}
 
 	return box.Render(content)

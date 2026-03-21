@@ -7,7 +7,7 @@ import (
 // NewRevertPopup creates the revert popup matching Neogit exactly.
 // Source: neogit/lua/neogit/popups/revert/init.lua
 // State-dependent: different actions when in-progress vs not.
-func NewRevertPopup(tokens theme.Tokens, state *State, inProgress bool) Popup {
+func NewRevertPopup(tokens theme.Tokens, state *State, inProgress, hasHunk bool) Popup {
 	p := New("Revert", tokens)
 
 	if inProgress {
@@ -27,17 +27,21 @@ func NewRevertPopup(tokens theme.Tokens, state *State, inProgress bool) Popup {
 		p.SetIncompatible("e", "E")
 		p.AddSwitch("s", "signoff", "Add Signed-off-by lines", false)
 
-		p.AddOption("s", "strategy", "Strategy", "")
+		p.AddOptionWithChoices("s", "strategy", "Strategy", "",
+			[]string{"octopus", "ours", "resolve", "subtree", "recursive"})
 		p.AddOption("S", "gpg-sign", "Sign using gpg", "")
 
 		// Revert actions
-		p.AddActionGroup("Revert", []Action{
+		revertActions := []Action{
 			{Key: "v", Label: "Commit(s)"},
 			{Key: "V", Label: "Changes"},
-		})
+		}
+		if hasHunk {
+			revertActions = append(revertActions, Action{Key: "h", Label: "Hunk"})
+		}
+		p.AddActionGroup("Revert", revertActions)
 	}
 
-	// Apply saved state if provided
 	if state != nil {
 		state.ApplyToPopup("revert", &p)
 	}

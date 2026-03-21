@@ -85,7 +85,7 @@ func (r *Repository) UnlockWorktree(ctx context.Context, path string) error {
 	return err
 }
 
-// GotoWorktree is a no-op placeholder; in the TUI layer, changing
+// GotoWorktree is a no-op in the git package; in the TUI layer, changing
 // directory is handled by the app, not the git package.
 func (r *Repository) GotoWorktree(_ context.Context, _ string) error {
 	return nil

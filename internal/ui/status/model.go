@@ -176,6 +176,8 @@ const (
 	branchActionRebaseElsewhere                // Rebase popup: e
 	branchActionLogOtherBranch                 // Log popup: o
 	branchActionBranchConfigure                // Branch popup: C (select branch to configure)
+	branchActionMergeBranch                    // Merge popup: m/e/n/a/s/i (select branch to merge)
+	branchActionWorktreeCheckout               // Worktree popup: w (select branch for worktree checkout)
 )
 
 // inputPromptKind identifies which action is pending text input.
@@ -193,6 +195,65 @@ const (
 	inputPromptPushTag                          // Push: tag name
 	inputPromptReflogRef                        // Log: other reflog ref
 	inputPromptWorktreePath                     // Branch: worktree path
+	inputPromptTagName                          // Tag: name for new tag
+	inputPromptTagRelease                       // Tag: release tag name
+	inputPromptTagDelete                        // Tag: tag name to delete
+	inputPromptRemoteName                       // Remote: name for new remote
+	inputPromptRemoteURL                        // Remote: URL for new remote
+	inputPromptRemoteRename                     // Remote: new name for rename
+	inputPromptRemoteRemove                     // Remote: name to remove
+	inputPromptRemotePrune                      // Remote: name to prune
+	inputPromptWorktreeCreate                   // Worktree: create path
+	inputPromptWorktreeMove                     // Worktree: move destination
+	inputPromptWorktreeDelete                   // Worktree: delete path
+	inputPromptBisectScript                     // Bisect: script path
+	inputPromptStashMessage                     // Stash: push with message
+	inputPromptStashRename                      // Stash: rename
+	inputPromptStashBranch                      // Stash: branch name
+)
+
+// cherryPickActionKind identifies which cherry-pick action is pending commit selection.
+type cherryPickActionKind int
+
+const (
+	cherryPickActionNone    cherryPickActionKind = iota
+	cherryPickActionPick                         // A: pick commits
+	cherryPickActionApply                        // a: apply (no commit)
+	cherryPickActionHarvest                      // h: harvest
+	cherryPickActionSquash                       // m: squash
+	cherryPickActionDonate                       // d: donate
+	cherryPickActionSpinout                      // n: spinout
+	cherryPickActionSpinoff                      // s: spinoff
+)
+
+// revertActionKind identifies which revert action is pending commit selection.
+type revertActionKind int
+
+const (
+	revertActionNone    revertActionKind = iota
+	revertActionCommit                   // v: revert commits
+	revertActionChanges                  // V: revert changes (no commit)
+)
+
+// resetActionKind identifies which reset action is pending commit selection.
+type resetActionKind int
+
+const (
+	resetActionNone resetActionKind = iota
+	resetActionBranch               // b: reset branch to commit
+)
+
+// mergeActionKind identifies which merge action variant is active.
+type mergeActionKind int
+
+const (
+	mergeActionNone     mergeActionKind = iota
+	mergeActionMerge                    // m: merge
+	mergeActionEdit                     // e: merge + edit message
+	mergeActionNoCommit                 // n: merge --no-commit
+	mergeActionAbsorb                   // a: absorb
+	mergeActionSquash                   // s: squash merge
+	mergeActionDissolve                 // i: dissolve
 )
 
 // cursorRestore holds info to restore cursor position after a status reload.
@@ -270,7 +331,21 @@ type Model struct {
 	rebaseSpecialOpts git.RebaseOpts    // popup switches captured before commit select
 
 	// Pending branch action (waiting for branch select result)
-	branchActionKind branchActionKind
+	branchActionKind  branchActionKind
+	mergeActionKind   mergeActionKind   // which merge variant is pending branch select
+	mergeOpts         git.MergeOpts     // merge opts captured before branch select
+
+	// Pending cherry-pick action (waiting for commit select result)
+	cherryPickActionKind cherryPickActionKind
+	cherryPickOpts       git.CherryPickOpts
+
+	// Pending revert action (waiting for commit select result)
+	revertActionKind revertActionKind
+	revertOpts       git.RevertOpts
+
+	// Pending reset action (waiting for commit select result)
+	resetActionKind resetActionKind
+	resetMode       git.ResetMode
 
 	// Inline text input prompt (for branch name entry)
 	inputPromptKind  inputPromptKind

@@ -4,9 +4,17 @@ import (
 	"github.com/mhersson/conjit/internal/theme"
 )
 
+// PushPopupParams holds dynamic context for the push popup.
+type PushPopupParams struct {
+	Branch          string
+	IsDetached      bool
+	PushRemoteLabel string // resolved label like "origin/main", falls back to "pushRemote"
+	UpstreamLabel   string // resolved label like "origin/main", falls back to "@{upstream}"
+}
+
 // NewPushPopup creates the push popup matching Neogit exactly.
 // Source: neogit/lua/neogit/popups/push/init.lua
-func NewPushPopup(tokens theme.Tokens, state *State, branch string, isDetached bool) Popup {
+func NewPushPopup(tokens theme.Tokens, state *State, params PushPopupParams) Popup {
 	p := New("Push", tokens)
 
 	// Switches (from Neogit push popup)
@@ -18,11 +26,19 @@ func NewPushPopup(tokens theme.Tokens, state *State, branch string, isDetached b
 	p.AddSwitch("T", "tags", "Include all tags", false)
 	p.AddSwitch("t", "follow-tags", "Include related annotated tags", false)
 
-	if !isDetached {
-		// Push <branch> to
-		p.AddActionGroup("Push "+branch+" to", []Action{
-			{Key: "p", Label: "pushRemote"},
-			{Key: "u", Label: "@{upstream}"},
+	pushLabel := params.PushRemoteLabel
+	if pushLabel == "" {
+		pushLabel = "pushRemote"
+	}
+	upstreamLabel := params.UpstreamLabel
+	if upstreamLabel == "" {
+		upstreamLabel = "@{upstream}"
+	}
+
+	if !params.IsDetached {
+		p.AddActionGroup("Push "+params.Branch+" to", []Action{
+			{Key: "p", Label: pushLabel},
+			{Key: "u", Label: upstreamLabel},
 			{Key: "e", Label: "elsewhere"},
 		})
 	}
@@ -40,7 +56,6 @@ func NewPushPopup(tokens theme.Tokens, state *State, branch string, isDetached b
 		{Key: "C", Label: "Set variables..."},
 	})
 
-	// Apply saved state if provided
 	if state != nil {
 		state.ApplyToPopup("push", &p)
 	}
