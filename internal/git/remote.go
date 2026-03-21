@@ -247,6 +247,25 @@ func (r *Repository) Pull(ctx context.Context, opts PullOpts) error {
 	return nil
 }
 
+// SmartDefaultRemote resolves the best remote to push to when no upstream is
+// configured. If there is exactly one remote, it returns that. If "origin"
+// exists among multiple remotes, it returns "origin". Otherwise it returns "".
+func (r *Repository) SmartDefaultRemote(ctx context.Context) (string, error) {
+	remotes, err := r.ListRemotes(ctx)
+	if err != nil {
+		return "", err
+	}
+	if len(remotes) == 1 {
+		return remotes[0].Name, nil
+	}
+	for _, rm := range remotes {
+		if rm.Name == "origin" {
+			return rm.Name, nil
+		}
+	}
+	return "", nil
+}
+
 // Push sends local commits to a remote.
 func (r *Repository) Push(ctx context.Context, opts PushOpts) error {
 	args := opts.buildArgs()

@@ -69,9 +69,10 @@ func TestResolvePushTarget_PushRemote(t *testing.T) {
 		Branch:     "main",
 		PushRemote: "origin",
 	}
-	remote, branch := resolvePushTarget("p", head)
+	remote, branch, setUpstream := resolvePushTarget("p", head, nil)
 	assert.Equal(t, "origin", remote)
 	assert.Equal(t, "main", branch)
+	assert.False(t, setUpstream)
 }
 
 func TestResolvePushTarget_Upstream(t *testing.T) {
@@ -80,16 +81,17 @@ func TestResolvePushTarget_Upstream(t *testing.T) {
 		UpstreamRemote: "upstream",
 		UpstreamBranch: "upstream/feature",
 	}
-	remote, branch := resolvePushTarget("u", head)
+	remote, branch, setUpstream := resolvePushTarget("u", head, nil)
 	assert.Equal(t, "upstream", remote)
 	assert.Equal(t, "feature", branch)
+	assert.False(t, setUpstream)
 }
 
 func TestResolvePushTarget_AllTags(t *testing.T) {
 	head := HeadState{
 		PushRemote: "origin",
 	}
-	remote, branch := resolvePushTarget("t", head)
+	remote, branch, _ := resolvePushTarget("t", head, nil)
 	assert.Equal(t, "origin", remote)
 	assert.Empty(t, branch)
 }
@@ -98,7 +100,7 @@ func TestResolvePushTarget_Matching(t *testing.T) {
 	head := HeadState{
 		PushRemote: "origin",
 	}
-	remote, _ := resolvePushTarget("m", head)
+	remote, _, _ := resolvePushTarget("m", head, nil)
 	assert.Equal(t, "origin", remote)
 }
 
