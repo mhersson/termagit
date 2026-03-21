@@ -1971,9 +1971,12 @@ func handlePushPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 	}
 
 	opts := buildPushOpts(result)
-	remote, branch := resolvePushTarget(result.Action, m.head)
+	remote, branch, setUpstream := resolvePushTarget(result.Action, m.head, m.repo)
 	opts.Remote = remote
 	opts.Branch = branch
+	if setUpstream {
+		opts.SetUpstream = true
+	}
 
 	if remote == "" {
 		return m, notifyAppCmd("No remote configured for push", notification.Warning)
@@ -1999,18 +2002,31 @@ func buildPushOpts(result popup.Result) git.PushOpts {
 }
 
 // resolvePushTarget returns the remote and branch for a push action key.
-func resolvePushTarget(action string, head HeadState) (remote, branch string) {
+// When the action is "p" or "u" and no remote is configured, it attempts to
+// resolve a sensible default remote and signals that --set-upstream should be
+// used so the upstream tracking branch is created automatically.
+func resolvePushTarget(action string, head HeadState, repo *git.Repository) (remote, branch string, setUpstream bool) {
 	switch action {
 	case "p": // pushRemote
-		return head.PushRemote, head.Branch
+		remote = head.PushRemote
+		if remote == "" {
+			remote, _ = repo.SmartDefaultRemote(context.Background())
+			setUpstream = true
+		}
+		return remote, head.Branch, setUpstream
 	case "u": // @{upstream}
-		return head.UpstreamRemote, head.Branch
+		remote = head.UpstreamRemote
+		if remote == "" {
+			remote, _ = repo.SmartDefaultRemote(context.Background())
+			setUpstream = true
+		}
+		return remote, head.Branch, setUpstream
 	case "t": // all tags
-		return defaultRemote(head), ""
+		return defaultRemote(head), "", false
 	case "m": // matching branches
-		return defaultRemote(head), ""
+		return defaultRemote(head), "", false
 	default:
-		return defaultRemote(head), head.Branch
+		return defaultRemote(head), head.Branch, false
 	}
 }
 
