@@ -38,10 +38,12 @@ type Model struct {
 	status      *git.StatusResult
 
 	// Loading state tracking
-	commentCharLoaded bool
-	statusLoaded      bool
-	diffLoaded        bool
+	commentCharLoaded  bool
+	statusLoaded       bool
+	diffLoaded         bool
 	contentInitialized bool
+
+	headMessage string // pre-populated message for reword/amend
 
 	width, height int
 	done          bool
@@ -77,8 +79,16 @@ func New(repo *git.Repository, opts git.CommitOpts, cfg *config.Config, tokens t
 	editor := vim.NewEditor(vimTokens, initialMode)
 
 	var repoPath string
+	var headMessage string
 	if repo != nil {
 		repoPath = repo.Path()
+		// Load HEAD commit message synchronously for reword/amend
+		if action == "reword" || action == "amend" {
+			msg, err := repo.HeadCommitMessage(context.Background())
+			if err == nil {
+				headMessage = msg
+			}
+		}
 	}
 
 	return Model{
@@ -92,6 +102,7 @@ func New(repo *git.Repository, opts git.CommitOpts, cfg *config.Config, tokens t
 		showDiff:    cfg.CommitEditor.ShowStagedDiff,
 		repoPath:    repoPath,
 		commentChar: "#", // Default, will be overridden from git config
+		headMessage: headMessage,
 	}
 }
 
@@ -514,8 +525,13 @@ func (m Model) buildInitialContent() string {
 	c := m.commentChar
 	var b strings.Builder
 
-	// Initial empty lines for the message
-	b.WriteString("\n")
+	// Initial message area: pre-populate for reword/amend, empty for new commits
+	if m.headMessage != "" {
+		b.WriteString(m.headMessage)
+		b.WriteString("\n")
+	} else {
+		b.WriteString("\n")
+	}
 
 	// Git header comment
 	fmt.Fprintf(&b, "%s Please enter the commit message for your changes. Lines starting\n", c)

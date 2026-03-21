@@ -791,6 +791,47 @@ func TestBuildInitialContent_OmitsDiffWhenDisabled(t *testing.T) {
 	assert.NotContains(t, content, "diff content")
 }
 
+func TestBuildInitialContent_RewordPrePopulatesHeadMessage(t *testing.T) {
+	cfg := testConfig()
+	tokens := testTokens()
+	m := New(nil, git.CommitOpts{Amend: true}, cfg, tokens, "reword")
+	m.commentChar = "#"
+	m.branch = "main"
+	m.headMessage = "Existing subject\n\nExisting body line"
+
+	content := m.buildInitialContent()
+
+	// The message area should start with the existing commit message
+	assert.True(t, strings.HasPrefix(content, "Existing subject\n\nExisting body line\n"),
+		"reword should pre-populate with HEAD commit message, got: %s", content)
+}
+
+func TestBuildInitialContent_AmendPrePopulatesHeadMessage(t *testing.T) {
+	cfg := testConfig()
+	tokens := testTokens()
+	m := New(nil, git.CommitOpts{Amend: true}, cfg, tokens, "amend")
+	m.commentChar = "#"
+	m.branch = "main"
+	m.headMessage = "Previous commit message"
+
+	content := m.buildInitialContent()
+
+	assert.True(t, strings.HasPrefix(content, "Previous commit message\n"),
+		"amend should pre-populate with HEAD commit message, got: %s", content)
+}
+
+func TestBuildInitialContent_CommitDoesNotPrePopulate(t *testing.T) {
+	m := newTestModel(t)
+	m.commentChar = "#"
+	m.branch = "main"
+
+	content := m.buildInitialContent()
+
+	// Regular commit should start with empty line
+	assert.True(t, strings.HasPrefix(content, "\n"),
+		"regular commit should start with empty line, got: %s", content)
+}
+
 func TestMaybeInitializeContent_CursorAtTop(t *testing.T) {
 	m := newTestModel(t)
 	m.commentChar = "#"
@@ -825,4 +866,92 @@ func TestMaybeInitializeContent_CursorAtTop(t *testing.T) {
 	// Cursor should be at line 0, col 0 (top of buffer)
 	assert.Equal(t, 0, m.vimEditor.Line(), "cursor should be at line 0")
 	assert.Equal(t, 0, m.vimEditor.Col(), "cursor should be at col 0")
+}
+
+func TestRewordKeyHandling_ESC_SwitchesToNormal(t *testing.T) {
+	m := newRewordModel(t)
+
+	assert.Equal(t, vim.ModeInsert, m.vimEditor.Mode(), "should start in insert mode")
+
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape})
+	m = newModel.(Model)
+
+	assert.Equal(t, vim.ModeNormal, m.vimEditor.Mode(), "ESC should switch to normal mode")
+}
+
+func TestRewordKeyHandling_CtrlC_CtrlC_Submits(t *testing.T) {
+	m := newRewordModel(t)
+
+	// First ctrl+c
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m = newModel.(Model)
+	assert.False(t, m.Done(), "should not be done after first ctrl+c")
+
+	// Second ctrl+c
+	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m = newModel.(Model)
+
+	assert.True(t, m.Done(), "should be done after ctrl+c ctrl+c")
+	assert.False(t, m.Aborted(), "should not be aborted (submit)")
+	assert.NotNil(t, cmd, "should return commit command")
+}
+
+func TestRewordKeyHandling_CtrlC_K_Aborts(t *testing.T) {
+	m := newRewordModel(t)
+
+	// ctrl+c then k
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m = newModel.(Model)
+	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	m = newModel.(Model)
+
+	assert.True(t, m.Done(), "should be done after ctrl+c k")
+	assert.True(t, m.Aborted(), "should be aborted")
+	assert.NotNil(t, cmd, "should return abort command")
+}
+
+func TestRewordKeyHandling_Q_AbortsInNormalMode(t *testing.T) {
+	m := newRewordModel(t)
+
+	// Switch to normal mode first
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape})
+	m = newModel.(Model)
+
+	// Press q
+	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	m = newModel.(Model)
+
+	assert.True(t, m.Done(), "should be done after q in normal mode")
+	assert.True(t, m.Aborted(), "should be aborted")
+	assert.NotNil(t, cmd, "should return abort command")
+}
+
+// newRewordModel creates a commit editor model simulating a reword action
+// with content already initialized (as it would be in the running app).
+func newRewordModel(t *testing.T) Model {
+	t.Helper()
+	cfg := testConfig()
+	cfg.CommitEditor.ShowStagedDiff = false
+	tokens := testTokens()
+
+	m := New(nil, git.CommitOpts{Amend: true}, cfg, tokens, "reword")
+	m.SetSize(80, 24)
+
+	// Simulate reword state: pre-populated message + async loads complete
+	m.headMessage = "feat: existing commit message\n\nBody of the commit"
+	m.commentChar = "#"
+	m.branch = "main"
+	m.commentCharLoaded = true
+	m.statusLoaded = true
+	m.status = &git.StatusResult{}
+
+	// Trigger content initialization
+	newModel, _ := m.maybeInitializeContent()
+	m = newModel.(Model)
+
+	require.True(t, m.contentInitialized, "content should be initialized")
+	require.Contains(t, m.vimEditor.Content(), "feat: existing commit message",
+		"buffer should contain pre-populated message")
+
+	return m
 }

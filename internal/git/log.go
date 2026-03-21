@@ -230,6 +230,24 @@ func (r *Repository) CommitMessage(ctx context.Context, hash string) (string, er
 	return strings.TrimSpace(out), nil
 }
 
+// HeadCommitMessage returns the full commit message (subject + body) of HEAD.
+func (r *Repository) HeadCommitMessage(ctx context.Context) (string, error) {
+	msg, _, err := r.logOp(ctx, "git log -1 --format=%B HEAD", func() (string, string, error) {
+		head, err := r.raw.Head()
+		if err != nil {
+			return "", "", fmt.Errorf("get HEAD: %w", err)
+		}
+
+		commit, err := r.raw.CommitObject(head.Hash())
+		if err != nil {
+			return "", "", fmt.Errorf("get commit: %w", err)
+		}
+
+		return strings.TrimSpace(commit.Message), "", nil
+	})
+	return msg, err
+}
+
 // listRemotes returns the list of remote names.
 func (r *Repository) listRemotes(ctx context.Context) ([]string, error) {
 	out, err := r.runGit(ctx, "remote")

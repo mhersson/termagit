@@ -425,6 +425,28 @@ func TestRefCommitInfo_ReturnsErrorForInvalidRef(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestHeadCommitMessage_ReturnsFullMessage(t *testing.T) {
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Create a commit with subject + body
+	addAndCommit(t, r, "msg.txt", "content", "Subject line\n\nThis is the body\nwith multiple lines")
+
+	msg, err := r.HeadCommitMessage(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "Subject line\n\nThis is the body\nwith multiple lines", msg)
+}
+
+func TestHeadCommitMessage_SubjectOnly(t *testing.T) {
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// The initial commit has only a subject
+	msg, err := r.HeadCommitMessage(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "Initial commit", msg)
+}
+
 func TestLog_When_IsParsed(t *testing.T) {
 	skipInShort(t)
 	r := newTempRepo(t)
