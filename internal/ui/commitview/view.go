@@ -5,6 +5,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/mhersson/conjit/internal/git"
 )
 
@@ -219,14 +221,17 @@ func (m Model) renderContentWithCursor() string {
 }
 
 // renderCursorLine renders a line with cursor styling (block cursor on first char).
+// The input may contain ANSI escape codes from prior styling; these are stripped
+// so that only clean cursor styling is applied.
 func (m Model) renderCursorLine(line string) string {
-	if len(line) == 0 {
+	stripped := ansi.Strip(line)
+	if len(stripped) == 0 {
 		return m.tokens.CursorBlock.Render(" ") + "\n"
 	}
 
-	// Get first rune (handles multi-byte UTF-8)
-	firstRune, size := utf8.DecodeRuneInString(line)
-	rest := line[size:]
+	// Get first visible rune (handles multi-byte UTF-8)
+	firstRune, size := utf8.DecodeRuneInString(stripped)
+	rest := stripped[size:]
 
 	// First character: reverse video, rest: cursor line background
 	return m.tokens.CursorBlock.Render(string(firstRune)) + m.tokens.Cursor.Render(rest) + "\n"

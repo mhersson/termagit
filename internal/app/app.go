@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -295,7 +296,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case commitview.OpenFileMsg:
-		return m, openFileCmd(msg.Path)
+		return m, openFileCmd(m.repo.Path(), msg.Path)
 
 	case commitview.OpenURLMsg:
 		return m, openURLCmd(msg.URL)
@@ -499,18 +500,16 @@ func yankToClipboardCmd(text string) tea.Cmd {
 	}
 }
 
-// openFileCmd opens a file in the default editor.
-func openFileCmd(path string) tea.Cmd {
-	return func() tea.Msg {
-		editor := os.Getenv("EDITOR")
-		if editor == "" {
-			editor = "vi"
-		}
-		cmd := exec.Command(editor, path)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err := cmd.Run()
+// openFileCmd opens a file in the default editor using tea.ExecProcess.
+// This properly suspends the TUI, runs the editor, then resumes.
+func openFileCmd(repoPath, path string) tea.Cmd {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vi"
+	}
+	fullPath := filepath.Join(repoPath, path)
+	c := exec.Command(editor, fullPath)
+	return tea.ExecProcess(c, func(err error) tea.Msg {
 		if err != nil {
 			return notification.NotifyMsg{
 				Message: "Failed to open file: " + err.Error(),
@@ -518,7 +517,7 @@ func openFileCmd(path string) tea.Cmd {
 			}
 		}
 		return nil
-	}
+	})
 }
 
 // openURLCmd opens a URL in the default browser.

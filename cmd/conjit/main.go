@@ -122,6 +122,11 @@ func run() error {
 		tea.WithOutput(tty),
 	)
 	_, err = p.Run()
+
+	// Defensive: reset terminal modes that might linger after abnormal exit.
+	// These are idempotent and safe even when the terminal is already clean.
+	_, _ = tty.WriteString("\033[?1l\033[?25h\033[?2004l")
+
 	return err
 }
 

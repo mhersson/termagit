@@ -2,12 +2,12 @@ package status
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -637,16 +637,25 @@ func unstageAllStagedCmd(repo *git.Repository) tea.Cmd {
 	}
 }
 
-// yankToClipboardCmd copies text to clipboard using OSC 52 escape sequence.
-// This works in most modern terminals.
+// yankToClipboardCmd copies text to clipboard using platform clipboard tools.
+//
 //nolint:unused // Phase 4 - used in update.go
 func yankToClipboardCmd(text string) tea.Cmd {
 	return func() tea.Msg {
-		// OSC 52 clipboard escape sequence
-		// Format: ESC ] 52 ; c ; <base64-encoded-text> BEL
-		encoded := base64.StdEncoding.EncodeToString([]byte(text))
-		fmt.Printf("\033]52;c;%s\007", encoded)
-		return operationDoneMsg{err: nil}
+		var cmd *exec.Cmd
+		switch runtime.GOOS {
+		case "darwin":
+			cmd = exec.Command("pbcopy")
+		case "linux":
+			cmd = exec.Command("xclip", "-selection", "clipboard")
+		case "windows":
+			cmd = exec.Command("clip")
+		default:
+			return operationDoneMsg{err: fmt.Errorf("clipboard not supported on %s", runtime.GOOS)}
+		}
+		cmd.Stdin = strings.NewReader(text)
+		err := cmd.Run()
+		return operationDoneMsg{err: err}
 	}
 }
 
