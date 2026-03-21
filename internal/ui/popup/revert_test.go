@@ -35,9 +35,9 @@ func TestRevertPopup_InProgress_Actions(t *testing.T) {
 
 	// When in progress, should have continue, skip, abort
 	expectedActions := map[string]string{
-		"v": "Continue",
-		"s": "Skip",
-		"a": "Abort",
+		"v": "continue",
+		"s": "skip",
+		"a": "abort",
 	}
 
 	for _, g := range p.groups {
@@ -68,6 +68,49 @@ func TestRevertPopup_NoEditNotPersisted(t *testing.T) {
 			}
 			return
 		}
+	}
+}
+
+func TestRevertPopup_OptionsOnlyWhenNotInProgress(t *testing.T) {
+	tokens := testTokens()
+
+	// Not in progress: should have options
+	p := NewRevertPopup(tokens, nil, false)
+	if len(p.options) == 0 {
+		t.Error("expected options when not in progress")
+	}
+
+	// In progress: should NOT have options
+	p = NewRevertPopup(tokens, nil, true)
+	if len(p.options) != 0 {
+		t.Errorf("expected 0 options when in progress, got %d", len(p.options))
+	}
+}
+
+func TestRevertPopup_EditEnabledByDefault(t *testing.T) {
+	tokens := testTokens()
+	p := NewRevertPopup(tokens, nil, false)
+
+	for _, sw := range p.switches {
+		if sw.Label == "edit" {
+			if !sw.Enabled {
+				t.Error("'edit' switch should be enabled by default")
+			}
+			return
+		}
+	}
+	t.Error("'edit' switch not found")
+}
+
+func TestRevertPopup_GroupHeading(t *testing.T) {
+	tokens := testTokens()
+	p := NewRevertPopup(tokens, nil, false)
+
+	if len(p.groups) == 0 {
+		t.Fatal("expected action groups")
+	}
+	if p.groups[0].Title != "Revert" {
+		t.Errorf("group heading: expected %q, got %q", "Revert", p.groups[0].Title)
 	}
 }
 

@@ -57,6 +57,46 @@ func TestRemotePopup_Actions(t *testing.T) {
 	}
 }
 
+func TestRemotePopup_FetchSwitch(t *testing.T) {
+	tokens := testTokens()
+	p := NewRemotePopup(tokens, nil, "origin")
+
+	// Should have "f" switch for "Fetch after add", enabled by default
+	var found bool
+	for _, sw := range p.switches {
+		if sw.Key == "f" && sw.Label == "f" {
+			if !sw.Enabled {
+				t.Error("'f' switch should be enabled by default")
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected switch -f for 'Fetch after add'")
+	}
+}
+
+func TestRemotePopup_GroupHeadings(t *testing.T) {
+	tokens := testTokens()
+	p := NewRemotePopup(tokens, nil, "origin")
+
+	if len(p.groups) < 2 {
+		t.Fatalf("expected at least 2 action groups, got %d", len(p.groups))
+	}
+	if p.groups[0].Title != "Actions" {
+		t.Errorf("first group heading: expected %q, got %q", "Actions", p.groups[0].Title)
+	}
+}
+
+func TestRemotePopup_TwoActionGroups(t *testing.T) {
+	tokens := testTokens()
+	p := NewRemotePopup(tokens, nil, "origin")
+
+	if len(p.groups) != 2 {
+		t.Errorf("expected 2 action groups, got %d", len(p.groups))
+	}
+}
+
 func TestRemotePopup_AddRemote(t *testing.T) {
 	tokens := testTokens()
 	p := NewRemotePopup(tokens, nil, "origin")

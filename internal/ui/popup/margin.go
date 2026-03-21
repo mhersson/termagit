@@ -9,9 +9,11 @@ import (
 func NewMarginPopup(tokens theme.Tokens, state *State) Popup {
 	p := New("Margin", tokens)
 
+	// Order option (cycles through topo/author-date/date)
+	p.AddOption("o", "order", "Order commits by", "")
+
 	// Switches
-	p.AddSwitch("o", "order", "Order commits by", false) // Could be topo/author-date/date
-	p.AddSwitch("d", "decorate", "Decorate", true)       // enabled by default
+	p.AddSwitch("d", "decorate", "Show refnames", true) // enabled by default
 
 	// Refresh group
 	p.AddActionGroup("Refresh", []Action{

@@ -153,3 +153,27 @@ func TestReflogModel_YankHash(t *testing.T) {
 
 	require.NotNil(t, cmd)
 }
+
+func TestReflogView_Select_OpensCommitView(t *testing.T) {
+	entries := testEntries()
+	m := New(entries, testTokens(), "HEAD")
+	m.cursor = 0
+
+	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
+
+	require.NotNil(t, cmd, "Select should return a command")
+	msg := cmd()
+	cvMsg, ok := msg.(OpenCommitViewMsg)
+	assert.True(t, ok, "expected OpenCommitViewMsg, got %T", msg)
+	if ok {
+		assert.Equal(t, entries[0].Oid, cvMsg.Hash)
+	}
+}
+
+func TestReflogView_Select_NoEntries_Noop(t *testing.T) {
+	m := New(nil, testTokens(), "HEAD")
+	m.cursor = 0
+
+	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
+	assert.Nil(t, cmd, "Select with no entries should be nil")
+}

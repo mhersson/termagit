@@ -443,3 +443,64 @@ func TestRebaseEditor_WindowSizeMsg(t *testing.T) {
 	assert.Equal(t, 120, m.width)
 	assert.Equal(t, 40, m.height)
 }
+
+func TestRebaseEditor_OpenScrollDown_OpensCommitView(t *testing.T) {
+	entries := []git.TodoEntry{
+		{Action: git.TodoPick, AbbrevHash: "abc1234", Hash: "abc1234full", Subject: "add feature X"},
+	}
+	m := newTestModel(entries)
+
+	// ] then c
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{']'}})
+	m = newModel.(Model)
+	assert.True(t, m.pendingOSD, "should set pendingOSD after ]")
+
+	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	m = newModel.(Model)
+
+	require.NotNil(t, cmd, "]c should return a command")
+	msg := cmd()
+	cvMsg, ok := msg.(OpenCommitViewMsg)
+	assert.True(t, ok, "expected OpenCommitViewMsg, got %T", msg)
+	if ok {
+		assert.Equal(t, "abc1234full", cvMsg.Hash)
+	}
+}
+
+func TestRebaseEditor_OpenScrollUp_OpensCommitView(t *testing.T) {
+	entries := []git.TodoEntry{
+		{Action: git.TodoPick, AbbrevHash: "abc1234", Hash: "abc1234full", Subject: "add feature X"},
+	}
+	m := newTestModel(entries)
+
+	// [ then c
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'['}})
+	m = newModel.(Model)
+	assert.True(t, m.pendingOSU, "should set pendingOSU after [")
+
+	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	m = newModel.(Model)
+
+	require.NotNil(t, cmd, "[c should return a command")
+	msg := cmd()
+	cvMsg, ok := msg.(OpenCommitViewMsg)
+	assert.True(t, ok, "expected OpenCommitViewMsg, got %T", msg)
+	if ok {
+		assert.Equal(t, "abc1234full", cvMsg.Hash)
+	}
+}
+
+func TestRebaseEditor_OpenScrollDown_NoHash_Noop(t *testing.T) {
+	entries := []git.TodoEntry{
+		{Action: git.TodoBreak},
+	}
+	m := newTestModel(entries)
+
+	// ] then c on entry without hash
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{']'}})
+	m = newModel.(Model)
+	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	_ = newModel.(Model)
+
+	assert.Nil(t, cmd, "]c on entry without hash should be nil")
+}

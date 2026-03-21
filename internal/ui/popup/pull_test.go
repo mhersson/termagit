@@ -6,6 +6,22 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+func TestPullPopup_ConfigItem(t *testing.T) {
+	tokens := testTokens()
+	p := NewPullPopup(tokens, nil, "main")
+
+	// Should have config item for branch.main.rebase
+	found := false
+	for _, c := range p.config {
+		if c.Key == "r" && c.Label == "branch.main.rebase" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected config item 'r' for branch.main.rebase")
+	}
+}
+
 func TestPullPopup_Switches(t *testing.T) {
 	tokens := testTokens()
 	p := NewPullPopup(tokens, nil, "main")

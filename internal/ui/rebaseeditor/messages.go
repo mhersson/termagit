@@ -33,3 +33,8 @@ type rebaseSubmitResultMsg struct {
 type rebaseAbortResultMsg struct {
 	Err error
 }
+
+// OpenCommitViewMsg requests opening the commit view for a specific hash.
+type OpenCommitViewMsg struct {
+	Hash string
+}

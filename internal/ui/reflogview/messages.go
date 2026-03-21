@@ -15,6 +15,11 @@ type YankMsg struct {
 	Text string
 }
 
+// OpenCommitViewMsg requests opening the commit view for a specific hash.
+type OpenCommitViewMsg struct {
+	Hash string
+}
+
 // yankCmd returns a command that yanks text to clipboard.
 func yankCmd(text string) tea.Cmd {
 	return func() tea.Msg {

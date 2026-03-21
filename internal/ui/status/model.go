@@ -171,6 +171,11 @@ const (
 	branchActionCheckoutLocal                  // l: checkout local branch
 	branchActionCheckoutRecent                 // r: checkout recent branch
 	branchActionDelete                         // D: delete branch
+	branchActionPushElsewhere                  // Push popup: e
+	branchActionPushOther                      // Push popup: o (source branch)
+	branchActionRebaseElsewhere                // Rebase popup: e
+	branchActionLogOtherBranch                 // Log popup: o
+	branchActionBranchConfigure                // Branch popup: C (select branch to configure)
 )
 
 // inputPromptKind identifies which action is pending text input.
@@ -183,6 +188,11 @@ const (
 	inputPromptSpinOff                          // s: spin-off
 	inputPromptSpinOut                          // S: spin-out
 	inputPromptRename                           // m: rename current branch
+	inputPromptRenameFile                       // R: rename file
+	inputPromptPushRefspec                      // Push: explicit refspec
+	inputPromptPushTag                          // Push: tag name
+	inputPromptReflogRef                        // Log: other reflog ref
+	inputPromptWorktreePath                     // Branch: worktree path
 )
 
 // cursorRestore holds info to restore cursor position after a status reload.

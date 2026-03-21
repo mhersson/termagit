@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-git/go-git/v5"
+	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/mhersson/conjit/internal/cmdlog"
 )
@@ -53,7 +53,7 @@ type SequencerState struct {
 
 // Repository wraps a go-git repository with logging and convenience methods.
 type Repository struct {
-	raw    *git.Repository
+	raw    *gogit.Repository
 	path   string         // absolute working tree root
 	gitDir string         // absolute path to .git/
 	logger *cmdlog.Logger // may be nil
@@ -74,7 +74,7 @@ func Open(path string, logger *cmdlog.Logger) (*Repository, error) {
 		info, err := os.Stat(gitDir)
 		if err == nil && info.IsDir() {
 			// Found it
-			raw, err := git.PlainOpen(current)
+			raw, err := gogit.PlainOpen(current)
 			if err != nil {
 				return nil, fmt.Errorf("open repository: %w", err)
 			}
@@ -97,7 +97,7 @@ func Open(path string, logger *cmdlog.Logger) (*Repository, error) {
 
 // Wrap creates a Repository from an existing go-git repository.
 // This is primarily used for tests with in-memory repositories.
-func Wrap(raw *git.Repository, path string, logger *cmdlog.Logger) *Repository {
+func Wrap(raw *gogit.Repository, path string, logger *cmdlog.Logger) *Repository {
 	return &Repository{
 		raw:    raw,
 		path:   path,

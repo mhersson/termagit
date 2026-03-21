@@ -10,30 +10,30 @@ import (
 func NewRevertPopup(tokens theme.Tokens, state *State, inProgress bool) Popup {
 	p := New("Revert", tokens)
 
-	// Options (always shown)
-	p.AddOption("m", "mainline", "Mainline parent number", "")
-	p.AddOption("s", "strategy", "Strategy", "")
-	p.AddOption("S", "gpg-sign", "Sign using gpg", "")
-
 	if inProgress {
-		// In-progress actions
-		p.AddActionGroup("", []Action{
-			{Key: "v", Label: "Continue"},
-			{Key: "s", Label: "Skip"},
-			{Key: "a", Label: "Abort"},
+		// In-progress actions — no options or switches
+		p.AddActionGroup("Revert", []Action{
+			{Key: "v", Label: "continue"},
+			{Key: "s", Label: "skip"},
+			{Key: "a", Label: "abort"},
 		})
 	} else {
+		// Options (only when not in-progress)
+		p.AddOption("m", "mainline", "Replay merge relative to parent", "")
+
 		// Switches (not in-progress)
-		p.AddSwitch("e", "edit", "Edit commit message", false)
-		p.AddSwitchNonPersisted("E", "no-edit", "Don't edit commit message", false)
+		p.AddSwitch("e", "edit", "Edit commit messages", true) // enabled by default in Neogit
+		p.AddSwitchNonPersisted("E", "no-edit", "Don't edit commit messages", false)
 		p.SetIncompatible("e", "E")
-		p.AddSwitch("s", "signoff", "Add Signed-off-by line", false)
+		p.AddSwitch("s", "signoff", "Add Signed-off-by lines", false)
+
+		p.AddOption("s", "strategy", "Strategy", "")
+		p.AddOption("S", "gpg-sign", "Sign using gpg", "")
 
 		// Revert actions
 		p.AddActionGroup("Revert", []Action{
 			{Key: "v", Label: "Commit(s)"},
 			{Key: "V", Label: "Changes"},
-			// "h" (Hunk) only shown when hunk is under cursor - omitted for now
 		})
 	}
 

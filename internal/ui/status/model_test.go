@@ -2721,3 +2721,397 @@ func TestHandleKeyMsg_CommitViewCursorMovement(t *testing.T) {
 func createTestCommitView(tokens theme.Tokens) commitview.Model {
 	return commitview.New(nil, "abc123", tokens, nil)
 }
+
+// --- Tests for newly wired key handlers ---
+
+func TestHandleShowRefs_OpensYankPopup(t *testing.T) {
+	tokens := theme.Compile(theme.Fallback().Raw())
+	m := Model{
+		sections: []Section{
+			{Kind: SectionRecentCommits, Title: "Recent Commits", Items: []Item{
+				{Commit: &git.LogEntry{Hash: "abc123def456"}},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+		keys:   DefaultKeyMap(),
+		tokens: tokens,
+		width:  80,
+		height: 40,
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 40
+
+	result, _ := handleShowRefs(m)
+	rm := result.(Model)
+	if rm.popup == nil {
+		t.Fatal("expected popup to be opened")
+	}
+}
+
+func TestHandleCommand_OpensCommandHistory(t *testing.T) {
+	m := Model{
+		keys: DefaultKeyMap(),
+	}
+
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'Q'}}
+	result, cmd := handleKeyMsg(m, keyMsg)
+	_ = result
+
+	if cmd == nil {
+		t.Fatal("expected command for opening command history")
+	}
+
+	// Execute the command and check for OpenCmdHistoryMsg
+	msg := cmd()
+	if _, ok := msg.(OpenCmdHistoryMsg); !ok {
+		t.Errorf("expected OpenCmdHistoryMsg, got %T", msg)
+	}
+}
+
+func TestHandleInitRepo_ShowsNotification(t *testing.T) {
+	m := Model{
+		keys: DefaultKeyMap(),
+	}
+
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'I'}}
+	_, cmd := handleKeyMsg(m, keyMsg)
+
+	if cmd == nil {
+		t.Fatal("expected command for InitRepo")
+	}
+
+	msg := cmd()
+	notify, ok := msg.(notification.NotifyMsg)
+	if !ok {
+		t.Fatalf("expected NotifyMsg, got %T", msg)
+	}
+	if !strings.Contains(notify.Message, "Already in a git repository") {
+		t.Errorf("expected 'Already in a git repository', got %q", notify.Message)
+	}
+}
+
+func TestHandleRenameFile_NoFile_ShowsWarning(t *testing.T) {
+	m := Model{
+		sections: []Section{
+			{Kind: SectionRecentCommits, Title: "Recent Commits", Items: []Item{
+				{Commit: &git.LogEntry{Hash: "abc123"}},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+		keys:   DefaultKeyMap(),
+	}
+
+	result, cmd := handleRenameFile(m)
+	_ = result
+
+	if cmd == nil {
+		t.Fatal("expected command for rename warning")
+	}
+
+	msg := cmd()
+	notify, ok := msg.(notification.NotifyMsg)
+	if !ok {
+		t.Fatalf("expected NotifyMsg, got %T", msg)
+	}
+	if notify.Kind != notification.Warning {
+		t.Errorf("expected Warning notification, got %v", notify.Kind)
+	}
+}
+
+func TestHandleRenameFile_WithFile_OpensInput(t *testing.T) {
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged", Items: []Item{
+				{Entry: &git.StatusEntry{}},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+		keys:   DefaultKeyMap(),
+	}
+
+	result, _ := handleRenameFile(m)
+	rm := result.(Model)
+
+	if rm.inputPromptKind != inputPromptRenameFile {
+		t.Errorf("expected inputPromptRenameFile, got %v", rm.inputPromptKind)
+	}
+}
+
+func TestOpenCommitViewForCurrentItem_OnCommit(t *testing.T) {
+	tokens := theme.Compile(theme.Fallback().Raw())
+	m := Model{
+		sections: []Section{
+			{Kind: SectionRecentCommits, Title: "Recent Commits", Items: []Item{
+				{Commit: &git.LogEntry{Hash: "abc123def456"}},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+		keys:   DefaultKeyMap(),
+		tokens: tokens,
+		width:  80,
+		height: 40,
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 40
+
+	result, _ := openCommitViewForCurrentItem(m)
+	rm := result.(Model)
+
+	if rm.commitView == nil {
+		t.Fatal("expected commitView to be opened for commit item")
+	}
+}
+
+func TestOpenCommitViewForCurrentItem_OnFile_Noop(t *testing.T) {
+	m := Model{
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged", Items: []Item{
+				{Entry: &git.StatusEntry{}},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+	}
+
+	result, _ := openCommitViewForCurrentItem(m)
+	rm := result.(Model)
+
+	if rm.commitView != nil {
+		t.Error("expected no commitView for file item")
+	}
+}
+
+func TestHandleGoToFile_OnFile_ReturnsExecCmd(t *testing.T) {
+	tokens := theme.Compile(theme.Fallback().Raw())
+	m := Model{
+		repo: nil, // no repo needed for the cmd construction
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged", Items: []Item{
+				{Entry: &git.StatusEntry{}},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+		keys:   DefaultKeyMap(),
+		tokens: tokens,
+		width:  80,
+		height: 40,
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 40
+
+	_, cmd := handleGoToFile(m)
+
+	// Should return a non-nil command (tea.ExecProcess)
+	if cmd == nil {
+		t.Fatal("expected non-nil command for GoToFile on file item")
+	}
+
+	// The returned command should NOT produce a notification (it should be tea.ExecProcess)
+	msg := cmd()
+	if notify, ok := msg.(notification.NotifyMsg); ok {
+		t.Errorf("GoToFile on file should not produce NotifyMsg, got: %q", notify.Message)
+	}
+}
+
+func TestHandleGoToParentRepo(t *testing.T) {
+	m := Model{
+		keys: DefaultKeyMap(),
+	}
+
+	// Should return a command (not nil)
+	_, cmd := handleGoToParentRepo(m)
+	if cmd == nil {
+		t.Fatal("expected non-nil command")
+	}
+}
+
+func TestPushPopupAction_Configure_OpensBranchSelect(t *testing.T) {
+	m := Model{
+		keys: DefaultKeyMap(),
+		head: HeadState{Branch: "main"},
+	}
+
+	result := popup.Result{Action: "C"}
+	rm, _ := handlePushPopupAction(m, result)
+	model := rm.(Model)
+
+	if model.branchActionKind != branchActionBranchConfigure {
+		t.Errorf("expected branchActionBranchConfigure, got %v", model.branchActionKind)
+	}
+}
+
+func TestPushPopupAction_Elsewhere_OpensBranchSelect(t *testing.T) {
+	m := Model{
+		keys: DefaultKeyMap(),
+		head: HeadState{Branch: "main"},
+	}
+
+	result := popup.Result{
+		Action:   "e",
+		Switches: map[string]bool{},
+		Options:  map[string]string{},
+	}
+	rm, _ := handlePushPopupAction(m, result)
+	model := rm.(Model)
+
+	if model.branchActionKind != branchActionPushElsewhere {
+		t.Errorf("expected branchActionPushElsewhere, got %v", model.branchActionKind)
+	}
+}
+
+func TestRebasePopupAction_Elsewhere_OpensBranchSelect(t *testing.T) {
+	m := Model{
+		keys: DefaultKeyMap(),
+		head: HeadState{Branch: "feature"},
+	}
+
+	result := popup.Result{
+		Action:   "e",
+		Switches: map[string]bool{},
+		Options:  map[string]string{},
+	}
+	rm, _ := handleRebasePopupAction(m, result)
+	model := rm.(Model)
+
+	if model.branchActionKind != branchActionRebaseElsewhere {
+		t.Errorf("expected branchActionRebaseElsewhere, got %v", model.branchActionKind)
+	}
+}
+
+func TestLogPopupAction_OtherReflog_OpensInput(t *testing.T) {
+	m := Model{
+		keys: DefaultKeyMap(),
+		head: HeadState{Branch: "main"},
+	}
+
+	result := popup.Result{
+		Action:   "O",
+		Switches: map[string]bool{},
+		Options:  map[string]string{},
+	}
+	rm, _ := handleLogPopupAction(m, result)
+	model := rm.(Model)
+
+	if model.inputPromptKind != inputPromptReflogRef {
+		t.Errorf("expected inputPromptReflogRef, got %v", model.inputPromptKind)
+	}
+}
+
+func TestLogPopupAction_OtherBranch_OpensBranchSelect(t *testing.T) {
+	m := Model{
+		keys: DefaultKeyMap(),
+		head: HeadState{Branch: "main"},
+	}
+
+	result := popup.Result{
+		Action:   "o",
+		Switches: map[string]bool{},
+		Options:  map[string]string{},
+	}
+	rm, _ := handleLogPopupAction(m, result)
+	model := rm.(Model)
+
+	if model.branchActionKind != branchActionLogOtherBranch {
+		t.Errorf("expected branchActionLogOtherBranch, got %v", model.branchActionKind)
+	}
+}
+
+func TestBranchPopupAction_Configure_OpensBranchSelect(t *testing.T) {
+	m := Model{
+		keys: DefaultKeyMap(),
+		head: HeadState{Branch: "main"},
+	}
+
+	result := popup.Result{Action: "C"}
+	rm, _ := handleBranchPopupAction(m, result)
+	model := rm.(Model)
+
+	if model.branchActionKind != branchActionBranchConfigure {
+		t.Errorf("expected branchActionBranchConfigure, got %v", model.branchActionKind)
+	}
+}
+
+func TestCommitPopupAction_Absorb_ShowsWarning(t *testing.T) {
+	m := Model{
+		keys: DefaultKeyMap(),
+	}
+
+	result := popup.Result{
+		Action:   "x",
+		Switches: map[string]bool{},
+		Options:  map[string]string{},
+	}
+	_, cmd := handleCommitPopupAction(m, result)
+
+	if cmd == nil {
+		t.Fatal("expected non-nil command")
+	}
+
+	msg := cmd()
+	notify, ok := msg.(notification.NotifyMsg)
+	if !ok {
+		t.Fatalf("expected NotifyMsg, got %T", msg)
+	}
+	if !strings.Contains(notify.Message, "git-absorb") {
+		t.Errorf("expected message about git-absorb, got %q", notify.Message)
+	}
+}
+
+func TestOpenPopupByName_OpensCorrectPopup(t *testing.T) {
+	tests := []struct {
+		name      string
+		popupKind PopupKind
+	}{
+		{"commit", PopupCommit},
+		{"branch", PopupBranch},
+		{"push", PopupPush},
+		{"pull", PopupPull},
+		{"fetch", PopupFetch},
+		{"merge", PopupMerge},
+		{"rebase", PopupRebase},
+		{"revert", PopupRevert},
+		{"cherry-pick", PopupCherryPick},
+		{"reset", PopupReset},
+		{"stash", PopupStash},
+		{"tag", PopupTag},
+		{"remote", PopupRemote},
+		{"worktree", PopupWorktree},
+		{"bisect", PopupBisect},
+		{"diff", PopupDiff},
+		{"log", PopupLog},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := Model{}
+			result, _ := openPopupByName(m, tc.name)
+			updated := result.(Model)
+			if updated.popup == nil {
+				t.Fatalf("popup should not be nil for type %q", tc.name)
+			}
+			if updated.popupKind != tc.popupKind {
+				t.Errorf("expected popupKind %d, got %d for type %q", tc.popupKind, updated.popupKind, tc.name)
+			}
+		})
+	}
+}
+
+func TestOpenPopupByName_UnknownType_Noop(t *testing.T) {
+	m := Model{}
+	result, _ := openPopupByName(m, "unknown")
+	updated := result.(Model)
+	if updated.popup != nil {
+		t.Error("popup should be nil for unknown type")
+	}
+}
+
+func TestOpenPopupByName_ViaCommitViewMsg(t *testing.T) {
+	m := Model{}
+	result, _ := update(m, commitview.OpenPopupMsg{Type: "commit"})
+	updated := result.(Model)
+	if updated.popup == nil {
+		t.Fatal("popup should not be nil when receiving commitview.OpenPopupMsg")
+	}
+	if updated.popupKind != PopupCommit {
+		t.Errorf("expected PopupCommit, got %d", updated.popupKind)
+	}
+}

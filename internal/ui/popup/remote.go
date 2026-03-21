@@ -9,6 +9,9 @@ import (
 func NewRemotePopup(tokens theme.Tokens, state *State, remoteName string) Popup {
 	p := New("Remote", tokens)
 
+	// Switch: fetch after add (enabled by default, cli_prefix = "-")
+	p.AddSwitch("f", "f", "Fetch after add", true)
+
 	// Config items (for the specified remote)
 	if remoteName != "" {
 		p.AddConfig("u", "remote."+remoteName+".url", "URL", "")
@@ -18,11 +21,15 @@ func NewRemotePopup(tokens theme.Tokens, state *State, remoteName string) Popup 
 		p.AddConfig("O", "remote."+remoteName+".tagOpt", "Tag option", "")
 	}
 
-	// Actions
-	p.AddActionGroup("", []Action{
+	// Actions group 1
+	p.AddActionGroup("Actions", []Action{
 		{Key: "a", Label: "Add"},
 		{Key: "r", Label: "Rename"},
 		{Key: "x", Label: "Remove"},
+	})
+
+	// Actions group 2
+	p.AddActionGroup("", []Action{
 		{Key: "C", Label: "Configure..."},
 		{Key: "p", Label: "Prune stale branches"},
 		{Key: "P", Label: "Prune stale refspecs"},

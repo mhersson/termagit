@@ -12,22 +12,23 @@ func NewCherryPickPopup(tokens theme.Tokens, state *State, inProgress bool) Popu
 
 	if inProgress {
 		// In-progress actions
-		p.AddActionGroup("", []Action{
-			{Key: "A", Label: "Continue"},
-			{Key: "s", Label: "Skip"},
-			{Key: "a", Label: "Abort"},
+		p.AddActionGroup("Cherry Pick", []Action{
+			{Key: "A", Label: "continue"},
+			{Key: "s", Label: "skip"},
+			{Key: "a", Label: "abort"},
 		})
 	} else {
 		// Options (not in-progress)
-		p.AddOption("m", "mainline", "Mainline parent number", "")
+		p.AddOption("m", "mainline", "Replay merge relative to parent", "")
 		p.AddOption("s", "strategy", "Strategy", "")
 
 		// Switches (not in-progress)
-		p.AddSwitch("F", "ff", "Attempt fast-forward", false)
-		p.AddSwitch("x", "reference-in-message", "Add reference to original commit", false)
-		p.AddSwitch("e", "edit", "Edit commit message", false)
-		p.AddSwitch("s", "signoff", "Add Signed-off-by line", false)
-		p.AddSwitch("S", "gpg-sign", "Sign using gpg", false)
+		p.AddSwitch("F", "ff", "Attempt fast-forward", true) // enabled by default in Neogit
+		p.AddSwitch("x", "x", "Reference cherry in commit message", false)
+		p.AddSwitch("e", "edit", "Edit commit messages", false)
+		p.SetIncompatible("F", "e") // ff and edit are incompatible
+		p.AddSwitch("s", "signoff", "Add Signed-off-by lines", false)
+		p.AddOption("S", "gpg-sign", "Sign using gpg", "")
 
 		// Apply here
 		p.AddActionGroup("Apply here", []Action{

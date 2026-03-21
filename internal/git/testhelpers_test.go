@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-git/go-git/v5"
+	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
@@ -32,7 +32,7 @@ func newMemRepo(t *testing.T) *Repository {
 	fs := memfs.New()
 	storage := memory.NewStorage()
 
-	raw, err := git.Init(storage, fs)
+	raw, err := gogit.Init(storage, fs)
 	require.NoError(t, err, "init in-memory repo")
 
 	// Create initial commit so HEAD exists
@@ -49,7 +49,7 @@ func newMemRepo(t *testing.T) *Repository {
 	_, err = wt.Add("README.md")
 	require.NoError(t, err, "stage README")
 
-	_, err = wt.Commit("Initial commit", &git.CommitOptions{
+	_, err = wt.Commit("Initial commit", &gogit.CommitOptions{
 		Author:    testSignature(),
 		Committer: testSignature(),
 	})
@@ -110,7 +110,7 @@ func addAndCommit(t *testing.T, r *Repository, path, content, message string) pl
 	wt, err := r.raw.Worktree()
 	require.NoError(t, err, "get worktree")
 
-	hash, err := wt.Commit(message, &git.CommitOptions{
+	hash, err := wt.Commit(message, &gogit.CommitOptions{
 		Author:    testSignature(),
 		Committer: testSignature(),
 	})
@@ -128,7 +128,7 @@ func newTempRepo(t *testing.T) *Repository {
 
 	dir := t.TempDir()
 
-	raw, err := git.PlainInit(dir, false)
+	raw, err := gogit.PlainInit(dir, false)
 	require.NoError(t, err, "plain init temp repo")
 
 	// Create initial commit
@@ -141,7 +141,7 @@ func newTempRepo(t *testing.T) *Repository {
 	_, err = wt.Add("README.md")
 	require.NoError(t, err, "stage README")
 
-	_, err = wt.Commit("Initial commit", &git.CommitOptions{
+	_, err = wt.Commit("Initial commit", &gogit.CommitOptions{
 		Author:    testSignature(),
 		Committer: testSignature(),
 	})

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/go-git/go-git/v5"
+	gogit "github.com/go-git/go-git/v5"
 	"github.com/mhersson/conjit/internal/cmdlog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -86,7 +86,7 @@ func TestHeadInfo_ReturnsHEAD_WhenDetached(t *testing.T) {
 	require.NoError(t, err)
 
 	// Checkout the commit directly to create detached HEAD
-	err = wt.Checkout(&git.CheckoutOptions{
+	err = wt.Checkout(&gogit.CheckoutOptions{
 		Hash: head.Hash(),
 	})
 	require.NoError(t, err)

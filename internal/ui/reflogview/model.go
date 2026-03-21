@@ -106,7 +106,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, m.keys.Select):
-		// TODO: Open commit view (Phase 10)
+		if len(m.entries) > 0 && m.cursor < len(m.entries) {
+			hash := m.entries[m.cursor].Oid
+			return m, func() tea.Msg { return OpenCommitViewMsg{Hash: hash} }
+		}
 		return m, nil
 	}
 

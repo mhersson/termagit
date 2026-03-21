@@ -9,8 +9,8 @@ import (
 func NewPullPopup(tokens theme.Tokens, state *State, branch string) Popup {
 	p := New("Pull", tokens)
 
-	// Config item for branch.rebase could go here
-	// p.AddConfig("r", "branch."+branch+".rebase", "branch rebase", "")
+	// Config item for branch.<branch>.rebase
+	p.AddConfig("r", "branch."+branch+".rebase", "branch rebase", "")
 
 	// Switches (from Neogit pull popup)
 	p.AddSwitch("f", "ff-only", "Fast-forward only", false)

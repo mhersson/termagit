@@ -4,6 +4,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mhersson/conjit/internal/theme"
@@ -76,6 +77,10 @@ type Popup struct {
 	// pending key for two-key sequences (e.g., "-a")
 	pendingKey string
 
+	// option value editing
+	editingOption int // index into options, -1 when not editing
+	optionInput   textinput.Model
+
 	done   bool
 	result Result
 }
@@ -83,9 +88,10 @@ type Popup struct {
 // New creates a new popup with the given title.
 func New(title string, tokens theme.Tokens) Popup {
 	return Popup{
-		title:        title,
-		tokens:       tokens,
-		incompatible: make(map[string][]string),
+		title:         title,
+		tokens:        tokens,
+		incompatible:  make(map[string][]string),
+		editingOption: -1,
 		result: Result{
 			Switches: make(map[string]bool),
 			Options:  make(map[string]string),
@@ -196,6 +202,11 @@ func (p Popup) Update(msg tea.Msg) (Popup, tea.Cmd) {
 func (p Popup) handleKey(msg tea.KeyMsg) (Popup, tea.Cmd) {
 	keyStr := msg.String()
 
+	// Handle option editing mode
+	if p.editingOption >= 0 {
+		return p.handleOptionInput(msg)
+	}
+
 	// Handle escape
 	if msg.Type == tea.KeyEscape {
 		p.done = true
@@ -222,7 +233,22 @@ func (p Popup) handleKey(msg tea.KeyMsg) (Popup, tea.Cmd) {
 
 	if p.pendingKey == "=" {
 		p.pendingKey = ""
-		// TODO: Prompt for option value
+		for i := range p.options {
+			if p.options[i].Key == keyStr {
+				if p.options[i].Value != "" {
+					// Toggle off: clear the value
+					p.options[i].Value = ""
+				} else {
+					// Start editing
+					p.editingOption = i
+					ti := textinput.New()
+					ti.Prompt = p.options[i].Label + "="
+					ti.Focus()
+					p.optionInput = ti
+				}
+				return p, nil
+			}
+		}
 		return p, nil
 	}
 
@@ -258,6 +284,24 @@ func (p Popup) handleKey(msg tea.KeyMsg) (Popup, tea.Cmd) {
 	}
 
 	return p, nil
+}
+
+func (p Popup) handleOptionInput(msg tea.KeyMsg) (Popup, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEnter:
+		// Confirm: save value and stop editing
+		p.options[p.editingOption].Value = p.optionInput.Value()
+		p.editingOption = -1
+		return p, nil
+	case tea.KeyEscape:
+		// Cancel: discard and stop editing
+		p.editingOption = -1
+		return p, nil
+	default:
+		var cmd tea.Cmd
+		p.optionInput, cmd = p.optionInput.Update(msg)
+		return p, cmd
+	}
 }
 
 func (p *Popup) disableIncompatible(label string) {

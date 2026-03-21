@@ -483,6 +483,102 @@ func TestPopup_RenderWithBlockCursor_EmptyLine(t *testing.T) {
 	}
 }
 
+func TestPopup_OptionInput_ClearsExistingValue(t *testing.T) {
+	tokens := testTokens()
+	p := New("Test", tokens)
+	p.AddOption("A", "author", "Override the author", "John Doe")
+
+	// =A should clear the existing value (toggle off)
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'='}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'A'}})
+
+	if p.options[0].Value != "" {
+		t.Errorf("expected option value to be cleared, got %q", p.options[0].Value)
+	}
+	if p.editingOption >= 0 {
+		t.Error("should not be editing after clearing")
+	}
+}
+
+func TestPopup_OptionInput_StartsEditing(t *testing.T) {
+	tokens := testTokens()
+	p := New("Test", tokens)
+	p.AddOption("A", "author", "Override the author", "")
+
+	// =A should start editing since value is empty
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'='}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'A'}})
+
+	if p.editingOption != 0 {
+		t.Errorf("expected editingOption to be 0, got %d", p.editingOption)
+	}
+}
+
+func TestPopup_OptionInput_ConfirmSetsValue(t *testing.T) {
+	tokens := testTokens()
+	p := New("Test", tokens)
+	p.AddOption("A", "author", "Override the author", "")
+
+	// =A to start editing
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'='}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'A'}})
+
+	// Type value
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'J'}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+
+	// Confirm with enter
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if p.editingOption != -1 {
+		t.Error("should not be editing after confirm")
+	}
+	if p.options[0].Value != "Joe" {
+		t.Errorf("expected option value 'Joe', got %q", p.options[0].Value)
+	}
+}
+
+func TestPopup_OptionInput_EscapeCancels(t *testing.T) {
+	tokens := testTokens()
+	p := New("Test", tokens)
+	p.AddOption("A", "author", "Override the author", "")
+
+	// =A to start editing
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'='}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'A'}})
+
+	// Type value
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+
+	// Cancel with escape
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyEscape})
+
+	if p.editingOption != -1 {
+		t.Error("should not be editing after escape")
+	}
+	if p.options[0].Value != "" {
+		t.Errorf("expected option value to remain empty after cancel, got %q", p.options[0].Value)
+	}
+	if p.Done() {
+		t.Error("escape during editing should not close popup")
+	}
+}
+
+func TestPopup_OptionInput_UnknownKey_Noop(t *testing.T) {
+	tokens := testTokens()
+	p := New("Test", tokens)
+	p.AddOption("A", "author", "Override the author", "")
+
+	// =X (no option with key X)
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'='}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+
+	if p.editingOption >= 0 {
+		t.Error("should not start editing for unknown option key")
+	}
+}
+
 func testTokens() theme.Tokens {
 	raw := theme.RawTokens{
 		Normal:       "#ffffff",

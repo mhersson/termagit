@@ -8,7 +8,7 @@ import (
 
 func TestRebasePopup_NotInRebase_Switches(t *testing.T) {
 	tokens := testTokens()
-	p := NewRebasePopup(tokens, nil, false)
+	p := NewRebasePopup(tokens, nil, false, "main", "")
 
 	// Should have multiple switches
 	if len(p.switches) < 5 {
@@ -31,7 +31,7 @@ func TestRebasePopup_NotInRebase_Switches(t *testing.T) {
 
 func TestRebasePopup_InRebase_Actions(t *testing.T) {
 	tokens := testTokens()
-	p := NewRebasePopup(tokens, nil, true)
+	p := NewRebasePopup(tokens, nil, true, "", "")
 
 	// When in rebase, should have continue, skip, edit, abort actions
 	if len(p.groups) == 0 {
@@ -63,7 +63,7 @@ func TestRebasePopup_InRebase_Actions(t *testing.T) {
 
 func TestRebasePopup_NotInRebase_Actions(t *testing.T) {
 	tokens := testTokens()
-	p := NewRebasePopup(tokens, nil, false)
+	p := NewRebasePopup(tokens, nil, false, "main", "")
 
 	// When not in rebase, should have rebase actions
 	if len(p.groups) == 0 {
@@ -86,7 +86,7 @@ func TestRebasePopup_NotInRebase_Actions(t *testing.T) {
 
 func TestRebasePopup_InteractiveAction(t *testing.T) {
 	tokens := testTokens()
-	p := NewRebasePopup(tokens, nil, false)
+	p := NewRebasePopup(tokens, nil, false, "main", "")
 	p.SetSize(80, 24)
 
 	// Press 'i' for interactive rebase
@@ -100,6 +100,79 @@ func TestRebasePopup_InteractiveAction(t *testing.T) {
 	if result.Action != "i" {
 		t.Errorf("expected action 'i', got %q", result.Action)
 	}
+}
+
+func TestRebasePopup_BranchNameInHeading(t *testing.T) {
+	tokens := testTokens()
+	p := NewRebasePopup(tokens, nil, false, "feature", "main")
+
+	found := false
+	for _, g := range p.groups {
+		if g.Title == "Rebase feature onto" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected group heading 'Rebase feature onto', got groups: %v", groupTitles(p))
+	}
+}
+
+func TestRebasePopup_InRebase_GroupHeading(t *testing.T) {
+	tokens := testTokens()
+	p := NewRebasePopup(tokens, nil, true, "", "")
+
+	if len(p.groups) == 0 {
+		t.Fatal("expected action groups")
+	}
+	if p.groups[0].Title != "Actions" {
+		t.Errorf("in-rebase group heading: expected %q, got %q", "Actions", p.groups[0].Title)
+	}
+}
+
+func TestRebasePopup_BaseBranchConditional(t *testing.T) {
+	tokens := testTokens()
+
+	// With base branch same as current - should not show "b" action
+	p := NewRebasePopup(tokens, nil, false, "main", "main")
+	for _, g := range p.groups {
+		for _, a := range g.Actions {
+			if a.Key == "b" {
+				t.Error("'b' action should not appear when base branch == current branch")
+			}
+		}
+	}
+
+	// With different base branch - should show "b" action
+	p = NewRebasePopup(tokens, nil, false, "feature", "main")
+	foundB := false
+	for _, g := range p.groups {
+		for _, a := range g.Actions {
+			if a.Key == "b" && a.Label == "main" {
+				foundB = true
+			}
+		}
+	}
+	if !foundB {
+		t.Error("expected 'b' action labeled 'main' when base branch differs from current")
+	}
+
+	// With empty base branch - should not show "b" action
+	p = NewRebasePopup(tokens, nil, false, "feature", "")
+	for _, g := range p.groups {
+		for _, a := range g.Actions {
+			if a.Key == "b" {
+				t.Error("'b' action should not appear when base branch is empty")
+			}
+		}
+	}
+}
+
+func groupTitles(p Popup) []string {
+	var titles []string
+	for _, g := range p.groups {
+		titles = append(titles, g.Title)
+	}
+	return titles
 }
 
 func TestRebasePopup_OpenRebaseEditorMsg(t *testing.T) {

@@ -12,7 +12,7 @@ func NewMergePopup(tokens theme.Tokens, state *State, inMerge bool) Popup {
 
 	if inMerge {
 		// In-merge actions
-		p.AddActionGroup("", []Action{
+		p.AddActionGroup("Actions", []Action{
 			{Key: "m", Label: "Commit merge"},
 			{Key: "a", Label: "Abort merge"},
 		})
@@ -24,17 +24,28 @@ func NewMergePopup(tokens theme.Tokens, state *State, inMerge bool) Popup {
 
 		// Options
 		p.AddOption("s", "strategy", "Strategy", "")
-		p.AddOption("X", "strategy-option", "Strategy option", "")
+		p.AddOption("X", "strategy-option", "Strategy Option", "")
+
+		// Whitespace switches (Neogit uses cli_prefix = "-")
+		p.AddSwitch("b", "Xignore-space-change", "Ignore changes in amount of whitespace", false)
+		p.AddSwitch("w", "Xignore-all-space", "Ignore whitespace when comparing lines", false)
+
 		p.AddOption("A", "Xdiff-algorithm", "Diff algorithm", "")
 		p.AddOption("S", "gpg-sign", "Sign using gpg", "")
 
 		// Actions
-		p.AddActionGroup("Merge", []Action{
+		p.AddActionGroup("Actions", []Action{
 			{Key: "m", Label: "Merge"},
 			{Key: "e", Label: "Merge and edit message"},
 			{Key: "n", Label: "Merge but don't commit"},
 			{Key: "a", Label: "Absorb"},
+		})
+
+		p.AddActionGroup("", []Action{
 			{Key: "p", Label: "Preview merge"},
+		})
+
+		p.AddActionGroup("", []Action{
 			{Key: "s", Label: "Squash merge"},
 			{Key: "i", Label: "Dissolve"},
 		})

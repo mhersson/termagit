@@ -253,6 +253,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.active = ScreenStatus
 		return m, m.status.Init()
 
+	case rebaseeditor.OpenCommitViewMsg:
+		return m.openCommitView(msg.Hash, nil)
+
 	// Log view
 	case status.OpenLogViewMsg:
 		return m.openLogView(msg.Commits, msg.HasMore, msg.Branch)
@@ -269,6 +272,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.active = ScreenStatus
 		return m, nil
 
+	case reflogview.OpenCommitViewMsg:
+		return m.openCommitView(msg.Hash, nil)
+
+
 	// Commit view
 	case commitview.OpenCommitViewMsg:
 		return m.openCommitView(msg.CommitID, msg.Filter)
@@ -282,8 +289,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, yankToClipboardCmd(msg.Text)
 
 	case commitview.OpenPopupMsg:
-		// TODO: Wire up popup opening when popup system is ready
-		return m, notifyCmd("Popup: "+msg.Type+" (not yet implemented)", notification.Info)
+		newStatus, cmd := m.status.Update(msg)
+		m.status = newStatus.(status.Model)
+		m.active = ScreenStatus
+		return m, cmd
 
 	case commitview.OpenFileMsg:
 		return m, openFileCmd(msg.Path)
@@ -486,16 +495,6 @@ func yankToClipboardCmd(text string) tea.Cmd {
 		return notification.NotifyMsg{
 			Message: "Yanked: " + text,
 			Kind:    notification.Info,
-		}
-	}
-}
-
-// notifyCmd shows a notification message.
-func notifyCmd(text string, kind notification.Kind) tea.Cmd {
-	return func() tea.Msg {
-		return notification.NotifyMsg{
-			Message: text,
-			Kind:    kind,
 		}
 	}
 }

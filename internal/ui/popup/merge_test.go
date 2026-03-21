@@ -100,3 +100,51 @@ func TestMergePopup_NotInMerge_Actions(t *testing.T) {
 		t.Error("expected 'Merge' action when not in merge")
 	}
 }
+
+func TestMergePopup_NotInMerge_WhitespaceSwitches(t *testing.T) {
+	tokens := testTokens()
+	p := NewMergePopup(tokens, nil, false)
+
+	// Neogit has -b Xignore-space-change and -w Xignore-all-space switches
+	foundB := false
+	foundW := false
+	for _, sw := range p.switches {
+		if sw.Key == "b" && sw.Label == "Xignore-space-change" {
+			foundB = true
+		}
+		if sw.Key == "w" && sw.Label == "Xignore-all-space" {
+			foundW = true
+		}
+	}
+
+	if !foundB {
+		t.Error("expected switch -b Xignore-space-change")
+	}
+	if !foundW {
+		t.Error("expected switch -w Xignore-all-space")
+	}
+}
+
+func TestMergePopup_InMerge_GroupHeading(t *testing.T) {
+	tokens := testTokens()
+	p := NewMergePopup(tokens, nil, true)
+
+	if len(p.groups) == 0 {
+		t.Fatal("expected action groups")
+	}
+	if p.groups[0].Title != "Actions" {
+		t.Errorf("in-merge group heading: expected %q, got %q", "Actions", p.groups[0].Title)
+	}
+}
+
+func TestMergePopup_NotInMerge_GroupHeading(t *testing.T) {
+	tokens := testTokens()
+	p := NewMergePopup(tokens, nil, false)
+
+	if len(p.groups) == 0 {
+		t.Fatal("expected action groups")
+	}
+	if p.groups[0].Title != "Actions" {
+		t.Errorf("not-in-merge group heading: expected %q, got %q", "Actions", p.groups[0].Title)
+	}
+}

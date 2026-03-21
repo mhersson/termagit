@@ -6,13 +6,13 @@ import (
 
 // NewDiffPopup creates the diff popup matching Neogit exactly.
 // Source: neogit/lua/neogit/popups/diff/init.lua
-func NewDiffPopup(tokens theme.Tokens, state *State) Popup {
+func NewDiffPopup(tokens theme.Tokens, state *State, hasItem, commitSelected bool) Popup {
 	p := New("Diff", tokens)
 
-	// Diff group
+	// Diff group — "d" and "h" are conditional on selected item
 	p.AddActionGroup("Diff", []Action{
-		{Key: "d", Label: "this"},
-		{Key: "h", Label: "this..HEAD"},
+		{Key: "d", Label: "this", Disabled: !hasItem},
+		{Key: "h", Label: "this..HEAD", Disabled: !commitSelected},
 		{Key: "r", Label: "range"},
 		{Key: "p", Label: "paths"},
 	})

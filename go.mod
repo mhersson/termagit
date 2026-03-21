@@ -1,6 +1,6 @@
 module github.com/mhersson/conjit
 
-go 1.24.2
+go 1.26
 
 require (
 	github.com/BurntSushi/toml v1.6.0

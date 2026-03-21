@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/ui/branchselect"
@@ -193,6 +194,9 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case commitview.OpenPopupMsg:
+		return openPopupByName(m, msg.Type)
+
 	case commitselect.AbortedMsg:
 		m.commitSpecialKind = commitSpecialNone
 		m.commitSpecialOpts = git.CommitOpts{}
@@ -203,6 +207,23 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case branchselect.AbortedMsg:
 		m.branchActionKind = branchActionNone
+		return m, nil
+
+	case peekFileMsg:
+		if msg.err != nil {
+			return m, notifyAppCmd("Failed to load file: "+msg.err.Error(), notification.Error)
+		}
+		m.peekActive = true
+		m.peekPath = msg.path
+		m.peekContent = msg.content
+		m.peekViewport = viewport.New(m.width, m.height*60/100)
+		m.peekViewport.SetContent(msg.content)
+		return m, nil
+
+	case closePeekMsg:
+		m.peekActive = false
+		m.peekPath = ""
+		m.peekContent = ""
 		return m, nil
 
 	case branchesLoadedMsg:
@@ -260,15 +281,16 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return handleInputPromptKey(m, msg)
 	}
 
-	// Handle pending key sequences (e.g., "gg")
+	// Handle pending key sequences (e.g., "gg", "gp")
 	if m.pendingKey == "g" {
 		m.pendingKey = "" // Clear pending key
-		if msg.String() == "g" {
-			// "gg" - go to top
+		switch msg.String() {
+		case "g":
 			return handleGoToTop(m)
+		case "p":
+			return handleGoToParentRepo(m)
 		}
-		// "g" followed by something else - ignore the g prefix for now
-		// (could handle "gp" for GoToParentRepo here if needed)
+		// "g" followed by something else - ignore the g prefix
 	}
 
 	switch {
@@ -453,21 +475,39 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.GoToFile):
 		return handleGoToFile(m)
 
-	// Other stub keys
-	case key.Matches(msg, m.keys.ShowRefs),
-		key.Matches(msg, m.keys.Command),
-		key.Matches(msg, m.keys.InitRepo),
-		key.Matches(msg, m.keys.GoToParentRepo),
-		key.Matches(msg, m.keys.Rename),
-		key.Matches(msg, m.keys.PeekFile),
-		key.Matches(msg, m.keys.VSplitOpen),
+	case key.Matches(msg, m.keys.ShowRefs):
+		return handleShowRefs(m)
+
+	case key.Matches(msg, m.keys.Command):
+		// Q = Console = same as $ (CommandHistory) in Neogit
+		return m, func() tea.Msg { return OpenCmdHistoryMsg{} }
+
+	case key.Matches(msg, m.keys.InitRepo):
+		return m, notifyAppCmd("Already in a git repository", notification.Info)
+
+	case key.Matches(msg, m.keys.Rename):
+		return handleRenameFile(m)
+
+	case key.Matches(msg, m.keys.PeekFile):
+		return handlePeekFile(m)
+
+	case key.Matches(msg, m.keys.VSplitOpen),
 		key.Matches(msg, m.keys.SplitOpen),
-		key.Matches(msg, m.keys.TabOpen),
-		key.Matches(msg, m.keys.OpenOrScrollDown),
-		key.Matches(msg, m.keys.OpenOrScrollUp),
-		key.Matches(msg, m.keys.PeekDown),
-		key.Matches(msg, m.keys.PeekUp):
-		return m, notifyAppCmd("Not yet implemented", notification.Warning)
+		key.Matches(msg, m.keys.TabOpen):
+		// In TUI these are all aliases for GoToFile
+		return handleGoToFile(m)
+
+	case key.Matches(msg, m.keys.OpenOrScrollDown):
+		return handleOpenOrScrollDown(m)
+
+	case key.Matches(msg, m.keys.OpenOrScrollUp):
+		return handleOpenOrScrollUp(m)
+
+	case key.Matches(msg, m.keys.PeekDown):
+		return handlePeekDown(m)
+
+	case key.Matches(msg, m.keys.PeekUp):
+		return handlePeekUp(m)
 	}
 
 	return m, nil
@@ -801,9 +841,13 @@ func handleGoToFile(m Model) (tea.Model, tea.Cmd) {
 		return m, cv.Init()
 	}
 
-	// If it's a file, open in editor (stub for now)
+	// If it's a file, open in $EDITOR
 	if item.Entry != nil {
-		return m, notifyAppCmd("File opening not yet implemented", notification.Warning)
+		repoPath := ""
+		if m.repo != nil {
+			repoPath = m.repo.Path()
+		}
+		return m, openInEditorCmd(repoPath, item.Entry.Path())
 	}
 
 	return m, nil
@@ -1498,8 +1542,8 @@ func handleCommitPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) 
 		return openCommitSelect(m, opts, commitSpecialInstantFixup)
 	case "S": // Instant Squash
 		return openCommitSelect(m, opts, commitSpecialInstantSquash)
-	case "x": // Absorb
-		return m, notifyAppCmd("Absorb not yet implemented", notification.Warning)
+	case "x": // Absorb — requires external git-absorb
+		return m, notifyAppCmd("Absorb requires git-absorb to be installed", notification.Warning)
 	default:
 		return m, notifyAppCmd("Unknown commit action: "+result.Action, notification.Warning)
 	}
@@ -1570,10 +1614,12 @@ func handleRebasePopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) 
 		target := remote + "/" + m.head.UpstreamBranch
 		opts.Onto = target
 		return m, rebaseCmd(m.repo, opts)
-	case "e": // elsewhere — needs branch input, not yet implemented
-		return m, notifyAppCmd("Rebase elsewhere not yet implemented", notification.Warning)
-	case "b": // base branch — needs branch input, not yet implemented
-		return m, notifyAppCmd("Rebase onto base branch not yet implemented", notification.Warning)
+	case "e": // elsewhere — select branch to rebase onto
+		m.branchActionKind = branchActionRebaseElsewhere
+		m.rebaseSpecialOpts = opts
+		return m, loadAllBranchesCmd(m.repo)
+	case "b": // base branch — rebase onto base (main/master detection)
+		return m, notifyAppCmd("Base branch detection not configured", notification.Warning)
 
 	// Rebase group
 	case "i": // interactively — needs commit selection
@@ -1773,7 +1819,7 @@ func handleOpenMergePopup(m Model) (tea.Model, tea.Cmd) {
 // handleOpenRebasePopup opens the rebase popup.
 func handleOpenRebasePopup(m Model) (tea.Model, tea.Cmd) {
 	inRebase := isInRebase(m.sections)
-	p := popup.NewRebasePopup(m.tokens, nil, inRebase)
+	p := popup.NewRebasePopup(m.tokens, nil, inRebase, m.head.Branch, "")
 	p.SetSize(m.width, m.height)
 	m.popup = &p
 	m.popupKind = PopupRebase
@@ -1868,7 +1914,10 @@ func handleOpenIgnorePopup(m Model) (tea.Model, tea.Cmd) {
 
 // handleOpenDiffPopup opens the diff popup.
 func handleOpenDiffPopup(m Model) (tea.Model, tea.Cmd) {
-	p := popup.NewDiffPopup(m.tokens, nil)
+	item, _ := getCurrentItem(m)
+	hasItem := item != nil
+	commitSelected := item != nil && item.Commit != nil
+	p := popup.NewDiffPopup(m.tokens, nil, hasItem, commitSelected)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
 	m.popupKind = PopupDiff
@@ -1933,6 +1982,49 @@ func handleOpenHelpPopup(m Model) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// openPopupByName opens a popup by its string name (used by commit view).
+func openPopupByName(m Model, name string) (tea.Model, tea.Cmd) {
+	switch name {
+	case "commit":
+		return handleOpenCommitPopup(m)
+	case "branch":
+		return handleOpenBranchPopup(m)
+	case "push":
+		return handleOpenPushPopup(m)
+	case "pull":
+		return handleOpenPullPopup(m)
+	case "fetch":
+		return handleOpenFetchPopup(m)
+	case "merge":
+		return handleOpenMergePopup(m)
+	case "rebase":
+		return handleOpenRebasePopup(m)
+	case "revert":
+		return handleOpenRevertPopup(m)
+	case "cherry-pick":
+		return handleOpenCherryPickPopup(m)
+	case "reset":
+		return handleOpenResetPopup(m)
+	case "stash":
+		return handleOpenStashPopup(m)
+	case "tag":
+		return handleOpenTagPopup(m)
+	case "remote":
+		return handleOpenRemotePopup(m)
+	case "worktree":
+		return handleOpenWorktreePopup(m)
+	case "bisect":
+		return handleOpenBisectPopup(m)
+	case "ignore":
+		return handleOpenIgnorePopup(m)
+	case "diff":
+		return handleOpenDiffPopup(m)
+	case "log":
+		return handleOpenLogPopup(m)
+	}
+	return m, nil
+}
+
 // isInMerge checks if there's an active merge.
 func isInMerge(sections []Section) bool {
 	for _, s := range sections {
@@ -1987,16 +2079,19 @@ func getBisectState(sections []Section) (inProgress, finished bool) {
 // handlePushPopupAction handles actions from the push popup.
 func handlePushPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 	switch result.Action {
-	case "C": // Configure
-		return m, notifyAppCmd("Push configuration not yet implemented", notification.Warning)
-	case "e": // Elsewhere
-		return m, notifyAppCmd("Push elsewhere not yet implemented", notification.Warning)
-	case "o": // Another branch
-		return m, notifyAppCmd("Push another branch not yet implemented", notification.Warning)
-	case "r": // Explicit refspec
-		return m, notifyAppCmd("Push explicit refspec not yet implemented", notification.Warning)
-	case "T": // A tag
-		return m, notifyAppCmd("Push a tag not yet implemented", notification.Warning)
+	case "C": // Configure — open branch select to pick branch to configure
+		m.branchActionKind = branchActionBranchConfigure
+		return m, loadLocalBranchesCmd(m.repo)
+	case "e": // Elsewhere — select remote/branch to push to
+		m.branchActionKind = branchActionPushElsewhere
+		return m, loadAllBranchesCmd(m.repo)
+	case "o": // Another branch — select source branch
+		m.branchActionKind = branchActionPushOther
+		return m, loadLocalBranchesCmd(m.repo)
+	case "r": // Explicit refspec — text input
+		return openBranchInput(m, inputPromptPushRefspec, "Push refspec: ")
+	case "T": // A tag — text input for tag name
+		return openBranchInput(m, inputPromptPushTag, "Push tag: ")
 	}
 
 	opts := buildPushOpts(result)
@@ -2226,11 +2321,12 @@ func handleLogPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 	case "H": // HEAD reflog
 		return m, loadReflogCmd(m.repo, "HEAD")
 
-	case "O": // other (prompt for ref) - not implemented yet
-		return m, notifyAppCmd("Other reflog not yet implemented", notification.Warning)
+	case "O": // other reflog — prompt for ref
+		return openBranchInput(m, inputPromptReflogRef, "Reflog for ref: ")
 
-	case "o": // other branch - not implemented yet
-		return m, notifyAppCmd("Other branch log not yet implemented", notification.Warning)
+	case "o": // other branch log — open branch select
+		m.branchActionKind = branchActionLogOtherBranch
+		return m, loadAllBranchesCmd(m.repo)
 
 	default:
 		return m, notifyAppCmd("Unknown log action: "+result.Action, notification.Warning)
@@ -2347,11 +2443,11 @@ func handleBranchPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) 
 		}
 		return m, resetBranchToUpstreamCmd(m.repo)
 
-	// Not yet implemented
-	case "w", "W":
-		return m, notifyAppCmd("Worktree not yet implemented", notification.Warning)
-	case "C":
-		return m, notifyAppCmd("Branch configuration not yet implemented", notification.Warning)
+	case "w", "W": // Worktree — prompt for path
+		return openBranchInput(m, inputPromptWorktreePath, "Worktree path: ")
+	case "C": // Configure — select branch to configure
+		m.branchActionKind = branchActionBranchConfigure
+		return m, loadLocalBranchesCmd(m.repo)
 	default:
 		return m, notifyAppCmd("Unknown branch action: "+result.Action, notification.Warning)
 	}
@@ -2393,6 +2489,19 @@ func handleInputPromptKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, spinOutBranchCmd(m.repo, name)
 		case inputPromptRename:
 			return m, renameBranchCmd(m.repo, m.head.Branch, name)
+		case inputPromptRenameFile:
+			oldPath := m.confirmPath
+			m.confirmPath = ""
+			m.pendingRestore = saveCursorContext(m)
+			return m, renameFileCmd(m.repo, oldPath, name)
+		case inputPromptPushRefspec:
+			return m, pushRefspecCmd(m.repo, name)
+		case inputPromptPushTag:
+			return m, pushTagCmd(m.repo, name)
+		case inputPromptReflogRef:
+			return m, loadReflogCmd(m.repo, name)
+		case inputPromptWorktreePath:
+			return m, notifyAppCmd("Worktree creation not yet available", notification.Warning)
 		default:
 			return m, nil
 		}
@@ -2408,6 +2517,97 @@ func handleInputPromptKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// --- Newly wired key handlers ---
+
+// handleShowRefs opens the YankPopup for the current item.
+func handleShowRefs(m Model) (tea.Model, tea.Cmd) {
+	item, _ := getCurrentItem(m)
+	if item == nil {
+		return m, nil
+	}
+
+	hasURL := m.head.UpstreamRemote != ""
+	hasTags := m.head.Tag != ""
+	p := popup.NewYankPopup(m.tokens, nil, hasURL, hasTags)
+	p.SetSize(m.width, m.height)
+	m.popup = &p
+	m.popupKind = PopupHelp // reuse a popup kind since yank has no dedicated kind
+	return m, nil
+}
+
+// handleGoToParentRepo navigates to the parent repository if in a submodule.
+func handleGoToParentRepo(m Model) (tea.Model, tea.Cmd) {
+	return m, goToParentRepoCmd(m.repo)
+}
+
+// goToParentRepoCmd attempts to find a parent repository.
+func goToParentRepoCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		parent, err := repo.ParentRepo(context.Background())
+		if err != nil || parent == "" {
+			return notification.NotifyMsg{Message: "Not in a submodule", Kind: notification.Info}
+		}
+		return notification.NotifyMsg{Message: "Parent repo: " + parent, Kind: notification.Info}
+	}
+}
+
+// handleRenameFile opens a text input prompt to rename the current file item.
+func handleRenameFile(m Model) (tea.Model, tea.Cmd) {
+	item, _ := getCurrentItem(m)
+	if item == nil || item.Entry == nil {
+		return m, notifyAppCmd("No file selected", notification.Warning)
+	}
+
+	m.confirmPath = item.Entry.Path()
+	return openBranchInput(m, inputPromptRenameFile, "Rename "+item.Entry.Path()+" to: ")
+}
+
+// handlePeekFile loads file content for a read-only overlay.
+func handlePeekFile(m Model) (tea.Model, tea.Cmd) {
+	item, _ := getCurrentItem(m)
+	if item == nil || item.Entry == nil {
+		return m, nil
+	}
+	return m, loadPeekFileCmd(m.repo.Path(), item.Entry.Path())
+}
+
+// handleOpenOrScrollDown scrolls the commit view overlay down, or opens one for the current commit.
+func handleOpenOrScrollDown(m Model) (tea.Model, tea.Cmd) {
+	// When commit view overlay is NOT open, open it for the current commit
+	return openCommitViewForCurrentItem(m)
+}
+
+// handleOpenOrScrollUp scrolls the commit view overlay up, or opens one for the current commit.
+func handleOpenOrScrollUp(m Model) (tea.Model, tea.Cmd) {
+	// When commit view overlay is NOT open, open it for the current commit
+	return openCommitViewForCurrentItem(m)
+}
+
+// handlePeekDown moves the cursor down and opens/updates the commit view overlay.
+func handlePeekDown(m Model) (tea.Model, tea.Cmd) {
+	m.cursor = moveCursor(m.sections, m.cursor, 1)
+	return openCommitViewForCurrentItem(m)
+}
+
+// handlePeekUp moves the cursor up and opens/updates the commit view overlay.
+func handlePeekUp(m Model) (tea.Model, tea.Cmd) {
+	m.cursor = moveCursor(m.sections, m.cursor, -1)
+	return openCommitViewForCurrentItem(m)
+}
+
+// openCommitViewForCurrentItem opens a commit view overlay for the current commit item.
+func openCommitViewForCurrentItem(m Model) (tea.Model, tea.Cmd) {
+	item, _ := getCurrentItem(m)
+	if item == nil || item.Commit == nil {
+		return m, nil
+	}
+	cv := commitview.New(m.repo, item.Commit.Hash, m.tokens, nil)
+	cv.SetSize(m.width, m.height*60/100)
+	cv.SetOverlayMode(true)
+	m.commitView = &cv
+	return m, cv.Init()
+}
+
 // handleBranchSelected processes a branch selection result.
 func handleBranchSelected(m Model, msg branchselect.SelectedMsg) (tea.Model, tea.Cmd) {
 	kind := m.branchActionKind
@@ -2418,6 +2618,27 @@ func handleBranchSelected(m Model, msg branchselect.SelectedMsg) (tea.Model, tea
 		return m, checkoutBranchCmd(m.repo, msg.Name)
 	case branchActionDelete:
 		return m, deleteBranchCmd(m.repo, msg.Name)
+	case branchActionPushElsewhere:
+		opts := buildPushOpts(popup.Result{Switches: map[string]bool{}, Options: map[string]string{}})
+		opts.Remote = msg.Name
+		opts.Branch = m.head.Branch
+		return m, pushCmd(m.repo, opts)
+	case branchActionPushOther:
+		opts := buildPushOpts(popup.Result{Switches: map[string]bool{}, Options: map[string]string{}})
+		remote, _ := m.repo.SmartDefaultRemote(context.Background())
+		opts.Remote = remote
+		opts.Branch = msg.Name
+		return m, pushCmd(m.repo, opts)
+	case branchActionRebaseElsewhere:
+		opts := m.rebaseSpecialOpts
+		opts.Onto = msg.Name
+		m.rebaseSpecialOpts = git.RebaseOpts{}
+		return m, rebaseCmd(m.repo, opts)
+	case branchActionLogOtherBranch:
+		logOpts := git.LogOpts{MaxCount: 256, Decorate: true}
+		return m, loadLogCmd(m.repo, logOpts, msg.Name)
+	case branchActionBranchConfigure:
+		return m, notifyAppCmd("Branch config for "+msg.Name+" (popup not yet available)", notification.Info)
 	default:
 		return m, nil
 	}

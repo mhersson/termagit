@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-git/go-git/v5"
+	gogit "github.com/go-git/go-git/v5"
 )
 
 // Remote represents a configured git remote.
@@ -354,7 +354,7 @@ func remoteURLToWeb(rawURL string) string {
 // made via shell-out commands.
 func (r *Repository) reloadConfig() {
 	// go-git caches config; re-opening from path forces a refresh
-	if raw, err := git.PlainOpen(r.path); err == nil {
+	if raw, err := gogit.PlainOpen(r.path); err == nil {
 		r.raw = raw
 	}
 }

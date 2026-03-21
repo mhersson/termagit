@@ -10,10 +10,38 @@ func TestMarginPopup_Switches(t *testing.T) {
 	tokens := testTokens()
 	p := NewMarginPopup(tokens, nil)
 
-	// Should have order and decorate switches
-	expectedSwitches := []string{"order", "decorate"}
-	if len(p.switches) != len(expectedSwitches) {
-		t.Errorf("expected %d switches, got %d", len(expectedSwitches), len(p.switches))
+	// "decorate" should be a switch
+	foundDecorate := false
+	for _, sw := range p.switches {
+		if sw.Label == "decorate" {
+			foundDecorate = true
+		}
+	}
+	if !foundDecorate {
+		t.Error("expected 'decorate' switch")
+	}
+}
+
+func TestMarginPopup_OrderOption(t *testing.T) {
+	tokens := testTokens()
+	p := NewMarginPopup(tokens, nil)
+
+	// "o" should be an option (not a switch) for commit ordering
+	foundOrder := false
+	for _, opt := range p.options {
+		if opt.Key == "o" {
+			foundOrder = true
+		}
+	}
+	if !foundOrder {
+		t.Error("expected 'o' as an option for commit ordering")
+	}
+
+	// Should NOT be in switches
+	for _, sw := range p.switches {
+		if sw.Key == "o" {
+			t.Error("'o' should be an option, not a switch")
+		}
 	}
 }
 

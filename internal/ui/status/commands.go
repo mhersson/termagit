@@ -673,25 +673,19 @@ func openTreeCmd(repoPath, filePath string) tea.Cmd {
 	}
 }
 
-// openInEditorCmd opens a file in the user's configured editor.
-//nolint:unused // Phase 4 - used in update.go
+// openInEditorCmd opens a file in the user's configured editor using tea.ExecProcess.
+// This suspends the TUI, runs the editor, then resumes.
 func openInEditorCmd(repoPath, filePath string) tea.Cmd {
-	return func() tea.Msg {
-		editor := os.Getenv("EDITOR")
-		if editor == "" {
-			editor = "vim"
-		}
-
-		fullPath := filepath.Join(repoPath, filePath)
-		cmd := exec.Command(editor, fullPath)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		// This will block until the editor exits
-		// In a TUI app, we need to handle this specially
-		return operationDoneMsg{err: fmt.Errorf("editor opening not yet implemented in TUI")}
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vim"
 	}
+
+	fullPath := filepath.Join(repoPath, filePath)
+	c := exec.Command(editor, fullPath)
+	return tea.ExecProcess(c, func(err error) tea.Msg {
+		return operationDoneMsg{err: err}
+	})
 }
 
 // untrackFileCmd removes a file from the index (git rm --cached).
@@ -994,6 +988,38 @@ func spinOutBranchCmd(repo *git.Repository, name string) tea.Cmd {
 		}
 		err := repo.SpinOutBranch(context.Background(), name)
 		return operationDoneMsg{err: err, op: "Spin-out " + name}
+	}
+}
+
+// pushRefspecCmd pushes an explicit refspec to the default remote.
+func pushRefspecCmd(repo *git.Repository, refspec string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Push refspec"}
+		}
+		ctx := context.Background()
+		remote, _ := repo.SmartDefaultRemote(ctx)
+		if remote == "" {
+			return operationDoneMsg{err: fmt.Errorf("no remote configured"), op: "Push refspec"}
+		}
+		err := repo.Push(ctx, git.PushOpts{Remote: remote, Branch: refspec})
+		return operationDoneMsg{err: err, op: "Push " + refspec}
+	}
+}
+
+// pushTagCmd pushes a tag to the default remote.
+func pushTagCmd(repo *git.Repository, tag string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Push tag"}
+		}
+		ctx := context.Background()
+		remote, _ := repo.SmartDefaultRemote(ctx)
+		if remote == "" {
+			return operationDoneMsg{err: fmt.Errorf("no remote configured"), op: "Push tag"}
+		}
+		err := repo.PushTag(ctx, remote, tag)
+		return operationDoneMsg{err: err, op: "Push tag " + tag}
 	}
 }
 

@@ -216,7 +216,10 @@ func (m Model) handlePendingZ(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) handlePendingOpenScrollUp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.pendingOSU = false
 	if msg.String() == "c" {
-		// [c = OpenOrScrollUp — no-op for now (commit view not yet wired)
+		if m.cursor < len(m.entries) && m.entries[m.cursor].Hash != "" {
+			hash := m.entries[m.cursor].Hash
+			return m, func() tea.Msg { return OpenCommitViewMsg{Hash: hash} }
+		}
 		return m, nil
 	}
 	return m, nil
@@ -226,7 +229,10 @@ func (m Model) handlePendingOpenScrollUp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) handlePendingOpenScrollDown(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.pendingOSD = false
 	if msg.String() == "c" {
-		// ]c = OpenOrScrollDown — no-op for now (commit view not yet wired)
+		if m.cursor < len(m.entries) && m.entries[m.cursor].Hash != "" {
+			hash := m.entries[m.cursor].Hash
+			return m, func() tea.Msg { return OpenCommitViewMsg{Hash: hash} }
+		}
 		return m, nil
 	}
 	return m, nil

@@ -12,22 +12,22 @@ func NewBisectPopup(tokens theme.Tokens, state *State, inProgress, finished bool
 
 	if !inProgress {
 		// Not in-progress switches
-		p.AddSwitch("r", "no-checkout", "Don't checkout the commit", false)
-		p.AddSwitch("p", "first-parent", "Follow only the first parent commit upon seeing a merge commit", false)
+		p.AddSwitch("r", "no-checkout", "Don't checkout commits", false)
+		p.AddSwitch("p", "first-parent", "Follow only first parent of a merge", false)
 
 		// Not in-progress actions
-		p.AddActionGroup("", []Action{
+		p.AddActionGroup("Bisect", []Action{
 			{Key: "B", Label: "Start"},
 			{Key: "S", Label: "Scripted"},
 		})
 	} else if finished {
 		// In-progress and finished
-		p.AddActionGroup("", []Action{
+		p.AddActionGroup("Actions", []Action{
 			{Key: "r", Label: "Reset"},
 		})
 	} else {
 		// In-progress but not finished
-		p.AddActionGroup("", []Action{
+		p.AddActionGroup("Actions", []Action{
 			{Key: "b", Label: "Bad"},
 			{Key: "g", Label: "Good"},
 			{Key: "s", Label: "Skip"},

@@ -97,6 +97,30 @@ func TestBisectPopup_InProgress_Finished_Actions(t *testing.T) {
 	}
 }
 
+func TestBisectPopup_NotInProgress_GroupHeading(t *testing.T) {
+	tokens := testTokens()
+	p := NewBisectPopup(tokens, nil, false, false)
+
+	if len(p.groups) == 0 {
+		t.Fatal("expected action groups")
+	}
+	if p.groups[0].Title != "Bisect" {
+		t.Errorf("not-in-progress group heading: expected %q, got %q", "Bisect", p.groups[0].Title)
+	}
+}
+
+func TestBisectPopup_InProgress_GroupHeading(t *testing.T) {
+	tokens := testTokens()
+	p := NewBisectPopup(tokens, nil, true, false)
+
+	if len(p.groups) == 0 {
+		t.Fatal("expected action groups")
+	}
+	if p.groups[0].Title != "Actions" {
+		t.Errorf("in-progress group heading: expected %q, got %q", "Actions", p.groups[0].Title)
+	}
+}
+
 func TestBisectPopup_Start(t *testing.T) {
 	tokens := testTokens()
 	p := NewBisectPopup(tokens, nil, false, false)

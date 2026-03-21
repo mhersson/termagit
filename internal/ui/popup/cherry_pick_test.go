@@ -35,9 +35,9 @@ func TestCherryPickPopup_InProgress_Actions(t *testing.T) {
 
 	// When in progress, should have continue, skip, abort
 	expectedActions := map[string]string{
-		"A": "Continue",
-		"s": "Skip",
-		"a": "Abort",
+		"A": "continue",
+		"s": "skip",
+		"a": "abort",
 	}
 
 	for _, g := range p.groups {
@@ -60,12 +60,12 @@ func TestCherryPickPopup_XSwitchLabel(t *testing.T) {
 	tokens := testTokens()
 	p := NewCherryPickPopup(tokens, nil, false)
 
-	// The -x switch must be labeled "reference-in-message" per PHASE_6 / Neogit
+	// Neogit uses -x with cli_prefix="-", label is just "x"
 	var found bool
 	for _, sw := range p.switches {
 		if sw.Key == "x" {
-			if sw.Label != "reference-in-message" {
-				t.Errorf("switch -x label: expected %q, got %q", "reference-in-message", sw.Label)
+			if sw.Label != "x" {
+				t.Errorf("switch -x label: expected %q, got %q", "x", sw.Label)
 			}
 			found = true
 		}
@@ -73,6 +73,60 @@ func TestCherryPickPopup_XSwitchLabel(t *testing.T) {
 
 	if !found {
 		t.Error("expected switch with key 'x'")
+	}
+}
+
+func TestCherryPickPopup_FFEnabledByDefault(t *testing.T) {
+	tokens := testTokens()
+	p := NewCherryPickPopup(tokens, nil, false)
+
+	for _, sw := range p.switches {
+		if sw.Label == "ff" {
+			if !sw.Enabled {
+				t.Error("'ff' switch should be enabled by default")
+			}
+			return
+		}
+	}
+	t.Error("'ff' switch not found")
+}
+
+func TestCherryPickPopup_FFEditIncompatible(t *testing.T) {
+	tokens := testTokens()
+	p := NewCherryPickPopup(tokens, nil, false)
+	p.SetSize(80, 24)
+
+	// Enable edit (should disable ff since they're incompatible)
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'-'}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+
+	var ffEnabled, editEnabled bool
+	for _, sw := range p.switches {
+		if sw.Label == "ff" {
+			ffEnabled = sw.Enabled
+		}
+		if sw.Label == "edit" {
+			editEnabled = sw.Enabled
+		}
+	}
+
+	if !editEnabled {
+		t.Error("edit should be enabled")
+	}
+	if ffEnabled {
+		t.Error("ff should be disabled when edit is enabled (incompatible)")
+	}
+}
+
+func TestCherryPickPopup_InProgress_GroupHeading(t *testing.T) {
+	tokens := testTokens()
+	p := NewCherryPickPopup(tokens, nil, true)
+
+	if len(p.groups) == 0 {
+		t.Fatal("expected action groups")
+	}
+	if p.groups[0].Title != "Cherry Pick" {
+		t.Errorf("in-progress group heading: expected %q, got %q", "Cherry Pick", p.groups[0].Title)
 	}
 }
 
