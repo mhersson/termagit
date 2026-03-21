@@ -1,8 +1,6 @@
 package status
 
 import (
-	"time"
-
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -290,19 +288,18 @@ type Model struct {
 	head     HeadState
 	sections []Section
 	cursor   Cursor
-	viewport viewport.Model //nolint:unused // Phase 4
+	viewport viewport.Model
 
-	loading     bool
-	lastRefresh time.Time //nolint:unused // Phase 4
+	loading bool
 
 	// Active popup (nil = none)
 	popup     *popup.Popup
 	popupKind PopupKind
 
 	// Confirmation state
-	confirmMode ConfirmMode //nolint:unused // Phase 4 - used in update.go
-	confirmPath string      //nolint:unused // Phase 4 - used in view.go
-	confirmHunk int         //nolint:unused // Phase 4 - hunk index for ConfirmDiscardHunk
+	confirmMode ConfirmMode
+	confirmPath string
+	confirmHunk int
 
 	// Cursor restore after stage/unstage/discard
 	pendingRestore cursorRestore
@@ -311,14 +308,13 @@ type Model struct {
 	pendingHunkRestore hunkRestore
 
 	// Peek file preview state
-	peekActive   bool            //nolint:unused // Phase 4 - used in view.go
-	peekPath     string          //nolint:unused // Phase 4 - used in view.go
-	peekContent  string          //nolint:unused // Phase 4 - used in view.go
-	peekViewport viewport.Model  //nolint:unused // Phase 4 - used in view.go
+	peekActive   bool
+	peekPath     string
+	peekContent  string
+	peekViewport viewport.Model
 
 	// Notification bar
 	notification string
-	notifyExpiry time.Time //nolint:unused // Phase 4
 
 	// Pending key for multi-key sequences (e.g., "gg")
 	pendingKey string
@@ -351,6 +347,9 @@ type Model struct {
 	// Pending reset action (waiting for commit select result)
 	resetActionKind resetActionKind
 	resetMode       git.ResetMode
+
+	// Pending tag options (captured from popup before text input)
+	tagOpts git.TagOpts
 
 	// Inline text input prompt (for branch name entry)
 	inputPromptKind  inputPromptKind

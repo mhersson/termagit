@@ -158,7 +158,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case SwitchScreenMsg:
 		m.active = msg.Screen
-		// Additional screen initialization will be added in future phases
 		return m, nil
 
 	// Command history
@@ -275,7 +274,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case reflogview.OpenCommitViewMsg:
 		return m.openCommitView(msg.Hash, nil)
-
 
 	// Commit view
 	case commitview.OpenCommitViewMsg:

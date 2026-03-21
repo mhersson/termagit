@@ -9,16 +9,16 @@ import (
 func NewIgnorePopup(tokens theme.Tokens, state *State, hasGlobalIgnore bool) Popup {
 	p := New("Ignore", tokens)
 
-	// Gitignore actions
+	// Gitignore actions — labels match Neogit's formatting with path examples
 	actions := []Action{
-		{Key: "t", Label: "shared at top-level (.gitignore)"},
-		{Key: "s", Label: "shared in sub-directory"},
-		{Key: "p", Label: "privately for this repository"},
+		{Key: "t", Label: "shared at top-level            (.gitignore)"},
+		{Key: "s", Label: "shared in sub-directory        (path/to/.gitignore)"},
+		{Key: "p", Label: "privately for this repository  (.git/info/exclude)"},
 	}
 
 	// Only show global option if global ignore file exists
 	if hasGlobalIgnore {
-		actions = append(actions, Action{Key: "g", Label: "globally for this user"})
+		actions = append(actions, Action{Key: "g", Label: "privately for all repositories"})
 	}
 
 	p.AddActionGroup("Gitignore", actions)

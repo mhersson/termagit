@@ -16,7 +16,7 @@ func NewFetchPopup(tokens theme.Tokens, state *State, params FetchPopupParams) P
 	p := New("Fetch", tokens)
 
 	// Switches
-	p.AddSwitch("p", "prune", "Prune remote tracking branches no longer on remote", false)
+	p.AddSwitch("p", "prune", "Prune deleted branches", false)
 	p.AddSwitch("t", "tags", "Fetch all tags", false)
 	p.AddSwitch("F", "force", "Force", false)
 

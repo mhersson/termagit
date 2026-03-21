@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"fmt"
+	"strconv"
 )
 
 // CherryPickOpts configures a cherry-pick operation.
@@ -21,7 +22,7 @@ func cherryPickArgs(opts CherryPickOpts) []string {
 	var args []string
 
 	if opts.Mainline > 0 {
-		args = append(args, "-m", itoa(opts.Mainline))
+		args = append(args, "-m", strconv.Itoa(opts.Mainline))
 	}
 	if opts.Strategy != "" {
 		args = append(args, "--strategy", opts.Strategy)
@@ -116,20 +117,3 @@ func (r *Repository) CherryPickDonate(ctx context.Context, hashes []string, src,
 	return nil
 }
 
-// itoa converts an int to a string without importing strconv.
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	if n < 0 {
-		return "-" + itoa(-n)
-	}
-	var buf [20]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(buf[i:])
-}

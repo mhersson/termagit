@@ -23,37 +23,55 @@ func (r *Repository) StageFile(ctx context.Context, path string) error {
 // UnstageFile removes a file from the staging area.
 func (r *Repository) UnstageFile(ctx context.Context, path string) error {
 	_, err := r.runGit(ctx, "reset", "--", path)
-	return err
+	if err != nil {
+		return fmt.Errorf("unstage file %s: %w", path, err)
+	}
+	return nil
 }
 
 // StageAll stages all changes in the working tree.
 func (r *Repository) StageAll(ctx context.Context) error {
 	_, err := r.runGit(ctx, "add", "-A")
-	return err
+	if err != nil {
+		return fmt.Errorf("stage all: %w", err)
+	}
+	return nil
 }
 
 // UnstageAll removes all files from the staging area.
 func (r *Repository) UnstageAll(ctx context.Context) error {
 	_, err := r.runGit(ctx, "reset")
-	return err
+	if err != nil {
+		return fmt.Errorf("unstage all: %w", err)
+	}
+	return nil
 }
 
 // DiscardFile discards changes to a file in the working tree.
 func (r *Repository) DiscardFile(ctx context.Context, path string) error {
 	_, err := r.runGit(ctx, "checkout", "--", path)
-	return err
+	if err != nil {
+		return fmt.Errorf("discard file %s: %w", path, err)
+	}
+	return nil
 }
 
 // UntrackFile removes a file from the index but keeps it in the working tree.
 func (r *Repository) UntrackFile(ctx context.Context, path string) error {
 	_, err := r.runGit(ctx, "rm", "--cached", path)
-	return err
+	if err != nil {
+		return fmt.Errorf("untrack file %s: %w", path, err)
+	}
+	return nil
 }
 
 // RenameFile renames a file in the index and working tree.
 func (r *Repository) RenameFile(ctx context.Context, oldPath, newPath string) error {
 	_, err := r.runGit(ctx, "mv", oldPath, newPath)
-	return err
+	if err != nil {
+		return fmt.Errorf("rename file %s to %s: %w", oldPath, newPath, err)
+	}
+	return nil
 }
 
 // StageHunk stages a specific hunk of a file.

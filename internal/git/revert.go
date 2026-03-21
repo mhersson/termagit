@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"strconv"
 )
 
 // RevertOpts configures a revert operation.
@@ -19,7 +20,7 @@ func revertArgs(opts RevertOpts) []string {
 	var args []string
 
 	if opts.Mainline > 0 {
-		args = append(args, "-m", itoa(opts.Mainline))
+		args = append(args, "-m", strconv.Itoa(opts.Mainline))
 	}
 	if opts.Strategy != "" {
 		args = append(args, "--strategy", opts.Strategy)

@@ -2602,9 +2602,13 @@ func handleInputPromptKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case inputPromptWorktreePath:
 			return m, worktreeAddCmd(m.repo, name, m.head.Branch)
 		case inputPromptTagName:
-			return m, tagCreateCmd(m.repo, name, "HEAD", git.TagOpts{})
+			opts := m.tagOpts
+			m.tagOpts = git.TagOpts{}
+			return m, tagCreateCmd(m.repo, name, "HEAD", opts)
 		case inputPromptTagRelease:
-			return m, tagCreateCmd(m.repo, name, "HEAD", git.TagOpts{Annotate: true})
+			opts := m.tagOpts
+			m.tagOpts = git.TagOpts{}
+			return m, tagCreateCmd(m.repo, name, "HEAD", opts)
 		case inputPromptTagDelete:
 			return m, tagDeleteCmd(m.repo, name)
 		case inputPromptRemoteName:
@@ -3217,10 +3221,15 @@ func handleResetCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.Model
 
 // handleTagPopupAction handles actions from the tag popup.
 func handleTagPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	opts := buildTagOpts(result)
+	m.tagOpts = opts
+
 	switch result.Action {
 	case "t": // create tag
 		return openBranchInput(m, inputPromptTagName, "Tag name: ")
 	case "r": // release tag
+		opts.Annotate = true
+		m.tagOpts = opts
 		return openBranchInput(m, inputPromptTagRelease, "Release tag name: ")
 	case "x": // delete tag
 		return openBranchInput(m, inputPromptTagDelete, "Delete tag: ")

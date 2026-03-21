@@ -10,8 +10,8 @@ func NewStashPopup(tokens theme.Tokens, state *State) Popup {
 	p := New("Stash", tokens)
 
 	// Switches
-	p.AddSwitch("u", "include-untracked", "Include untracked files", false)
-	p.AddSwitch("a", "all", "Include untracked and ignored files", false)
+	p.AddSwitch("u", "include-untracked", "Also save untracked files", false)
+	p.AddSwitch("a", "all", "Also save untracked and ignored files", false)
 	p.SetIncompatible("u", "a")
 
 	// Stash group

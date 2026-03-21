@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
+	"strconv"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/config"
@@ -77,7 +77,7 @@ func loadStatusCmd(repo *git.Repository, cfg *config.Config) tea.Cmd {
 		if repo.MergeInProgress() {
 			mergeHead, mergeSubject, mergeBranch, _ := repo.ReadMergeState()
 			if mergeHead != "" {
-				sec := buildMergeSection(cfg, mergeBranch, mergeSubject)
+				sec := buildMergeSection(cfg, mergeBranch, mergeHead, mergeSubject)
 				if sec != nil {
 					sections = append(sections, *sec)
 				}
@@ -285,7 +285,7 @@ func loadStatusCmd(repo *git.Repository, cfg *config.Config) tea.Cmd {
 }
 
 // buildMergeSection builds the merge sequencer section.
-func buildMergeSection(cfg *config.Config, branch, subject string) *Section {
+func buildMergeSection(cfg *config.Config, branch, head, subject string) *Section {
 	if getSectionConfig(cfg, SectionSequencer).Hidden {
 		return nil
 	}
@@ -293,12 +293,20 @@ func buildMergeSection(cfg *config.Config, branch, subject string) *Section {
 	if branch != "" {
 		title = "Merging " + branch
 	}
+	abbrev := head
+	if len(abbrev) > 7 {
+		abbrev = abbrev[:7]
+	}
 	return &Section{
 		Kind:   SectionSequencer,
 		Title:  title,
 		Folded: getSectionConfig(cfg, SectionSequencer).Folded,
 		Hidden: false,
-		Items:  nil, // Merge doesn't have items, just the header
+		Items: []Item{{
+			Action:        "merge",
+			ActionHash:    abbrev,
+			ActionSubject: subject,
+		}},
 	}
 }
 
@@ -320,7 +328,7 @@ func buildRebaseSection(cfg *config.Config, state git.RebaseState) *Section {
 		}
 	}
 	if state.Total > 0 {
-		title += " (" + itoa(state.Current) + "/" + itoa(state.Total) + ")"
+		title += " (" + strconv.Itoa(state.Current) + "/" + strconv.Itoa(state.Total) + ")"
 	}
 
 	var items []Item
@@ -356,7 +364,7 @@ func buildSequencerSection(cfg *config.Config, state git.SequencerState) *Sectio
 		title = "Reverting"
 	}
 	if len(state.Items) > 0 {
-		title += " (" + itoa(len(state.Items)) + ")"
+		title += " (" + strconv.Itoa(len(state.Items)) + ")"
 	}
 
 	var items []Item
@@ -421,25 +429,6 @@ func getPushRemoteRef(repo *git.Repository) string {
 	return remote + "/" + branch
 }
 
-// itoa converts int to string without importing strconv.
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var digits []byte
-	negative := n < 0
-	if negative {
-		n = -n
-	}
-	for n > 0 {
-		digits = append([]byte{byte('0' + n%10)}, digits...)
-		n /= 10
-	}
-	if negative {
-		digits = append([]byte{'-'}, digits...)
-	}
-	return string(digits)
-}
 
 // loadHunksCmd loads diff hunks for a file.
 func loadHunksCmd(repo *git.Repository, sIdx, iIdx int, entry *git.StatusEntry, kind git.DiffKind) tea.Cmd {
@@ -487,8 +476,7 @@ func loadHunksCmd(repo *git.Repository, sIdx, iIdx int, entry *git.StatusEntry, 
 }
 
 // stageFileCmd stages a file.
-//
-//nolint:unused // Phase 4
+
 func stageFileCmd(repo *git.Repository, path string) tea.Cmd {
 	return func() tea.Msg {
 		err := repo.StageFile(context.Background(), path)
@@ -497,8 +485,7 @@ func stageFileCmd(repo *git.Repository, path string) tea.Cmd {
 }
 
 // unstageFileCmd unstages a file.
-//
-//nolint:unused // Phase 4
+
 func unstageFileCmd(repo *git.Repository, path string) tea.Cmd {
 	return func() tea.Msg {
 		err := repo.UnstageFile(context.Background(), path)
@@ -507,22 +494,12 @@ func unstageFileCmd(repo *git.Repository, path string) tea.Cmd {
 }
 
 // discardFileCmd discards changes to a file.
-//
-//nolint:unused // Phase 4
+
 func discardFileCmd(repo *git.Repository, path string) tea.Cmd {
 	return func() tea.Msg {
 		err := repo.DiscardFile(context.Background(), path)
 		return operationDoneMsg{err: err}
 	}
-}
-
-// notifyCmd returns a command that sends notificationExpiredMsg after duration.
-//
-//nolint:unused // Phase 4
-func notifyCmd(d time.Duration) tea.Cmd {
-	return tea.Tick(d, func(time.Time) tea.Msg {
-		return notificationExpiredMsg{}
-	})
 }
 
 // notifyAppCmd returns a command that sends a notification.NotifyMsg to the app layer.
@@ -577,8 +554,7 @@ func getSectionConfig(cfg *config.Config, kind SectionKind) config.SectionConfig
 }
 
 // loadPeekFileCmd loads file content for the peek preview pane.
-//
-//nolint:unused // Phase 4 - used in update.go
+
 func loadPeekFileCmd(repoPath, filePath string) tea.Cmd {
 	return func() tea.Msg {
 		fullPath := filepath.Join(repoPath, filePath)
@@ -618,7 +594,6 @@ func discardHunkCmd(repo *git.Repository, path string, hunk git.Hunk) tea.Cmd {
 }
 
 // stageAllUnstagedCmd stages all unstaged files.
-//nolint:unused // Phase 4 - used in update.go
 func stageAllUnstagedCmd(repo *git.Repository) tea.Cmd {
 	return func() tea.Msg {
 		// git add -u stages all modified/deleted files (not untracked)
@@ -628,7 +603,6 @@ func stageAllUnstagedCmd(repo *git.Repository) tea.Cmd {
 }
 
 // unstageAllStagedCmd unstages all staged files.
-//nolint:unused // Phase 4 - used in update.go
 func unstageAllStagedCmd(repo *git.Repository) tea.Cmd {
 	return func() tea.Msg {
 		err := repo.UnstageAll(context.Background())
@@ -637,8 +611,7 @@ func unstageAllStagedCmd(repo *git.Repository) tea.Cmd {
 }
 
 // yankToClipboardCmd copies text to clipboard using platform clipboard tools.
-//
-//nolint:unused // Phase 4 - used in update.go
+
 func yankToClipboardCmd(text string) tea.Cmd {
 	return func() tea.Msg {
 		err := platform.CopyToClipboard(text)
@@ -647,7 +620,6 @@ func yankToClipboardCmd(text string) tea.Cmd {
 }
 
 // openTreeCmd opens the directory containing a file in the system file manager.
-//nolint:unused // Phase 4 - used in update.go
 func openTreeCmd(repoPath, filePath string) tea.Cmd {
 	return func() tea.Msg {
 		dir := filepath.Dir(filepath.Join(repoPath, filePath))
@@ -672,7 +644,6 @@ func openInEditorCmd(repoPath, filePath string) tea.Cmd {
 }
 
 // untrackFileCmd removes a file from the index (git rm --cached).
-//nolint:unused // Phase 4 - used in update.go
 func untrackFileCmd(repo *git.Repository, path string) tea.Cmd {
 	return func() tea.Msg {
 		err := repo.UntrackFile(context.Background(), path)
@@ -682,7 +653,6 @@ func untrackFileCmd(repo *git.Repository, path string) tea.Cmd {
 
 // renameFileCmd renames a file (git mv).
 //
-//nolint:unused // Phase 4 - used when rename prompt is implemented
 func renameFileCmd(repo *git.Repository, oldPath, newPath string) tea.Cmd {
 	return func() tea.Msg {
 		err := repo.RenameFile(context.Background(), oldPath, newPath)

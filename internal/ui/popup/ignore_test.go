@@ -12,10 +12,10 @@ func TestIgnorePopup_Actions(t *testing.T) {
 
 	// Should have gitignore actions
 	expectedActions := map[string]string{
-		"t": "shared at top-level (.gitignore)",
-		"s": "shared in sub-directory",
-		"p": "privately for this repository",
-		"g": "globally for this user",
+		"t": "shared at top-level            (.gitignore)",
+		"s": "shared in sub-directory        (path/to/.gitignore)",
+		"p": "privately for this repository  (.git/info/exclude)",
+		"g": "privately for all repositories",
 	}
 
 	for _, g := range p.groups {

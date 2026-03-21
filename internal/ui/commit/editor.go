@@ -50,8 +50,6 @@ type Model struct {
 	aborted       bool
 	generating    bool   // true while an external generate command is running
 	repoPath      string // working directory for external commands
-	hash          string //nolint:unused // Stores commit hash after successful commit
-	err           error  //nolint:unused // Stores error from commit operation
 }
 
 // New creates a new commit editor model.
