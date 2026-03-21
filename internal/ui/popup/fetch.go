@@ -18,7 +18,7 @@ func NewFetchPopup(tokens theme.Tokens, state *State, params FetchPopupParams) P
 	// Switches
 	p.AddSwitch("p", "prune", "Prune deleted branches", false)
 	p.AddSwitch("t", "tags", "Fetch all tags", false)
-	p.AddSwitch("F", "force", "Force", false)
+	p.AddSwitchNonPersisted("F", "force", "force", false)
 
 	pushLabel := params.PushRemoteLabel
 	if pushLabel == "" {

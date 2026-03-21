@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"fmt"
 	"strings"
 )
 
@@ -9,7 +10,7 @@ import (
 func (r *Repository) ListSubmodules(ctx context.Context) ([]string, error) {
 	out, err := r.runGit(ctx, "submodule", "status")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list submodules: %w", err)
 	}
 
 	out = strings.TrimSpace(out)

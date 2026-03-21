@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -46,7 +47,7 @@ func (r *Repository) Reflog(ctx context.Context, ref string, n int) ([]ReflogEnt
 
 	out, err := r.runGit(ctx, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reflog %s: %w", ref, err)
 	}
 
 	return parseReflogOutput(out), nil

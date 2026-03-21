@@ -73,29 +73,44 @@ func (r *Repository) Rebase(ctx context.Context, opts RebaseOpts) error {
 	if opts.Interactive {
 		// Use GIT_SEQUENCE_EDITOR=true to accept the default todo and pause
 		_, err := r.runGitWithEnv(ctx, []string{"GIT_SEQUENCE_EDITOR=true"}, args...)
-		return err
+		if err != nil {
+			return fmt.Errorf("rebase interactive: %w", err)
+		}
+		return nil
 	}
 
 	_, err := r.runGit(ctx, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("rebase: %w", err)
+	}
+	return nil
 }
 
 // RebaseContinue continues an in-progress rebase.
 func (r *Repository) RebaseContinue(ctx context.Context) error {
 	_, err := r.runGit(ctx, "rebase", "--continue")
-	return err
+	if err != nil {
+		return fmt.Errorf("rebase continue: %w", err)
+	}
+	return nil
 }
 
 // RebaseSkip skips the current commit in an in-progress rebase.
 func (r *Repository) RebaseSkip(ctx context.Context) error {
 	_, err := r.runGit(ctx, "rebase", "--skip")
-	return err
+	if err != nil {
+		return fmt.Errorf("rebase skip: %w", err)
+	}
+	return nil
 }
 
 // RebaseAbort aborts an in-progress rebase and restores the original state.
 func (r *Repository) RebaseAbort(ctx context.Context) error {
 	_, err := r.runGit(ctx, "rebase", "--abort")
-	return err
+	if err != nil {
+		return fmt.Errorf("rebase abort: %w", err)
+	}
+	return nil
 }
 
 // RebaseOnto rebases a range of commits onto a specific target.
@@ -106,18 +121,27 @@ func (r *Repository) RebaseOnto(ctx context.Context, onto, from string, opts Reb
 
 	if opts.Interactive {
 		_, err := r.runGitWithEnv(ctx, []string{"GIT_SEQUENCE_EDITOR=true"}, args...)
-		return err
+		if err != nil {
+			return fmt.Errorf("rebase onto %s: %w", onto, err)
+		}
+		return nil
 	}
 
 	_, err := r.runGit(ctx, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("rebase onto %s: %w", onto, err)
+	}
+	return nil
 }
 
 // DropCommit removes a commit from history via rebase --onto.
 // Equivalent to: git rebase --onto <hash>^ <hash>
 func (r *Repository) DropCommit(ctx context.Context, hash string) error {
 	_, err := r.runGit(ctx, "rebase", "--onto", hash+"^", hash)
-	return err
+	if err != nil {
+		return fmt.Errorf("drop commit %s: %w", hash, err)
+	}
+	return nil
 }
 
 // RewordCommit rewrites the commit message of the given commit using
@@ -172,5 +196,8 @@ func (r *Repository) Autosquash(ctx context.Context, opts RebaseOpts) error {
 	args = append(args, target)
 
 	_, err = r.runGitWithEnv(ctx, []string{"GIT_SEQUENCE_EDITOR=true"}, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("autosquash: %w", err)
+	}
+	return nil
 }

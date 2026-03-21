@@ -36,6 +36,7 @@ type Config struct {
 	Label       string // config key (e.g., "branch.main.description")
 	Description string
 	Value       string
+	Choices     []string // if non-empty, cycle through these instead of free-text
 }
 
 // Action represents an executable action in a popup.
@@ -78,8 +79,9 @@ type Popup struct {
 	// pending key for two-key sequences (e.g., "-a")
 	pendingKey string
 
-	// option value editing
-	editingOption int // index into options, -1 when not editing
+	// option/config value editing
+	editingOption int  // index into options, -1 when not editing
+	editingConfig int  // index into config, -1 when not editing
 	optionInput   textinput.Model
 
 	done   bool
@@ -93,6 +95,7 @@ func New(title string, tokens theme.Tokens) Popup {
 		tokens:        tokens,
 		incompatible:  make(map[string][]string),
 		editingOption: -1,
+		editingConfig: -1,
 		result: Result{
 			Switches: make(map[string]bool),
 			Options:  make(map[string]string),
@@ -174,6 +177,17 @@ func (p *Popup) AddConfig(key, label, description, value string) {
 	})
 }
 
+// AddConfigWithChoices adds a config item with predefined choices that cycle on key press.
+func (p *Popup) AddConfigWithChoices(key, label, description, value string, choices []string) {
+	p.config = append(p.config, Config{
+		Key:         key,
+		Label:       label,
+		Description: description,
+		Value:       value,
+		Choices:     choices,
+	})
+}
+
 // GetConfig returns the config items for reading or mutation.
 func (p *Popup) GetConfig() []Config {
 	return p.config
@@ -220,9 +234,12 @@ func (p Popup) Update(msg tea.Msg) (Popup, tea.Cmd) {
 func (p Popup) handleKey(msg tea.KeyMsg) (Popup, tea.Cmd) {
 	keyStr := msg.String()
 
-	// Handle option editing mode
+	// Handle option/config editing mode
 	if p.editingOption >= 0 {
 		return p.handleOptionInput(msg)
+	}
+	if p.editingConfig >= 0 {
+		return p.handleConfigInput(msg)
 	}
 
 	// Handle escape
@@ -289,6 +306,27 @@ func (p Popup) handleKey(msg tea.KeyMsg) (Popup, tea.Cmd) {
 		return p, nil
 	}
 
+	// Check for config keys (config items are interactive in Neogit)
+	for i := range p.config {
+		if p.config[i].Key == keyStr {
+			if len(p.config[i].Choices) > 0 {
+				// Cycle through choices
+				p.config[i].Value = cycleChoice(p.config[i].Value, p.config[i].Choices)
+			} else if p.config[i].Value != "" {
+				// Clear value
+				p.config[i].Value = ""
+			} else {
+				// Start editing
+				p.editingConfig = i
+				ti := textinput.New()
+				ti.Prompt = p.config[i].Description + "="
+				ti.Focus()
+				p.optionInput = ti
+			}
+			return p, nil
+		}
+	}
+
 	// Check for action keys
 	for _, group := range p.groups {
 		for _, action := range group.Actions {
@@ -317,6 +355,22 @@ func (p Popup) handleOptionInput(msg tea.KeyMsg) (Popup, tea.Cmd) {
 	case tea.KeyEscape:
 		// Cancel: discard and stop editing
 		p.editingOption = -1
+		return p, nil
+	default:
+		var cmd tea.Cmd
+		p.optionInput, cmd = p.optionInput.Update(msg)
+		return p, cmd
+	}
+}
+
+func (p Popup) handleConfigInput(msg tea.KeyMsg) (Popup, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEnter:
+		p.config[p.editingConfig].Value = p.optionInput.Value()
+		p.editingConfig = -1
+		return p, nil
+	case tea.KeyEscape:
+		p.editingConfig = -1
 		return p, nil
 	default:
 		var cmd tea.Cmd

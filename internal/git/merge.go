@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"fmt"
 )
 
 // MergeOpts configures a merge operation.
@@ -53,17 +54,26 @@ func (r *Repository) Merge(ctx context.Context, opts MergeOpts) error {
 	args = append(args, opts.Branch)
 
 	_, err := r.runGit(ctx, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("merge %s: %w", opts.Branch, err)
+	}
+	return nil
 }
 
 // MergeAbort aborts an in-progress merge.
 func (r *Repository) MergeAbort(ctx context.Context) error {
 	_, err := r.runGit(ctx, "merge", "--abort")
-	return err
+	if err != nil {
+		return fmt.Errorf("merge abort: %w", err)
+	}
+	return nil
 }
 
 // MergeCommit commits an in-progress merge (after conflict resolution).
 func (r *Repository) MergeCommit(ctx context.Context) error {
 	_, err := r.runGit(ctx, "commit", "--no-edit")
-	return err
+	if err != nil {
+		return fmt.Errorf("merge commit: %w", err)
+	}
+	return nil
 }

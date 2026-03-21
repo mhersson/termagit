@@ -18,7 +18,8 @@ func NewRemotePopup(tokens theme.Tokens, state *State, remoteName string) Popup 
 		p.AddConfig("U", "remote."+remoteName+".fetch", "Fetch refspec", "")
 		p.AddConfig("s", "remote."+remoteName+".pushurl", "Push URL", "")
 		p.AddConfig("S", "remote."+remoteName+".push", "Push refspec", "")
-		p.AddConfig("O", "remote."+remoteName+".tagOpt", "Tag option", "")
+		p.AddConfigWithChoices("O", "remote."+remoteName+".tagOpt", "Tag option", "",
+			[]string{"--no-tags", "--tags"})
 	}
 
 	// Actions group 1

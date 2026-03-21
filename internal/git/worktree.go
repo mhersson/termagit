@@ -40,7 +40,10 @@ func (r *Repository) ListWorktrees(ctx context.Context) ([]GitWorktree, error) {
 // AddWorktree adds a worktree for an existing branch.
 func (r *Repository) AddWorktree(ctx context.Context, path, branch string) error {
 	_, err := r.runGit(ctx, "worktree", "add", path, branch)
-	return err
+	if err != nil {
+		return fmt.Errorf("add worktree %s: %w", path, err)
+	}
+	return nil
 }
 
 // AddWorktreeNewBranch creates a new branch and adds a worktree for it.
@@ -50,7 +53,10 @@ func (r *Repository) AddWorktreeNewBranch(ctx context.Context, path, branch, bas
 		args = append(args, base)
 	}
 	_, err := r.runGit(ctx, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("add worktree branch %s: %w", branch, err)
+	}
+	return nil
 }
 
 // RemoveWorktree removes a linked worktree.
@@ -60,13 +66,19 @@ func (r *Repository) RemoveWorktree(ctx context.Context, path string, force bool
 		args = []string{"worktree", "remove", "--force", path}
 	}
 	_, err := r.runGit(ctx, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("remove worktree %s: %w", path, err)
+	}
+	return nil
 }
 
 // MoveWorktree moves a linked worktree to a new path.
 func (r *Repository) MoveWorktree(ctx context.Context, oldPath, newPath string) error {
 	_, err := r.runGit(ctx, "worktree", "move", oldPath, newPath)
-	return err
+	if err != nil {
+		return fmt.Errorf("move worktree: %w", err)
+	}
+	return nil
 }
 
 // LockWorktree prevents a worktree from being pruned.
@@ -76,13 +88,19 @@ func (r *Repository) LockWorktree(ctx context.Context, path, reason string) erro
 		args = append(args, "--reason", reason)
 	}
 	_, err := r.runGit(ctx, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("lock worktree %s: %w", path, err)
+	}
+	return nil
 }
 
 // UnlockWorktree removes the lock from a worktree.
 func (r *Repository) UnlockWorktree(ctx context.Context, path string) error {
 	_, err := r.runGit(ctx, "worktree", "unlock", path)
-	return err
+	if err != nil {
+		return fmt.Errorf("unlock worktree %s: %w", path, err)
+	}
+	return nil
 }
 
 // GotoWorktree is a no-op in the git package; in the TUI layer, changing

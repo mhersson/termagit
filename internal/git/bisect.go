@@ -27,7 +27,10 @@ func (r *Repository) BisectStart(ctx context.Context, bad string, goods []string
 	args = append(args, goods...)
 
 	_, err := r.runGit(ctx, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("bisect start: %w", err)
+	}
+	return nil
 }
 
 // BisectGood marks a commit as good.
@@ -37,7 +40,10 @@ func (r *Repository) BisectGood(ctx context.Context, hash string) error {
 		args = append(args, hash)
 	}
 	_, err := r.runGit(ctx, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("bisect good: %w", err)
+	}
+	return nil
 }
 
 // BisectBad marks a commit as bad.
@@ -47,7 +53,10 @@ func (r *Repository) BisectBad(ctx context.Context, hash string) error {
 		args = append(args, hash)
 	}
 	_, err := r.runGit(ctx, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("bisect bad: %w", err)
+	}
+	return nil
 }
 
 // BisectSkip marks a commit as untestable.
@@ -57,13 +66,19 @@ func (r *Repository) BisectSkip(ctx context.Context, hash string) error {
 		args = append(args, hash)
 	}
 	_, err := r.runGit(ctx, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("bisect skip: %w", err)
+	}
+	return nil
 }
 
 // BisectReset ends the bisect session and returns to the original HEAD.
 func (r *Repository) BisectReset(ctx context.Context) error {
 	_, err := r.runGit(ctx, "bisect", "reset")
-	return err
+	if err != nil {
+		return fmt.Errorf("bisect reset: %w", err)
+	}
+	return nil
 }
 
 // BisectRun runs a script for automated bisecting.

@@ -9,32 +9,33 @@ import (
 func NewLogPopup(tokens theme.Tokens, state *State) Popup {
 	p := New("Log", tokens)
 
-	// Commit Limiting options
+	// Commit Limiting
 	p.AddOption("n", "max-count", "Limit number of commits", "256")
 	p.AddOption("A", "author", "Limit to author", "")
 	p.AddOption("F", "grep", "Search messages", "")
-	p.AddOption("G", "G", "Search changes", "")
-	p.AddOption("S", "S", "Search occurrences", "")
-	p.AddOption("L", "L", "Trace line evolution", "")
-	p.AddOption("s", "since", "Since date", "")
-	p.AddOption("u", "until", "Until date", "")
-
-	// Commit Limiting switches
+	p.AddSwitch("G", "G", "Search changes", false)
+	p.AddSwitch("S", "S", "Search occurrences", false)
+	p.AddSwitch("L", "L", "Trace line evolution", false)
+	p.AddOption("s", "since", "Limit to commits since", "")
+	p.AddOption("u", "until", "Limit to commits until", "")
 	p.AddSwitch("m", "no-merges", "Omit merges", false)
 	p.AddSwitch("p", "first-parent", "First parent", false)
-	p.AddSwitch("i", "invert-grep", "Invert grep", false)
+	p.AddSwitch("i", "invert-grep", "Invert search messages", false)
 
 	// History Simplification
 	p.AddSwitch("D", "simplify-by-decoration", "Simplify by decoration", false)
+	p.AddSwitch("f", "follow", "Follow renames when showing single-file log", false)
 
 	// Commit Ordering
 	p.AddSwitch("r", "reverse", "Reverse order", false)
-	p.AddSwitch("R", "reflog", "Show reflog", false)
+	p.AddOptionWithChoices("o", "topo", "Order commits by", "",
+		[]string{"topo", "author-date", "date"})
+	p.AddSwitch("R", "reflog", "List reflog", false)
 
-	// Formatting switches
+	// Formatting
 	p.AddSwitch("g", "graph", "Show graph", false)
-	p.AddSwitch("c", "color", "Show color", false)
-	p.AddSwitch("d", "decorate", "Show decorations", true) // enabled by default
+	p.AddSwitch("c", "color", "Show graph in color", false)
+	p.AddSwitch("d", "decorate", "Show refnames", true) // enabled by default
 
 	// Log group
 	p.AddActionGroup("Log", []Action{

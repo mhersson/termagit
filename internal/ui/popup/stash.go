@@ -40,16 +40,16 @@ func NewStashPopup(tokens theme.Tokens, state *State) Popup {
 
 	// Inspect group
 	p.AddActionGroup("Inspect", []Action{
-		{Key: "l", Label: "list"},
-		{Key: "v", Label: "show"},
+		{Key: "l", Label: "List"},
+		{Key: "v", Label: "Show"},
 	})
 
 	// Transform group
 	p.AddActionGroup("Transform", []Action{
-		{Key: "b", Label: "branch"},
-		{Key: "B", Label: "branch here"},
-		{Key: "m", Label: "rename"},
-		{Key: "f", Label: "format patch"},
+		{Key: "b", Label: "Branch"},
+		{Key: "B", Label: "Branch here"},
+		{Key: "m", Label: "Rename"},
+		{Key: "f", Label: "Format patch"},
 	})
 
 	// Apply saved state if provided
