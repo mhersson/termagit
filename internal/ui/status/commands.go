@@ -876,3 +876,142 @@ func autosquashCmd(repo *git.Repository, opts git.RebaseOpts, target string) tea
 		return operationDoneMsg{err: err, op: "Autosquash"}
 	}
 }
+
+// --- Branch commands ---
+
+// loadLocalBranchesCmd loads local branches.
+func loadLocalBranchesCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return branchesLoadedMsg{err: fmt.Errorf("no repository")}
+		}
+		branches, err := repo.ListBranches(context.Background())
+		return branchesLoadedMsg{branches: branches, err: err}
+	}
+}
+
+// loadAllBranchesCmd loads local and remote branches.
+func loadAllBranchesCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return branchesLoadedMsg{err: fmt.Errorf("no repository")}
+		}
+		ctx := context.Background()
+		local, err := repo.ListBranches(ctx)
+		if err != nil {
+			return branchesLoadedMsg{err: err}
+		}
+		remote, err := repo.ListRemoteBranches(ctx)
+		if err != nil {
+			return branchesLoadedMsg{err: err}
+		}
+		return branchesLoadedMsg{branches: append(local, remote...)}
+	}
+}
+
+// loadRecentBranchesCmd loads branches sorted by most recently checked out.
+func loadRecentBranchesCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return branchesLoadedMsg{err: fmt.Errorf("no repository")}
+		}
+		branches, err := repo.RecentBranches(context.Background())
+		return branchesLoadedMsg{branches: branches, err: err}
+	}
+}
+
+// checkoutBranchCmd checks out a branch.
+func checkoutBranchCmd(repo *git.Repository, name string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Checkout"}
+		}
+		err := repo.Checkout(context.Background(), name)
+		return operationDoneMsg{err: err, op: "Checkout " + name}
+	}
+}
+
+// createAndCheckoutBranchCmd creates a new branch and checks it out.
+func createAndCheckoutBranchCmd(repo *git.Repository, name, base string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Create branch"}
+		}
+		err := repo.CheckoutNewBranch(context.Background(), name, base)
+		return operationDoneMsg{err: err, op: "Create and checkout " + name}
+	}
+}
+
+// createBranchCmd creates a new branch without checking it out.
+func createBranchCmd(repo *git.Repository, name, base string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Create branch"}
+		}
+		err := repo.CreateBranch(context.Background(), name, base)
+		return operationDoneMsg{err: err, op: "Create " + name}
+	}
+}
+
+// deleteBranchCmd deletes a branch.
+func deleteBranchCmd(repo *git.Repository, name string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Delete branch"}
+		}
+		err := repo.DeleteBranch(context.Background(), name, false)
+		return operationDoneMsg{err: err, op: "Delete " + name}
+	}
+}
+
+// renameBranchCmd renames a branch.
+func renameBranchCmd(repo *git.Repository, oldName, newName string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Rename branch"}
+		}
+		err := repo.RenameBranch(context.Background(), oldName, newName)
+		return operationDoneMsg{err: err, op: "Rename " + oldName + " to " + newName}
+	}
+}
+
+// spinOffBranchCmd creates a spin-off branch.
+func spinOffBranchCmd(repo *git.Repository, name string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Spin-off"}
+		}
+		err := repo.SpinOffBranch(context.Background(), name)
+		return operationDoneMsg{err: err, op: "Spin-off " + name}
+	}
+}
+
+// spinOutBranchCmd creates a spin-out branch.
+func spinOutBranchCmd(repo *git.Repository, name string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Spin-out"}
+		}
+		err := repo.SpinOutBranch(context.Background(), name)
+		return operationDoneMsg{err: err, op: "Spin-out " + name}
+	}
+}
+
+// resetBranchToUpstreamCmd resets the current branch to its upstream.
+func resetBranchToUpstreamCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Reset branch"}
+		}
+		ctx := context.Background()
+		remote, branch, err := repo.CurrentUpstream(ctx)
+		if err != nil {
+			return operationDoneMsg{err: err, op: "Reset branch"}
+		}
+		if remote == "" {
+			return operationDoneMsg{err: fmt.Errorf("no upstream configured"), op: "Reset branch"}
+		}
+		err = repo.Reset(ctx, remote+"/"+branch, git.ResetHard)
+		return operationDoneMsg{err: err, op: "Reset branch to " + remote + "/" + branch}
+	}
+}

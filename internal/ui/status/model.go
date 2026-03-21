@@ -3,6 +3,7 @@ package status
 import (
 	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/config"
@@ -161,6 +162,29 @@ const (
 	rebaseSpecialDrop                          // d: drop a commit
 )
 
+// branchActionKind identifies which branch action is pending branch selection.
+type branchActionKind int
+
+const (
+	branchActionNone          branchActionKind = iota
+	branchActionCheckout                       // b: checkout branch/revision
+	branchActionCheckoutLocal                  // l: checkout local branch
+	branchActionCheckoutRecent                 // r: checkout recent branch
+	branchActionDelete                         // D: delete branch
+)
+
+// inputPromptKind identifies which action is pending text input.
+type inputPromptKind int
+
+const (
+	inputPromptNone             inputPromptKind = iota
+	inputPromptNewBranchCheckout                // c: new branch + checkout
+	inputPromptNewBranch                        // n: new branch no checkout
+	inputPromptSpinOff                          // s: spin-off
+	inputPromptSpinOut                          // S: spin-out
+	inputPromptRename                           // m: rename current branch
+)
+
 // cursorRestore holds info to restore cursor position after a status reload.
 type cursorRestore struct {
 	active      bool
@@ -235,6 +259,14 @@ type Model struct {
 	rebaseSpecialKind rebaseSpecialKind // which rebase action initiated the select
 	rebaseSpecialOpts git.RebaseOpts    // popup switches captured before commit select
 
+	// Pending branch action (waiting for branch select result)
+	branchActionKind branchActionKind
+
+	// Inline text input prompt (for branch name entry)
+	inputPromptKind  inputPromptKind
+	inputPromptLabel string
+	inputPrompt      textinput.Model
+
 	err error
 }
 
@@ -291,5 +323,17 @@ func (m Model) ConfirmView(maxWidth int) string {
 	}
 
 	d := notification.ConfirmDialog{Message: msg}
+	return d.View(m.tokens, maxWidth)
+}
+
+// InputPromptView returns the rendered input prompt overlay, or "" if no prompt is active.
+func (m Model) InputPromptView(maxWidth int) string {
+	if m.inputPromptKind == inputPromptNone {
+		return ""
+	}
+
+	label := m.inputPromptLabel + m.inputPrompt.View()
+	// Pad and style as a dialog box
+	d := notification.ConfirmDialog{Message: label}
 	return d.View(m.tokens, maxWidth)
 }

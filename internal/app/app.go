@@ -12,6 +12,7 @@ import (
 	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
 	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/conjit/internal/ui/branchselect"
 	"github.com/mhersson/conjit/internal/ui/cmdhistory"
 	"github.com/mhersson/conjit/internal/ui/commit"
 	"github.com/mhersson/conjit/internal/ui/commitselect"
@@ -39,6 +40,7 @@ const (
 	ScreenCmdHistory
 	ScreenCommitEditor
 	ScreenCommitSelect
+	ScreenBranchSelect
 )
 
 // SwitchScreenMsg is sent to switch to a different screen.
@@ -59,6 +61,7 @@ type Model struct {
 	status         status.Model
 	commitEditor   commit.Model
 	commitSelect   commitselect.Model
+	branchSelect   branchselect.Model
 	commitView     *commitview.Model
 	rebaseEditor   rebaseeditor.Model
 	cmdHistory     *cmdhistory.Model
@@ -111,6 +114,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			newSelect, cmd := m.commitSelect.Update(msg)
 			m.commitSelect = newSelect.(commitselect.Model)
+			return m, cmd
+		case ScreenBranchSelect:
+			var cmd tea.Cmd
+			newSelect, cmd := m.branchSelect.Update(msg)
+			m.branchSelect = newSelect.(branchselect.Model)
 			return m, cmd
 		case ScreenRebaseEditor:
 			var cmd tea.Cmd
@@ -200,6 +208,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.status = newStatus.(status.Model)
 		return m, cmd
 
+	case branchselect.OpenBranchSelectMsg:
+		m.active = ScreenBranchSelect
+		m.branchSelect = branchselect.New(msg.Branches, m.tokens, m.width, m.height)
+		return m, nil
+
+	case branchselect.SelectedMsg:
+		m.active = ScreenStatus
+		newStatus, cmd := m.status.Update(msg)
+		m.status = newStatus.(status.Model)
+		return m, cmd
+
+	case branchselect.AbortedMsg:
+		m.active = ScreenStatus
+		newStatus, cmd := m.status.Update(msg)
+		m.status = newStatus.(status.Model)
+		return m, cmd
+
 	case popup.OpenRebaseEditorMsg:
 		// Open rebase editor for an in-progress rebase (editing existing todo)
 		m.active = ScreenRebaseEditor
@@ -280,6 +305,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ScreenCommitSelect:
 		newSelect, cmd := m.commitSelect.Update(msg)
 		m.commitSelect = newSelect.(commitselect.Model)
+		return m, cmd
+	case ScreenBranchSelect:
+		newSelect, cmd := m.branchSelect.Update(msg)
+		m.branchSelect = newSelect.(branchselect.Model)
 		return m, cmd
 	case ScreenRebaseEditor:
 		newEditor, cmd := m.rebaseEditor.Update(msg)
@@ -372,6 +401,8 @@ func (m Model) View() string {
 		base = m.commitEditor.View()
 	case ScreenCommitSelect:
 		base = m.commitSelect.View()
+	case ScreenBranchSelect:
+		base = m.branchSelect.View()
 	case ScreenCmdHistory:
 		if m.cmdHistory != nil {
 			base = m.cmdHistory.View()
@@ -413,6 +444,11 @@ func (m Model) View() string {
 		confirmView := m.status.ConfirmView(50)
 		if confirmView != "" {
 			base = notification.CenterOverlay(base, confirmView, m.width, m.height)
+		}
+
+		inputView := m.status.InputPromptView(60)
+		if inputView != "" {
+			base = notification.CenterOverlay(base, inputView, m.width, m.height)
 		}
 	}
 
