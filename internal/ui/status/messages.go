@@ -82,3 +82,10 @@ type OpenReflogViewMsg struct {
 	Entries []git.ReflogEntry
 	Ref     string
 }
+
+// remoteConfigLoadedMsg is sent when remote config values are loaded for the remote config popup.
+type remoteConfigLoadedMsg struct {
+	remote string
+	values map[string]string // config key -> value
+	err    error
+}

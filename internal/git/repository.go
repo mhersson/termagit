@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -227,8 +228,14 @@ func (r *Repository) countAheadBehind(ctx context.Context, local, upstream strin
 		return 0, 0, nil
 	}
 
-	_, _ = fmt.Sscanf(parts[0], "%d", &ahead)
-	_, _ = fmt.Sscanf(parts[1], "%d", &behind)
+	ahead, err = strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, fmt.Errorf("parse ahead count %q: %w", parts[0], err)
+	}
+	behind, err = strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, fmt.Errorf("parse behind count %q: %w", parts[1], err)
+	}
 	return ahead, behind, nil
 }
 
@@ -680,4 +687,13 @@ func (r *Repository) GetConfigValue(ctx context.Context, key string) (string, er
 		return "", nil
 	}
 	return strings.TrimSpace(out), nil
+}
+
+// SetConfigValue sets a git config key to the given value.
+func (r *Repository) SetConfigValue(ctx context.Context, key, value string) error {
+	_, err := r.runGit(ctx, "config", key, value)
+	if err != nil {
+		return fmt.Errorf("set config %s: %w", key, err)
+	}
+	return nil
 }

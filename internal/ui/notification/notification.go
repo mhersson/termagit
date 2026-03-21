@@ -2,6 +2,7 @@ package notification
 
 import (
 	"strings"
+	"sync/atomic"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -70,16 +71,15 @@ type NotifyMsg struct {
 	Kind    Kind
 }
 
-var nextID int64
+var nextID atomic.Int64
 
 // New creates a notification that expires after the given duration.
 func New(msg string, kind Kind, d time.Duration) Notification {
-	nextID++
 	return Notification{
 		Message: msg,
 		Kind:    kind,
 		Expiry:  time.Now().Add(d),
-		id:      nextID,
+		id:      nextID.Add(1),
 	}
 }
 
@@ -114,26 +114,18 @@ func (n Notification) ExpireCmd() tea.Cmd {
 	})
 }
 
-// borderStyle returns the lipgloss border style colored by notification kind.
+// borderStyle returns the pre-compiled border style for this notification kind.
 func (n Notification) borderStyle(tokens theme.Tokens) lipgloss.Style {
-	var color lipgloss.TerminalColor
 	switch n.Kind {
-	case Info:
-		color = tokens.NotificationInfo.GetForeground()
 	case Success:
-		color = tokens.NotificationSuccess.GetForeground()
+		return tokens.NotificationBorderSuccess
 	case Warning:
-		color = tokens.NotificationWarn.GetForeground()
+		return tokens.NotificationBorderWarn
 	case Error:
-		color = tokens.NotificationError.GetForeground()
+		return tokens.NotificationBorderError
 	default:
-		color = tokens.NotificationInfo.GetForeground()
+		return tokens.NotificationBorderInfo
 	}
-
-	return lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(color).
-		Padding(0, 1)
 }
 
 // View renders the notification as a bordered box.
@@ -150,6 +142,8 @@ func (n Notification) View(tokens theme.Tokens, maxWidth int) string {
 		textStyle = tokens.NotificationWarn
 	case Error:
 		textStyle = tokens.NotificationError
+	default:
+		textStyle = tokens.NotificationInfo
 	}
 
 	content := textStyle.Render(icon + "  " + n.Message)
@@ -325,10 +319,7 @@ func (d ConfirmDialog) View(tokens theme.Tokens, maxWidth int) string {
 		tokens.ConfirmText.Render("/") +
 		tokens.ConfirmKey.Render("N")
 
-	box := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(tokens.ConfirmBorder.GetForeground()).
-		Padding(0, 1)
+	box := tokens.ConfirmBoxBorder
 
 	if maxWidth > 4 {
 		box = box.MaxWidth(maxWidth)

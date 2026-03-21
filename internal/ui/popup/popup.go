@@ -174,6 +174,11 @@ func (p *Popup) AddConfig(key, label, description, value string) {
 	})
 }
 
+// GetConfig returns the config items for reading or mutation.
+func (p *Popup) GetConfig() []Config {
+	return p.config
+}
+
 // AddActionGroup adds a group of actions to the popup.
 func (p *Popup) AddActionGroup(title string, actions []Action) {
 	p.groups = append(p.groups, ActionGroup{

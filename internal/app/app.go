@@ -4,14 +4,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
-	"strings"
+
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/mhersson/conjit/internal/cmdlog"
 	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/conjit/internal/platform"
 	"github.com/mhersson/conjit/internal/theme"
 	"github.com/mhersson/conjit/internal/ui/branchselect"
 	"github.com/mhersson/conjit/internal/ui/cmdhistory"
@@ -468,25 +468,7 @@ func (m Model) View() string {
 // yankToClipboardCmd copies text to system clipboard.
 func yankToClipboardCmd(text string) tea.Cmd {
 	return func() tea.Msg {
-		var cmd *exec.Cmd
-		switch runtime.GOOS {
-		case "darwin":
-			cmd = exec.Command("pbcopy")
-		case "linux":
-			// Try xclip first, fall back to xsel
-			cmd = exec.Command("xclip", "-selection", "clipboard")
-		case "windows":
-			cmd = exec.Command("clip")
-		default:
-			return notification.NotifyMsg{
-				Message: "Clipboard not supported on this platform",
-				Kind:    notification.Error,
-			}
-		}
-
-		cmd.Stdin = strings.NewReader(text)
-		err := cmd.Run()
-		if err != nil {
+		if err := platform.CopyToClipboard(text); err != nil {
 			return notification.NotifyMsg{
 				Message: "Failed to copy to clipboard: " + err.Error(),
 				Kind:    notification.Error,
@@ -523,22 +505,7 @@ func openFileCmd(repoPath, path string) tea.Cmd {
 // openURLCmd opens a URL in the default browser.
 func openURLCmd(url string) tea.Cmd {
 	return func() tea.Msg {
-		var cmd *exec.Cmd
-		switch runtime.GOOS {
-		case "darwin":
-			cmd = exec.Command("open", url)
-		case "linux":
-			cmd = exec.Command("xdg-open", url)
-		case "windows":
-			cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-		default:
-			return notification.NotifyMsg{
-				Message: "Cannot open URL on this platform",
-				Kind:    notification.Error,
-			}
-		}
-		err := cmd.Start()
-		if err != nil {
+		if err := platform.Open(url); err != nil {
 			return notification.NotifyMsg{
 				Message: "Failed to open URL: " + err.Error(),
 				Kind:    notification.Error,

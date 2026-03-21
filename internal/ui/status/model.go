@@ -134,6 +134,8 @@ const (
 	PopupLog
 	PopupMargin
 	PopupHelp
+	PopupYank
+	PopupRemoteConfig
 )
 
 // commitSpecialKind identifies which special commit action is pending commit selection.
@@ -178,6 +180,7 @@ const (
 	branchActionBranchConfigure                // Branch popup: C (select branch to configure)
 	branchActionMergeBranch                    // Merge popup: m/e/n/a/s/i (select branch to merge)
 	branchActionWorktreeCheckout               // Worktree popup: w (select branch for worktree checkout)
+	branchActionDonate                         // Cherry-pick popup: d (select branch to donate to)
 )
 
 // inputPromptKind identifies which action is pending text input.
@@ -203,6 +206,7 @@ const (
 	inputPromptRemoteRename                     // Remote: new name for rename
 	inputPromptRemoteRemove                     // Remote: name to remove
 	inputPromptRemotePrune                      // Remote: name to prune
+	inputPromptRemoteConfigure                  // Remote: name to configure
 	inputPromptWorktreeCreate                   // Worktree: create path
 	inputPromptWorktreeMove                     // Worktree: move destination
 	inputPromptWorktreeDelete                   // Worktree: delete path
@@ -338,6 +342,7 @@ type Model struct {
 	// Pending cherry-pick action (waiting for commit select result)
 	cherryPickActionKind cherryPickActionKind
 	cherryPickOpts       git.CherryPickOpts
+	donateHashes         []string // hashes to donate (set after commit select, cleared after branch select)
 
 	// Pending revert action (waiting for commit select result)
 	revertActionKind revertActionKind

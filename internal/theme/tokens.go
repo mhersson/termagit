@@ -160,10 +160,17 @@ type Tokens struct {
 	NotificationWarn    lipgloss.Style
 	NotificationError   lipgloss.Style
 
+	// Notification border styles (pre-compiled for View hot path)
+	NotificationBorderInfo    lipgloss.Style
+	NotificationBorderSuccess lipgloss.Style
+	NotificationBorderWarn    lipgloss.Style
+	NotificationBorderError   lipgloss.Style
+
 	// Confirmation dialog styles
-	ConfirmBorder lipgloss.Style
-	ConfirmText   lipgloss.Style
-	ConfirmKey    lipgloss.Style
+	ConfirmBorder    lipgloss.Style
+	ConfirmText      lipgloss.Style
+	ConfirmKey       lipgloss.Style
+	ConfirmBoxBorder lipgloss.Style // Pre-compiled border for confirm dialog
 
 	// Cursor and selection styles
 	Cursor      lipgloss.Style
@@ -255,9 +262,15 @@ func Compile(r RawTokens) Tokens {
 		NotificationWarn:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationWarn)),
 		NotificationError:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.NotificationError)).Bold(true),
 
+		NotificationBorderInfo:    lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(r.NotificationInfo)).Padding(0, 1),
+		NotificationBorderSuccess: lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(r.NotificationSuccess)).Padding(0, 1),
+		NotificationBorderWarn:    lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(r.NotificationWarn)).Padding(0, 1),
+		NotificationBorderError:   lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(r.NotificationError)).Padding(0, 1),
+
 		ConfirmBorder: lipgloss.NewStyle().Foreground(lipgloss.Color(r.ConfirmBorder)),
 		ConfirmText:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.ConfirmText)),
 		ConfirmKey:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.ConfirmKey)).Bold(true),
+		ConfirmBoxBorder: lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(r.ConfirmBorder)).Padding(0, 1),
 
 		Cursor:      lipgloss.NewStyle().Background(lipgloss.Color(r.CursorBg)),
 		CursorBlock: lipgloss.NewStyle().Reverse(true),

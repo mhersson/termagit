@@ -538,3 +538,60 @@ func TestGetCursorFilePath_NoFile(t *testing.T) {
 	_, ok := getCursorFilePath(m)
 	assert.False(t, ok)
 }
+
+// --- Yank value tests ---
+
+func TestYankValue_Hash_FromCommit(t *testing.T) {
+	m := Model{
+		sections: []Section{
+			{Kind: SectionRecentCommits, Items: []Item{
+				{Commit: &git.LogEntry{Hash: "abc123def456"}},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+	}
+	assert.Equal(t, "abc123def456", yankValue(m, "Y"))
+}
+
+func TestYankValue_Hash_FallsBackToHead(t *testing.T) {
+	m := Model{
+		head: HeadState{Oid: "head-oid"},
+	}
+	assert.Equal(t, "head-oid", yankValue(m, "Y"))
+}
+
+func TestYankValue_Subject_FromCommit(t *testing.T) {
+	m := Model{
+		sections: []Section{
+			{Kind: SectionRecentCommits, Items: []Item{
+				{Commit: &git.LogEntry{Subject: "fix: something"}},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+	}
+	assert.Equal(t, "fix: something", yankValue(m, "s"))
+}
+
+func TestYankValue_Author_FromCommit(t *testing.T) {
+	m := Model{
+		sections: []Section{
+			{Kind: SectionRecentCommits, Items: []Item{
+				{Commit: &git.LogEntry{AuthorName: "Jane Doe"}},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
+	}
+	assert.Equal(t, "Jane Doe", yankValue(m, "a"))
+}
+
+func TestYankValue_Tag_FromHead(t *testing.T) {
+	m := Model{
+		head: HeadState{Tag: "v1.0.0"},
+	}
+	assert.Equal(t, "v1.0.0", yankValue(m, "t"))
+}
+
+func TestYankValue_Unknown_ReturnsEmpty(t *testing.T) {
+	m := Model{}
+	assert.Equal(t, "", yankValue(m, "z"))
+}

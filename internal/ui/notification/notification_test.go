@@ -2,6 +2,7 @@ package notification
 
 import (
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -234,6 +235,30 @@ func TestCenterOverlay_MultilineOverlay(t *testing.T) {
 	assert.Contains(t, result, "line1")
 	assert.Contains(t, result, "line2")
 	assert.Contains(t, result, "line3")
+}
+
+func TestNotification_New_ConcurrentUniqueIDs(t *testing.T) {
+	const goroutines = 100
+	var wg sync.WaitGroup
+	ids := make(chan int64, goroutines)
+
+	wg.Add(goroutines)
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer wg.Done()
+			n := New("concurrent", Info, time.Second)
+			ids <- n.id
+		}()
+	}
+	wg.Wait()
+	close(ids)
+
+	seen := make(map[int64]bool)
+	for id := range ids {
+		assert.False(t, seen[id], "duplicate notification ID: %d", id)
+		seen[id] = true
+	}
+	assert.Equal(t, goroutines, len(seen))
 }
 
 func TestNotification_borderColor(t *testing.T) {

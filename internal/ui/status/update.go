@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/conjit/internal/platform"
 	"github.com/mhersson/conjit/internal/ui/branchselect"
 	"github.com/mhersson/conjit/internal/ui/commit"
 	"github.com/mhersson/conjit/internal/ui/commitselect"
@@ -224,6 +225,23 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.peekActive = false
 		m.peekPath = ""
 		m.peekContent = ""
+		return m, nil
+
+	case remoteConfigLoadedMsg:
+		if msg.err != nil {
+			return m, notifyAppCmd("Failed to load remote config: "+msg.err.Error(), notification.Error)
+		}
+		p := popup.NewRemoteConfigPopup(m.tokens, nil, msg.remote)
+		// Set current config values on the popup
+		cfgs := p.GetConfig()
+		for i := range cfgs {
+			if v, ok := msg.values[cfgs[i].Label]; ok {
+				cfgs[i].Value = v
+			}
+		}
+		p.SetSize(m.width, m.height)
+		m.popup = &p
+		m.popupKind = PopupRemoteConfig
 		return m, nil
 
 	case branchesLoadedMsg:
@@ -1525,6 +1543,10 @@ func handlePopupAction(m Model, kind PopupKind, result popup.Result) (tea.Model,
 		return handleMarginPopupAction(m, result)
 	case PopupHelp:
 		return handleHelpPopupAction(m, result)
+	case PopupYank:
+		return handleYankPopupAction(m, result)
+	case PopupRemoteConfig:
+		return handleRemoteConfigPopupAction(m, result)
 	default:
 		return m, notifyAppCmd("Action: "+result.Action, notification.Info)
 	}
@@ -2602,6 +2624,8 @@ func handleInputPromptKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, remoteRemoveCmd(m.repo, name)
 		case inputPromptRemotePrune:
 			return m, remotePruneCmd(m.repo, name)
+		case inputPromptRemoteConfigure:
+			return m, openRemoteConfigCmd(m.repo, name)
 		case inputPromptWorktreeCreate:
 			return m, worktreeAddCmd(m.repo, name, m.head.Branch)
 		case inputPromptWorktreeMove:
@@ -2656,7 +2680,7 @@ func handleShowRefs(m Model) (tea.Model, tea.Cmd) {
 	p := popup.NewYankPopup(m.tokens, nil, hasURL, hasTags)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
-	m.popupKind = PopupHelp // reuse a popup kind since yank has no dedicated kind
+	m.popupKind = PopupYank
 	return m, nil
 }
 
@@ -2789,6 +2813,12 @@ func handleBranchSelected(m Model, msg branchselect.SelectedMsg) (tea.Model, tea
 		)
 	case branchActionWorktreeCheckout:
 		return m, worktreeAddCmd(m.repo, "", msg.Name)
+	case branchActionDonate:
+		hashes := m.donateHashes
+		opts := m.cherryPickOpts
+		m.donateHashes = nil
+		m.cherryPickOpts = git.CherryPickOpts{}
+		return m, cherryPickDonateCmd(m.repo, hashes, m.head.Branch, msg.Name, opts)
 	default:
 		return m, nil
 	}
@@ -2939,7 +2969,12 @@ func handleCherryPickCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.
 	case cherryPickActionSquash:
 		// Squash: cherry-pick --no-commit (apply changes without commit)
 		return m, cherryPickApplyCmd(m.repo, hashes, opts)
-	case cherryPickActionDonate, cherryPickActionSpinout, cherryPickActionSpinoff:
+	case cherryPickActionDonate:
+		m.donateHashes = hashes
+		m.cherryPickOpts = opts
+		m.branchActionKind = branchActionDonate
+		return m, loadAllBranchesCmd(m.repo)
+	case cherryPickActionSpinout, cherryPickActionSpinoff:
 		return m, notifyAppCmd("Cherry-pick action not yet implemented", notification.Info)
 	default:
 		return m, nil
@@ -3219,7 +3254,7 @@ func handleRemotePopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) 
 	case "x": // Remove
 		return openBranchInput(m, inputPromptRemoteRemove, "Remove remote: ")
 	case "C": // Configure
-		return m, notifyAppCmd("Remote configure not yet implemented", notification.Info)
+		return openBranchInput(m, inputPromptRemoteConfigure, "Configure remote: ")
 	case "p": // Prune stale branches
 		return openBranchInput(m, inputPromptRemotePrune, "Prune remote: ")
 	case "P": // Prune stale refspecs
@@ -3365,6 +3400,17 @@ func handleMarginPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) 
 	}
 }
 
+// --- Remote config popup action handling ---
+
+// handleRemoteConfigPopupAction handles actions from the remote config popup.
+// The popup returns config key-value pairs that should be written to git config.
+func handleRemoteConfigPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	if len(result.Config) == 0 {
+		return m, nil
+	}
+	return m, setRemoteConfigCmd(m.repo, result.Config)
+}
+
 // --- Help popup action handling ---
 
 // handleHelpPopupAction handles actions from the help popup.
@@ -3401,4 +3447,74 @@ func getCommitHashAtCursor(m Model) string {
 		return ""
 	}
 	return item.Commit.Hash
+}
+
+// --- Yank popup action handling ---
+
+// handleYankPopupAction handles actions from the yank popup.
+// Each action copies a specific piece of information to the clipboard.
+func handleYankPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	text := yankValue(m, result.Action)
+	if text == "" {
+		return m, notifyAppCmd("Nothing to yank", notification.Warning)
+	}
+
+	return m, func() tea.Msg {
+		if err := platform.CopyToClipboard(text); err != nil {
+			return notification.NotifyMsg{
+				Message: "Failed to copy to clipboard: " + err.Error(),
+				Kind:    notification.Error,
+			}
+		}
+		return notification.NotifyMsg{
+			Message: "Yanked: " + text,
+			Kind:    notification.Info,
+		}
+	}
+}
+
+// yankValue determines what text to yank based on the action key.
+func yankValue(m Model, action string) string {
+	item, _ := getCurrentItem(m)
+
+	switch action {
+	case "Y": // Hash
+		if item != nil && item.Commit != nil {
+			return item.Commit.Hash
+		}
+		return m.head.Oid
+	case "s": // Subject
+		if item != nil && item.Commit != nil {
+			return item.Commit.Subject
+		}
+		return m.head.Subject
+	case "m": // Message (subject and body)
+		if item != nil && item.Commit != nil {
+			msg := item.Commit.Subject
+			if item.Commit.Body != "" {
+				msg += "\n\n" + item.Commit.Body
+			}
+			return msg
+		}
+		return m.head.Subject
+	case "b": // Message body
+		if item != nil && item.Commit != nil {
+			return item.Commit.Body
+		}
+		return ""
+	case "u": // URL
+		if m.head.UpstreamRemote != "" && m.head.Branch != "" {
+			return m.head.UpstreamRemote + "/" + m.head.Branch
+		}
+		return ""
+	case "a": // Author
+		if item != nil && item.Commit != nil {
+			return item.Commit.AuthorName
+		}
+		return ""
+	case "t": // Tags
+		return m.head.Tag
+	default:
+		return ""
+	}
 }

@@ -6,13 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/config"
 	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/conjit/internal/platform"
 	"github.com/mhersson/conjit/internal/ui/notification"
 	"github.com/mhersson/conjit/internal/ui/rebaseeditor"
 )
@@ -642,19 +641,7 @@ func unstageAllStagedCmd(repo *git.Repository) tea.Cmd {
 //nolint:unused // Phase 4 - used in update.go
 func yankToClipboardCmd(text string) tea.Cmd {
 	return func() tea.Msg {
-		var cmd *exec.Cmd
-		switch runtime.GOOS {
-		case "darwin":
-			cmd = exec.Command("pbcopy")
-		case "linux":
-			cmd = exec.Command("xclip", "-selection", "clipboard")
-		case "windows":
-			cmd = exec.Command("clip")
-		default:
-			return operationDoneMsg{err: fmt.Errorf("clipboard not supported on %s", runtime.GOOS)}
-		}
-		cmd.Stdin = strings.NewReader(text)
-		err := cmd.Run()
+		err := platform.CopyToClipboard(text)
 		return operationDoneMsg{err: err}
 	}
 }
@@ -664,20 +651,7 @@ func yankToClipboardCmd(text string) tea.Cmd {
 func openTreeCmd(repoPath, filePath string) tea.Cmd {
 	return func() tea.Msg {
 		dir := filepath.Dir(filepath.Join(repoPath, filePath))
-
-		var cmd *exec.Cmd
-		switch runtime.GOOS {
-		case "darwin":
-			cmd = exec.Command("open", dir)
-		case "linux":
-			cmd = exec.Command("xdg-open", dir)
-		case "windows":
-			cmd = exec.Command("explorer", dir)
-		default:
-			return operationDoneMsg{err: fmt.Errorf("unsupported platform: %s", runtime.GOOS)}
-		}
-
-		err := cmd.Start()
+		err := platform.Open(dir)
 		return operationDoneMsg{err: err}
 	}
 }
@@ -1099,6 +1073,17 @@ func cherryPickCmd(repo *git.Repository, hashes []string, opts git.CherryPickOpt
 	}
 }
 
+// cherryPickDonateCmd creates a command that donates cherry-picked commits to another branch.
+func cherryPickDonateCmd(repo *git.Repository, hashes []string, src, dst string, opts git.CherryPickOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Cherry-pick donate"}
+		}
+		err := repo.CherryPickDonate(context.Background(), hashes, src, dst, opts)
+		return operationDoneMsg{err: err, op: "Cherry-pick donate"}
+	}
+}
+
 // cherryPickApplyCmd creates a command that applies cherry-pick changes without committing.
 func cherryPickApplyCmd(repo *git.Repository, hashes []string, opts git.CherryPickOpts) tea.Cmd {
 	return func() tea.Msg {
@@ -1506,5 +1491,47 @@ func ignoreCmd(repo *git.Repository, pattern string, scope git.IgnoreScope) tea.
 		}
 		err := repo.AddIgnoreRule(context.Background(), pattern, scope)
 		return operationDoneMsg{err: err, op: "Ignore"}
+	}
+}
+
+// openRemoteConfigCmd reads git config values for a remote and returns a message to open the popup.
+func openRemoteConfigCmd(repo *git.Repository, remote string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		keys := []string{
+			"remote." + remote + ".url",
+			"remote." + remote + ".fetch",
+			"remote." + remote + ".pushurl",
+			"remote." + remote + ".push",
+			"remote." + remote + ".tagOpt",
+		}
+		values := make(map[string]string)
+		for _, k := range keys {
+			v, err := repo.GetConfigValue(ctx, k)
+			if err != nil {
+				return notification.NotifyMsg{
+					Message: "Failed to read config: " + err.Error(),
+					Kind:    notification.Error,
+				}
+			}
+			values[k] = v
+		}
+		return remoteConfigLoadedMsg{remote: remote, values: values}
+	}
+}
+
+// setRemoteConfigCmd writes changed git config values for a remote.
+func setRemoteConfigCmd(repo *git.Repository, configValues map[string]string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		for key, value := range configValues {
+			if value == "" {
+				continue
+			}
+			if err := repo.SetConfigValue(ctx, key, value); err != nil {
+				return operationDoneMsg{err: err, op: "Remote configure"}
+			}
+		}
+		return operationDoneMsg{op: "Remote configure"}
 	}
 }
