@@ -61,6 +61,12 @@ type peekFileMsg struct {
 //nolint:unused // Phase 4 - used in update.go
 type closePeekMsg struct{}
 
+// branchesLoadedMsg is sent when branch listing completes.
+type branchesLoadedMsg struct {
+	branches []git.Branch
+	err      error
+}
+
 // OpenCmdHistoryMsg is sent when the user presses $ to open command history.
 type OpenCmdHistoryMsg struct{}
 

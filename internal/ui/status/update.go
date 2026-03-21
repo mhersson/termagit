@@ -5,8 +5,10 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/conjit/internal/ui/branchselect"
 	"github.com/mhersson/conjit/internal/ui/commit"
 	"github.com/mhersson/conjit/internal/ui/commitselect"
 	"github.com/mhersson/conjit/internal/ui/commitview"
@@ -196,6 +198,26 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.commitSpecialOpts = git.CommitOpts{}
 		return m, nil
 
+	case branchselect.SelectedMsg:
+		return handleBranchSelected(m, msg)
+
+	case branchselect.AbortedMsg:
+		m.branchActionKind = branchActionNone
+		return m, nil
+
+	case branchesLoadedMsg:
+		if msg.err != nil {
+			m.branchActionKind = branchActionNone
+			return m, notifyAppCmd("Failed to load branches: "+msg.err.Error(), notification.Error)
+		}
+		if len(msg.branches) == 0 {
+			m.branchActionKind = branchActionNone
+			return m, notifyAppCmd("No branches found", notification.Warning)
+		}
+		return m, func() tea.Msg {
+			return branchselect.OpenBranchSelectMsg{Branches: msg.branches}
+		}
+
 	case commitsLoadedMsg:
 		if msg.err != nil {
 			m.commitSpecialKind = commitSpecialNone
@@ -231,6 +253,11 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle confirmation mode first
 	if m.confirmMode != ConfirmNone {
 		return handleConfirmKey(m, msg)
+	}
+
+	// Handle input prompt mode
+	if m.inputPromptKind != inputPromptNone {
+		return handleInputPromptKey(m, msg)
 	}
 
 	// Handle pending key sequences (e.g., "gg")
@@ -1416,6 +1443,8 @@ func handlePopupAction(m Model, kind PopupKind, result popup.Result) (tea.Model,
 	switch kind {
 	case PopupCommit:
 		return handleCommitPopupAction(m, result)
+	case PopupBranch:
+		return handleBranchPopupAction(m, result)
 	case PopupRebase:
 		return handleRebasePopupAction(m, result)
 	case PopupPush:
@@ -2277,5 +2306,119 @@ func loadReflogCmd(repo *git.Repository, ref string) tea.Cmd {
 			Entries: entries,
 			Ref:     ref,
 		}
+	}
+}
+
+// --- Branch popup action handling ---
+
+// handleBranchPopupAction handles actions from the branch popup.
+func handleBranchPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	switch result.Action {
+	// Branch selection actions
+	case "b": // checkout branch/revision
+		m.branchActionKind = branchActionCheckout
+		return m, loadAllBranchesCmd(m.repo)
+	case "l": // checkout local branch
+		m.branchActionKind = branchActionCheckoutLocal
+		return m, loadLocalBranchesCmd(m.repo)
+	case "r": // checkout recent branch
+		m.branchActionKind = branchActionCheckoutRecent
+		return m, loadRecentBranchesCmd(m.repo)
+	case "D": // delete
+		m.branchActionKind = branchActionDelete
+		return m, loadLocalBranchesCmd(m.repo)
+
+	// Text input actions
+	case "c": // new branch + checkout
+		return openBranchInput(m, inputPromptNewBranchCheckout, "Create and checkout branch: ")
+	case "n": // new branch no checkout
+		return openBranchInput(m, inputPromptNewBranch, "Create branch: ")
+	case "s": // spin-off
+		return openBranchInput(m, inputPromptSpinOff, "Spin-off branch name: ")
+	case "S": // spin-out
+		return openBranchInput(m, inputPromptSpinOut, "Spin-out branch name: ")
+	case "m": // rename
+		return openBranchInput(m, inputPromptRename, "Rename "+m.head.Branch+" to: ")
+
+	// Immediate actions
+	case "X": // reset to upstream
+		if m.head.UpstreamRemote == "" {
+			return m, notifyAppCmd("No upstream configured for "+m.head.Branch, notification.Warning)
+		}
+		return m, resetBranchToUpstreamCmd(m.repo)
+
+	// Not yet implemented
+	case "w", "W":
+		return m, notifyAppCmd("Worktree not yet implemented", notification.Warning)
+	case "C":
+		return m, notifyAppCmd("Branch configuration not yet implemented", notification.Warning)
+	default:
+		return m, notifyAppCmd("Unknown branch action: "+result.Action, notification.Warning)
+	}
+}
+
+// openBranchInput sets up the inline text input prompt for branch name entry.
+func openBranchInput(m Model, kind inputPromptKind, label string) (tea.Model, tea.Cmd) {
+	ti := textinput.New()
+	ti.Placeholder = ""
+	ti.CharLimit = 200
+	ti.Focus()
+	m.inputPromptKind = kind
+	m.inputPromptLabel = label
+	m.inputPrompt = ti
+	return m, textinput.Blink
+}
+
+// handleInputPromptKey handles key presses while the input prompt is active.
+func handleInputPromptKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEnter:
+		name := m.inputPrompt.Value()
+		kind := m.inputPromptKind
+		m.inputPromptKind = inputPromptNone
+		m.inputPromptLabel = ""
+
+		if name == "" {
+			return m, nil
+		}
+
+		switch kind {
+		case inputPromptNewBranchCheckout:
+			return m, createAndCheckoutBranchCmd(m.repo, name, "HEAD")
+		case inputPromptNewBranch:
+			return m, createBranchCmd(m.repo, name, "HEAD")
+		case inputPromptSpinOff:
+			return m, spinOffBranchCmd(m.repo, name)
+		case inputPromptSpinOut:
+			return m, spinOutBranchCmd(m.repo, name)
+		case inputPromptRename:
+			return m, renameBranchCmd(m.repo, m.head.Branch, name)
+		default:
+			return m, nil
+		}
+
+	case tea.KeyEscape:
+		m.inputPromptKind = inputPromptNone
+		m.inputPromptLabel = ""
+		return m, nil
+	}
+
+	var cmd tea.Cmd
+	m.inputPrompt, cmd = m.inputPrompt.Update(msg)
+	return m, cmd
+}
+
+// handleBranchSelected processes a branch selection result.
+func handleBranchSelected(m Model, msg branchselect.SelectedMsg) (tea.Model, tea.Cmd) {
+	kind := m.branchActionKind
+	m.branchActionKind = branchActionNone
+
+	switch kind {
+	case branchActionCheckout, branchActionCheckoutLocal, branchActionCheckoutRecent:
+		return m, checkoutBranchCmd(m.repo, msg.Name)
+	case branchActionDelete:
+		return m, deleteBranchCmd(m.repo, msg.Name)
+	default:
+		return m, nil
 	}
 }
