@@ -38,3 +38,14 @@ func yankCmd(text string) tea.Cmd {
 type YankMsg struct {
 	Text string
 }
+
+// OpenPopupMsg requests opening a popup from the log view.
+type OpenPopupMsg struct {
+	Type   string // popup type: "commit", "branch", etc.
+	Commit string // commit hash for context
+}
+
+// OpenCommitLinkMsg requests opening a commit URL in the browser.
+type OpenCommitLinkMsg struct {
+	Hash string
+}

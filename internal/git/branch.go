@@ -209,6 +209,16 @@ func (r *Repository) CreateBranch(ctx context.Context, name, base string) error 
 	return nil
 }
 
+// MoveBranch forcibly moves a branch to point at a different commit.
+// Equivalent to `git branch -f <name> <target>`.
+func (r *Repository) MoveBranch(ctx context.Context, name, target string) error {
+	_, err := r.runGit(ctx, "branch", "-f", name, target)
+	if err != nil {
+		return fmt.Errorf("move branch %s to %s: %w", name, target, err)
+	}
+	return nil
+}
+
 // RenameBranch renames a branch.
 func (r *Repository) RenameBranch(ctx context.Context, oldName, newName string) error {
 	_, err := r.runGit(ctx, "branch", "-m", oldName, newName)

@@ -208,12 +208,26 @@ func TestRebaseEditor_InsertExec_AddsEntry(t *testing.T) {
 	m := newTestModel(testEntries())
 	originalLen := len(m.entries)
 
-	// Press 'x' to insert exec
+	// Press 'x' to activate exec prompt
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	m = newModel.(Model)
+	assert.True(t, m.execActive, "exec prompt should be active")
+	assert.Equal(t, originalLen, len(m.entries), "no entry added yet")
 
+	// Type the command
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	m = newModel.(Model)
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = newModel.(Model)
+
+	// Press Enter to confirm
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = newModel.(Model)
+
+	assert.False(t, m.execActive, "exec prompt should be closed")
 	assert.Equal(t, originalLen+1, len(m.entries), "should have one more entry")
 	assert.Equal(t, git.TodoExec, m.entries[1].Action, "inserted entry should be exec")
+	assert.Equal(t, "ls", m.entries[1].Subject, "exec command should be 'ls'")
 	assert.Equal(t, 1, m.cursor, "cursor should be on the new exec entry")
 }
 

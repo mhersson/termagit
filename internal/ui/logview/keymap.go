@@ -19,6 +19,23 @@ type KeyMap struct {
 	HalfPageUp   key.Binding
 	GoToTop      key.Binding
 	GoToBottom   key.Binding
+
+	// Popup triggers (matching Neogit log_view mappings)
+	CherryPickPopup key.Binding
+	BranchPopup     key.Binding
+	CommitPopup     key.Binding
+	DiffPopup       key.Binding
+	FetchPopup      key.Binding
+	MergePopup      key.Binding
+	PullPopup       key.Binding
+	RebasePopup     key.Binding
+	RevertPopup     key.Binding
+	ResetPopup      key.Binding
+	TagPopup        key.Binding
+	BisectPopup     key.Binding
+	RemotePopup     key.Binding
+	WorktreePopup   key.Binding
+	OpenCommitLink  key.Binding
 }
 
 // DefaultKeyMap returns the default key bindings matching Neogit.
@@ -84,5 +101,22 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("G"),
 			key.WithHelp("G", "go to bottom"),
 		),
+
+		// Popup triggers
+		CherryPickPopup: key.NewBinding(key.WithKeys("A")),
+		BranchPopup:     key.NewBinding(key.WithKeys("b")),
+		CommitPopup:     key.NewBinding(key.WithKeys("c")),
+		DiffPopup:       key.NewBinding(key.WithKeys("d")),
+		FetchPopup:      key.NewBinding(key.WithKeys("f")),
+		MergePopup:      key.NewBinding(key.WithKeys("m")),
+		PullPopup:       key.NewBinding(key.WithKeys("p")),
+		RebasePopup:     key.NewBinding(key.WithKeys("r")),
+		RevertPopup:     key.NewBinding(key.WithKeys("v")),
+		ResetPopup:      key.NewBinding(key.WithKeys("X")),
+		TagPopup:        key.NewBinding(key.WithKeys("t")),
+		BisectPopup:     key.NewBinding(key.WithKeys("B")),
+		RemotePopup:     key.NewBinding(key.WithKeys("M")),
+		WorktreePopup:   key.NewBinding(key.WithKeys("w")),
+		OpenCommitLink:  key.NewBinding(key.WithKeys("o"), key.WithHelp("o", "open commit link")),
 	}
 }

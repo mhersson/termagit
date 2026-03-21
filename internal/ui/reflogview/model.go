@@ -111,9 +111,61 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 			return m, func() tea.Msg { return OpenCommitViewMsg{Hash: hash} }
 		}
 		return m, nil
+
+	// Popup triggers
+	case key.Matches(msg, m.keys.CherryPickPopup):
+		return m, m.openPopupCmd("cherry-pick")
+	case key.Matches(msg, m.keys.BranchPopup):
+		return m, m.openPopupCmd("branch")
+	case key.Matches(msg, m.keys.CommitPopup):
+		return m, m.openPopupCmd("commit")
+	case key.Matches(msg, m.keys.DiffPopup):
+		return m, m.openPopupCmd("diff")
+	case key.Matches(msg, m.keys.FetchPopup):
+		return m, m.openPopupCmd("fetch")
+	case key.Matches(msg, m.keys.MergePopup):
+		return m, m.openPopupCmd("merge")
+	case key.Matches(msg, m.keys.PullPopup):
+		return m, m.openPopupCmd("pull")
+	case key.Matches(msg, m.keys.RebasePopup):
+		return m, m.openPopupCmd("rebase")
+	case key.Matches(msg, m.keys.RevertPopup):
+		return m, m.openPopupCmd("revert")
+	case key.Matches(msg, m.keys.ResetPopup):
+		return m, m.openPopupCmd("reset")
+	case key.Matches(msg, m.keys.TagPopup):
+		return m, m.openPopupCmd("tag")
+	case key.Matches(msg, m.keys.BisectPopup):
+		return m, m.openPopupCmd("bisect")
+	case key.Matches(msg, m.keys.RemotePopup):
+		return m, m.openPopupCmd("remote")
+	case key.Matches(msg, m.keys.OpenCommitLink):
+		return m, m.openCommitLinkCmd()
 	}
 
 	return m, nil
+}
+
+// openPopupCmd returns a command that emits an OpenPopupMsg for the given popup type.
+func (m Model) openPopupCmd(popupType string) tea.Cmd {
+	hash := ""
+	if len(m.entries) > 0 && m.cursor < len(m.entries) {
+		hash = m.entries[m.cursor].Oid
+	}
+	return func() tea.Msg {
+		return OpenPopupMsg{Type: popupType, Commit: hash}
+	}
+}
+
+// openCommitLinkCmd returns a command to open the commit URL in a browser.
+func (m Model) openCommitLinkCmd() tea.Cmd {
+	if len(m.entries) == 0 || m.cursor >= len(m.entries) {
+		return nil
+	}
+	hash := m.entries[m.cursor].Oid
+	return func() tea.Msg {
+		return OpenCommitLinkMsg{Hash: hash}
+	}
 }
 
 func (m Model) moveDown(n int) Model {

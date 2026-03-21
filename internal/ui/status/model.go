@@ -134,6 +134,7 @@ const (
 	PopupHelp
 	PopupYank
 	PopupRemoteConfig
+	PopupBranchConfig
 )
 
 // commitSpecialKind identifies which special commit action is pending commit selection.
@@ -179,6 +180,7 @@ const (
 	branchActionMergeBranch                    // Merge popup: m/e/n/a/s/i (select branch to merge)
 	branchActionWorktreeCheckout               // Worktree popup: w (select branch for worktree checkout)
 	branchActionDonate                         // Cherry-pick popup: d (select branch to donate to)
+	branchActionMergePreview                   // Merge popup: p (preview merge with selected branch)
 )
 
 // inputPromptKind identifies which action is pending text input.
@@ -209,9 +211,12 @@ const (
 	inputPromptWorktreeMove                     // Worktree: move destination
 	inputPromptWorktreeDelete                   // Worktree: delete path
 	inputPromptBisectScript                     // Bisect: script path
+	inputPromptRemoteSetHead                    // Remote: set default branch
 	inputPromptStashMessage                     // Stash: push with message
 	inputPromptStashRename                      // Stash: rename
 	inputPromptStashBranch                      // Stash: branch name
+	inputPromptCherryPickSpinout                // Cherry-pick: spinout branch name
+	inputPromptCherryPickSpinoff                // Cherry-pick: spinoff branch name
 )
 
 // cherryPickActionKind identifies which cherry-pick action is pending commit selection.
@@ -257,6 +262,24 @@ const (
 	mergeActionSquash                   // s: squash merge
 	mergeActionDissolve                 // i: dissolve
 )
+
+// DateStyle identifies how dates are displayed in commit margins.
+type DateStyle int
+
+const (
+	DateStyleRelativeShort DateStyle = iota
+	DateStyleRelativeLong
+	DateStyleLocalDatetime
+	dateStyleCount // sentinel for cycling
+)
+
+// MarginState controls the display of commit margins (author/date info).
+type MarginState struct {
+	Visible   bool      // whether margin info is shown at all
+	Style     DateStyle // how dates are formatted
+	Details   bool      // show full author details
+	Shortstat bool      // show diffstat summary
+}
 
 // cursorRestore holds info to restore cursor position after a status reload.
 type cursorRestore struct {
@@ -350,6 +373,9 @@ type Model struct {
 
 	// Pending tag options (captured from popup before text input)
 	tagOpts git.TagOpts
+
+	// Margin display state (controlled by the margin popup)
+	margin MarginState
 
 	// Inline text input prompt (for branch name entry)
 	inputPromptKind  inputPromptKind

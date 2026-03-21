@@ -2,6 +2,7 @@ package rebaseeditor
 
 import (
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/mhersson/conjit/internal/git"
@@ -46,6 +47,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKeyMsg handles keyboard input.
 func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Handle exec command input mode
+	if m.execActive {
+		return m.handleExecInput(msg)
+	}
+
 	// Handle pending two-key sequences first
 	if m.pendingKey == "ctrl+c" {
 		return m.handlePendingCtrlC(msg)
@@ -143,7 +149,10 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, m.keys.Execute):
-		return m.insertExec(), nil
+		m.execActive = true
+		m.execInput.SetValue("")
+		m.execInput.Focus()
+		return m, textinput.Blink
 
 	case key.Matches(msg, m.keys.Drop):
 		if isCommitEntry(entry) {
@@ -278,11 +287,27 @@ func (m Model) insertBreak() Model {
 	return m.insertAfterCursor(entry)
 }
 
-// insertExec inserts an "exec" entry after the cursor position.
-// In a full implementation this would prompt for the command; for now inserts a placeholder.
-func (m Model) insertExec() Model {
-	entry := git.TodoEntry{Action: git.TodoExec, Subject: ""}
-	return m.insertAfterCursor(entry)
+// handleExecInput handles keyboard input when the exec command prompt is active.
+func (m Model) handleExecInput(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEnter:
+		cmd := m.execInput.Value()
+		m.execActive = false
+		m.execInput.Blur()
+		if cmd != "" {
+			entry := git.TodoEntry{Action: git.TodoExec, Subject: cmd}
+			m = m.insertAfterCursor(entry)
+		}
+		return m, nil
+	case tea.KeyEscape:
+		m.execActive = false
+		m.execInput.Blur()
+		return m, nil
+	default:
+		var cmd tea.Cmd
+		m.execInput, cmd = m.execInput.Update(msg)
+		return m, cmd
+	}
 }
 
 // insertAfterCursor inserts an entry after the current cursor position.

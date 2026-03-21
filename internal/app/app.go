@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -264,6 +265,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.active = ScreenStatus
 		return m, nil
 
+	case logview.OpenPopupMsg:
+		newStatus, cmd := m.status.Update(msg)
+		m.status = newStatus.(status.Model)
+		m.active = ScreenStatus
+		return m, cmd
+
+	case logview.YankMsg:
+		return m, yankToClipboardCmd(msg.Text)
+
+	case logview.OpenCommitLinkMsg:
+		return m, openCommitURLCmd(m.repo, msg.Hash)
+
 	// Reflog view
 	case status.OpenReflogViewMsg:
 		return m.openReflogView(msg.Entries, msg.Ref)
@@ -274,6 +287,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case reflogview.OpenCommitViewMsg:
 		return m.openCommitView(msg.Hash, nil)
+
+	case reflogview.OpenPopupMsg:
+		newStatus, cmd := m.status.Update(msg)
+		m.status = newStatus.(status.Model)
+		m.active = ScreenStatus
+		return m, cmd
+
+	case reflogview.YankMsg:
+		return m, yankToClipboardCmd(msg.Text)
+
+	case reflogview.OpenCommitLinkMsg:
+		return m, openCommitURLCmd(m.repo, msg.Hash)
 
 	// Commit view
 	case commitview.OpenCommitViewMsg:
@@ -498,6 +523,29 @@ func openFileCmd(repoPath, path string) tea.Cmd {
 		}
 		return nil
 	})
+}
+
+// openCommitURLCmd resolves a commit hash to a web URL and opens it.
+func openCommitURLCmd(repo *git.Repository, hash string) tea.Cmd {
+	return func() tea.Msg {
+		url, err := repo.CommitURL(context.Background(), hash)
+		if err != nil || url == "" {
+			return notification.NotifyMsg{
+				Message: "Couldn't determine commit URL",
+				Kind:    notification.Warning,
+			}
+		}
+		if err := platform.Open(url); err != nil {
+			return notification.NotifyMsg{
+				Message: "Failed to open URL: " + err.Error(),
+				Kind:    notification.Error,
+			}
+		}
+		return notification.NotifyMsg{
+			Message: "Opening " + url,
+			Kind:    notification.Info,
+		}
+	}
 }
 
 // openURLCmd opens a URL in the default browser.

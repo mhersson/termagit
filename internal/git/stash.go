@@ -152,6 +152,56 @@ func (r *Repository) StashRename(ctx context.Context, index int, newName string)
 	return nil
 }
 
+// StashCreateWipRef creates a stash commit and stores it under refs/wip/<branch>.
+// Unlike regular stash, this doesn't modify the working tree or index.
+func (r *Repository) StashCreateWipRef(ctx context.Context, opts StashOpts) error {
+	// Create a stash commit without modifying working tree
+	args := []string{"stash", "create"}
+	if opts.IncludeUntracked {
+		args = append(args, "--include-untracked")
+	}
+	if opts.All {
+		args = append(args, "--all")
+	}
+	out, err := r.runGit(ctx, args...)
+	if err != nil {
+		return fmt.Errorf("stash create: %w", err)
+	}
+	hash := strings.TrimSpace(out)
+	if hash == "" {
+		return fmt.Errorf("stash create: nothing to stash")
+	}
+
+	// Determine ref name
+	branchOut, err := r.runGit(ctx, "symbolic-ref", "--short", "HEAD")
+	if err != nil {
+		return fmt.Errorf("stash wip ref: resolve HEAD: %w", err)
+	}
+	branch := strings.TrimSpace(branchOut)
+	ref := "refs/wip/" + branch
+
+	// Store under the wip ref
+	msg := "wip on " + branch
+	if opts.Message != "" {
+		msg = opts.Message
+	}
+	_, err = r.runGit(ctx, "update-ref", "-m", msg, ref, hash)
+	if err != nil {
+		return fmt.Errorf("stash wip ref: update-ref %s: %w", ref, err)
+	}
+	return nil
+}
+
+// StashShowPatch returns the diff of a stash entry as a patch string.
+func (r *Repository) StashShowPatch(ctx context.Context, index int) (string, error) {
+	ref := fmt.Sprintf("stash@{%d}", index)
+	out, err := r.runGit(ctx, "stash", "show", "-p", ref)
+	if err != nil {
+		return "", fmt.Errorf("stash show -p %s: %w", ref, err)
+	}
+	return out, nil
+}
+
 // parseStashLine parses a line from git stash list output.
 // Format: stash@{N}:HASH:message
 func parseStashLine(line string) (StashEntry, error) {

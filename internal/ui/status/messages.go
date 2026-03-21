@@ -69,3 +69,10 @@ type remoteConfigLoadedMsg struct {
 	values map[string]string // config key -> value
 	err    error
 }
+
+// branchConfigLoadedMsg is sent when branch config values are loaded for the branch config popup.
+type branchConfigLoadedMsg struct {
+	branch string
+	values map[string]string // config key -> value
+	err    error
+}

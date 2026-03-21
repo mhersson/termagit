@@ -36,6 +36,14 @@ func (m Model) View() string {
 		b.WriteString("\n")
 	}
 
+	// Exec command input prompt
+	if m.execActive {
+		b.WriteString("\n")
+		b.WriteString("  exec command: ")
+		b.WriteString(m.execInput.View())
+		b.WriteString("\n")
+	}
+
 	// Help block
 	b.WriteString("\n")
 	b.WriteString(m.renderHelpBlock())

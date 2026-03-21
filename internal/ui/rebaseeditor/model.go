@@ -1,6 +1,7 @@
 package rebaseeditor
 
 import (
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/mhersson/conjit/internal/git"
@@ -25,6 +26,10 @@ type Model struct {
 	pendingOSU bool   // true after '[' pressed (for [c)
 	pendingOSD bool   // true after ']' pressed (for ]c)
 
+	// Exec command input prompt
+	execInput  textinput.Model
+	execActive bool // true when prompting for exec command
+
 	loading bool
 	done    bool
 	aborted bool
@@ -36,16 +41,23 @@ type Model struct {
 
 // New creates a new rebase editor model.
 func New(repo *git.Repository, tokens theme.Tokens) Model {
+	ti := textinput.New()
+	ti.Placeholder = "shell command..."
+	ti.CharLimit = 256
 	return Model{
-		repo:    repo,
-		tokens:  tokens,
-		keys:    DefaultKeyMap(),
-		loading: true,
+		repo:      repo,
+		tokens:    tokens,
+		keys:      DefaultKeyMap(),
+		execInput: ti,
+		loading:   true,
 	}
 }
 
 // NewWithEntries creates a rebase editor pre-loaded with entries (for interactive rebase).
 func NewWithEntries(repo *git.Repository, tokens theme.Tokens, entries []git.TodoEntry, base string, opts git.RebaseOpts) Model {
+	ti := textinput.New()
+	ti.Placeholder = "shell command..."
+	ti.CharLimit = 256
 	return Model{
 		repo:       repo,
 		tokens:     tokens,
@@ -53,6 +65,7 @@ func NewWithEntries(repo *git.Repository, tokens theme.Tokens, entries []git.Tod
 		entries:    entries,
 		base:       base,
 		rebaseOpts: opts,
+		execInput:  ti,
 		loading:    false,
 	}
 }

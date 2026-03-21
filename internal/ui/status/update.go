@@ -14,8 +14,10 @@ import (
 	"github.com/mhersson/conjit/internal/ui/commit"
 	"github.com/mhersson/conjit/internal/ui/commitselect"
 	"github.com/mhersson/conjit/internal/ui/commitview"
+	"github.com/mhersson/conjit/internal/ui/logview"
 	"github.com/mhersson/conjit/internal/ui/notification"
 	"github.com/mhersson/conjit/internal/ui/popup"
+	"github.com/mhersson/conjit/internal/ui/reflogview"
 )
 
 // update handles messages for the status model.
@@ -197,6 +199,10 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case commitview.OpenPopupMsg:
 		return openPopupByName(m, msg.Type)
+	case logview.OpenPopupMsg:
+		return openPopupByName(m, msg.Type)
+	case reflogview.OpenPopupMsg:
+		return openPopupByName(m, msg.Type)
 
 	case commitselect.AbortedMsg:
 		m.commitSpecialKind = commitSpecialNone
@@ -243,6 +249,29 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.popup = &p
 		m.popupKind = PopupRemoteConfig
 		return m, nil
+
+	case branchConfigLoadedMsg:
+		if msg.err != nil {
+			return m, notifyAppCmd("Failed to load branch config: "+msg.err.Error(), notification.Error)
+		}
+		p := popup.NewBranchConfigPopup(m.tokens, nil, msg.branch)
+		cfgs := p.GetConfig()
+		for i := range cfgs {
+			if v, ok := msg.values[cfgs[i].Label]; ok {
+				cfgs[i].Value = v
+			}
+		}
+		p.SetSize(m.width, m.height)
+		m.popup = &p
+		m.popupKind = PopupBranchConfig
+		return m, nil
+
+	case openStashInCommitViewMsg:
+		cv := commitview.New(m.repo, msg.ref, m.tokens, nil)
+		cv.SetSize(m.width, m.height*60/100)
+		cv.SetOverlayMode(true)
+		m.commitView = &cv
+		return m, cv.Init()
 
 	case branchesLoadedMsg:
 		if msg.err != nil {
@@ -1547,6 +1576,8 @@ func handlePopupAction(m Model, kind PopupKind, result popup.Result) (tea.Model,
 		return handleYankPopupAction(m, result)
 	case PopupRemoteConfig:
 		return handleRemoteConfigPopupAction(m, result)
+	case PopupBranchConfig:
+		return handleBranchConfigPopupAction(m, result)
 	default:
 		return m, notifyAppCmd("Action: "+result.Action, notification.Info)
 	}
@@ -2630,6 +2661,8 @@ func handleInputPromptKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, remotePruneCmd(m.repo, name)
 		case inputPromptRemoteConfigure:
 			return m, openRemoteConfigCmd(m.repo, name)
+		case inputPromptRemoteSetHead:
+			return m, remoteSetHeadCmd(m.repo, name)
 		case inputPromptWorktreeCreate:
 			return m, worktreeAddCmd(m.repo, name, m.head.Branch)
 		case inputPromptWorktreeMove:
@@ -2655,6 +2688,18 @@ func handleInputPromptKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, notifyAppCmd("No stash selected", notification.Warning)
 			}
 			return m, stashBranchCmd(m.repo, name, idx)
+		case inputPromptCherryPickSpinout:
+			hashes := m.donateHashes
+			opts := m.cherryPickOpts
+			m.donateHashes = nil
+			m.cherryPickOpts = git.CherryPickOpts{}
+			return m, cherryPickSpinoutCmd(m.repo, hashes, name, opts)
+		case inputPromptCherryPickSpinoff:
+			hashes := m.donateHashes
+			opts := m.cherryPickOpts
+			m.donateHashes = nil
+			m.cherryPickOpts = git.CherryPickOpts{}
+			return m, cherryPickSpinoffCmd(m.repo, hashes, m.head.Branch, name, opts)
 		default:
 			return m, nil
 		}
@@ -2791,7 +2836,7 @@ func handleBranchSelected(m Model, msg branchselect.SelectedMsg) (tea.Model, tea
 		logOpts := git.LogOpts{MaxCount: 256, Decorate: true}
 		return m, loadLogCmd(m.repo, logOpts, msg.Name)
 	case branchActionBranchConfigure:
-		return m, notifyAppCmd("Branch config for "+msg.Name+" (popup not yet available)", notification.Info)
+		return m, openBranchConfigCmd(m.repo, msg.Name)
 	case branchActionMergeBranch:
 		opts := m.mergeOpts
 		opts.Branch = msg.Name
@@ -2823,6 +2868,8 @@ func handleBranchSelected(m Model, msg branchselect.SelectedMsg) (tea.Model, tea
 		m.donateHashes = nil
 		m.cherryPickOpts = git.CherryPickOpts{}
 		return m, cherryPickDonateCmd(m.repo, hashes, m.head.Branch, msg.Name, opts)
+	case branchActionMergePreview:
+		return m, mergePreviewCmd(m.repo, msg.Name)
 	default:
 		return m, nil
 	}
@@ -2858,7 +2905,9 @@ func handleMergePopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 	case "a":
 		kind = mergeActionAbsorb
 	case "p": // Preview merge
-		return m, notifyAppCmd("Merge preview not yet implemented", notification.Info)
+		m.mergeActionKind = mergeActionNone
+		m.branchActionKind = branchActionMergePreview
+		return m, loadAllBranchesCmd(m.repo)
 	case "s":
 		kind = mergeActionSquash
 	case "i":
@@ -2978,8 +3027,16 @@ func handleCherryPickCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.
 		m.cherryPickOpts = opts
 		m.branchActionKind = branchActionDonate
 		return m, loadAllBranchesCmd(m.repo)
-	case cherryPickActionSpinout, cherryPickActionSpinoff:
-		return m, notifyAppCmd("Cherry-pick action not yet implemented", notification.Info)
+	case cherryPickActionSpinout:
+		// Spinout: create new branch at HEAD, cherry-pick commits onto it
+		m.cherryPickOpts = opts
+		m.donateHashes = hashes
+		return openBranchInput(m, inputPromptCherryPickSpinout, "New branch name: ")
+	case cherryPickActionSpinoff:
+		// Spinoff: like spinout but also reset current branch back
+		m.cherryPickOpts = opts
+		m.donateHashes = hashes
+		return openBranchInput(m, inputPromptCherryPickSpinoff, "New branch name: ")
 	default:
 		return m, nil
 	}
@@ -3108,7 +3165,7 @@ func handleStashPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 	case "W": // snapshot worktree
 		return m, stashSnapshotCmd(m.repo, opts, "worktree snapshot")
 	case "r": // to wip ref
-		return m, notifyAppCmd("Stash to WIP ref not yet implemented", notification.Info)
+		return m, stashWipRefCmd(m.repo, opts)
 
 	// Use group
 	case "p": // pop
@@ -3131,10 +3188,14 @@ func handleStashPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 		return m, stashDropCmd(m.repo, idx)
 
 	// Inspect group
-	case "l": // list
-		return m, notifyAppCmd("Stash list view not yet implemented", notification.Info)
-	case "v": // show
-		return m, notifyAppCmd("Stash show not yet implemented", notification.Info)
+	case "l": // list — requires Phase 11 Stash List View
+		return m, notifyAppCmd("Stash list view not yet available", notification.Info)
+	case "v": // show — open commit view for the stash
+		idx, ok := getStashIndex(m)
+		if !ok {
+			idx = 0
+		}
+		return m, openStashInCommitViewCmd(m.repo, idx)
 
 	// Transform group
 	case "b": // branch
@@ -3144,7 +3205,11 @@ func handleStashPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 	case "m": // rename
 		return openBranchInput(m, inputPromptStashRename, "New stash message: ")
 	case "f": // format patch
-		return m, notifyAppCmd("Stash format-patch not yet implemented", notification.Info)
+		idx, ok := getStashIndex(m)
+		if !ok {
+			idx = 0
+		}
+		return m, stashFormatPatchCmd(m.repo, idx)
 
 	default:
 		return m, notifyAppCmd("Unknown stash action: "+result.Action, notification.Warning)
@@ -3269,9 +3334,9 @@ func handleRemotePopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) 
 	case "P": // Prune stale refspecs
 		return openBranchInput(m, inputPromptRemotePrune, "Prune refspecs for remote: ")
 	case "b": // Update default branch
-		return m, notifyAppCmd("Update default branch not yet implemented", notification.Info)
+		return openBranchInput(m, inputPromptRemoteSetHead, "Remote for set-head: ")
 	case "z": // Unshallow
-		return m, notifyAppCmd("Unshallow not yet implemented", notification.Info)
+		return m, fetchUnshallowCmd(m.repo)
 	default:
 		return m, notifyAppCmd("Unknown remote action: "+result.Action, notification.Warning)
 	}
@@ -3397,13 +3462,30 @@ func handleMarginPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) 
 	case "g": // Refresh buffer
 		return m, loadStatusCmd(m.repo, m.cfg)
 	case "L": // Toggle visibility
-		return m, notifyAppCmd("Margin visibility toggled", notification.Info)
+		m.margin.Visible = !m.margin.Visible
+		label := "hidden"
+		if m.margin.Visible {
+			label = "visible"
+		}
+		return m, notifyAppCmd("Margin: "+label, notification.Info)
 	case "l": // Cycle style
-		return m, notifyAppCmd("Margin style cycled", notification.Info)
+		m.margin.Style = (m.margin.Style + 1) % dateStyleCount
+		styles := []string{"relative short", "relative long", "local datetime"}
+		return m, notifyAppCmd("Margin style: "+styles[m.margin.Style], notification.Info)
 	case "d": // Toggle details
-		return m, notifyAppCmd("Margin details toggled", notification.Info)
+		m.margin.Details = !m.margin.Details
+		label := "off"
+		if m.margin.Details {
+			label = "on"
+		}
+		return m, notifyAppCmd("Margin details: "+label, notification.Info)
 	case "x": // Toggle shortstat
-		return m, notifyAppCmd("Margin shortstat toggled", notification.Info)
+		m.margin.Shortstat = !m.margin.Shortstat
+		label := "off"
+		if m.margin.Shortstat {
+			label = "on"
+		}
+		return m, notifyAppCmd("Margin shortstat: "+label, notification.Info)
 	default:
 		return m, notifyAppCmd("Unknown margin action: "+result.Action, notification.Warning)
 	}
@@ -3420,13 +3502,83 @@ func handleRemoteConfigPopupAction(m Model, result popup.Result) (tea.Model, tea
 	return m, setRemoteConfigCmd(m.repo, result.Config)
 }
 
+// --- Branch config popup action handling ---
+
+// handleBranchConfigPopupAction handles actions from the branch config popup.
+// The popup returns config key-value pairs that should be written to git config.
+func handleBranchConfigPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
+	if len(result.Config) == 0 {
+		return m, nil
+	}
+	return m, setBranchConfigCmd(m.repo, result.Config)
+}
+
 // --- Help popup action handling ---
 
 // handleHelpPopupAction handles actions from the help popup.
-// When the user presses a key in the help popup, the popup returns that key
-// as the action. We show a notification with what was selected.
+// The help popup returns the key that was pressed. We dispatch that key
+// to open the corresponding popup, matching Neogit behaviour where selecting
+// an item in the help popup triggers that action.
 func handleHelpPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
-	return m, notifyAppCmd("Action: "+result.Action, notification.Info)
+	switch result.Action {
+	// Popup keys — open the corresponding popup
+	case "c":
+		return handleOpenCommitPopup(m)
+	case "b":
+		return handleOpenBranchPopup(m)
+	case "P":
+		return handleOpenPushPopup(m)
+	case "p":
+		return handleOpenPullPopup(m)
+	case "f":
+		return handleOpenFetchPopup(m)
+	case "m":
+		return handleOpenMergePopup(m)
+	case "r":
+		return handleOpenRebasePopup(m)
+	case "v":
+		return handleOpenRevertPopup(m)
+	case "A":
+		return handleOpenCherryPickPopup(m)
+	case "X":
+		return handleOpenResetPopup(m)
+	case "Z":
+		return handleOpenStashPopup(m)
+	case "t":
+		return handleOpenTagPopup(m)
+	case "M":
+		return handleOpenRemotePopup(m)
+	case "w":
+		return handleOpenWorktreePopup(m)
+	case "B":
+		return handleOpenBisectPopup(m)
+	case "i":
+		return handleOpenIgnorePopup(m)
+	case "d":
+		return handleOpenDiffPopup(m)
+	case "l":
+		return handleOpenLogPopup(m)
+	case "L":
+		return handleOpenMarginPopup(m)
+
+	// Stage/Unstage/Discard — these are action labels, not keys in the help popup
+	// The help popup uses the actual key bindings as action keys
+	case "s":
+		return handleStage(m)
+	case "u":
+		return handleUnstage(m)
+	case "x":
+		return handleDiscardStart(m)
+
+	// Essential commands — refresh is the only actionable one from help
+	case "C-r":
+		return m, loadStatusCmd(m.repo, m.cfg)
+	default:
+		// Navigation keys (j, k, tab, C-n, C-p, q) are listed for reference
+		// in the help popup but don't need dispatch — they apply after the
+		// popup is already closed.
+		return m, nil
+	}
 }
 
 // --- Helper functions for popup handlers ---

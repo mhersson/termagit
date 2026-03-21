@@ -227,6 +227,24 @@ func (r *Repository) PruneRemote(ctx context.Context, name string) error {
 	return nil
 }
 
+// SetRemoteHead updates the default branch for a remote using --auto detection.
+func (r *Repository) SetRemoteHead(ctx context.Context, name string) error {
+	_, err := r.runGit(ctx, "remote", "set-head", name, "--auto")
+	if err != nil {
+		return fmt.Errorf("set remote head %s: %w", name, err)
+	}
+	return nil
+}
+
+// FetchUnshallow converts a shallow clone to a full clone.
+func (r *Repository) FetchUnshallow(ctx context.Context) error {
+	_, err := r.runGit(ctx, "fetch", "--unshallow")
+	if err != nil {
+		return fmt.Errorf("fetch unshallow: %w", err)
+	}
+	return nil
+}
+
 // Fetch downloads objects and refs from a remote.
 func (r *Repository) Fetch(ctx context.Context, opts FetchOpts) error {
 	args := opts.buildArgs()

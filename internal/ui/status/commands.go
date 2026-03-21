@@ -1008,6 +1008,33 @@ func mergeCmd(repo *git.Repository, opts git.MergeOpts) tea.Cmd {
 	}
 }
 
+// mergePreviewCmd shows what would be merged from a branch using the log view.
+func mergePreviewCmd(repo *git.Repository, branch string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Merge preview"}
+		}
+		ctx := context.Background()
+		// Show commits in branch that are not in HEAD
+		opts := git.LogOpts{MaxCount: 256, Decorate: true, Branch: "HEAD.." + branch}
+		commits, _, err := repo.Log(ctx, opts)
+		if err != nil {
+			return operationDoneMsg{err: err, op: "Merge preview"}
+		}
+		if len(commits) == 0 {
+			return notification.NotifyMsg{
+				Message: "Nothing to merge from " + branch,
+				Kind:    notification.Info,
+			}
+		}
+		return OpenLogViewMsg{
+			Commits: commits,
+			HasMore: false,
+			Branch:  "merge preview: " + branch,
+		}
+	}
+}
+
 // mergeCommitCmd creates a command that commits an in-progress merge.
 func mergeCommitCmd(repo *git.Repository) tea.Cmd {
 	return func() tea.Msg {
@@ -1051,6 +1078,59 @@ func cherryPickDonateCmd(repo *git.Repository, hashes []string, src, dst string,
 		}
 		err := repo.CherryPickDonate(context.Background(), hashes, src, dst, opts)
 		return operationDoneMsg{err: err, op: "Cherry-pick donate"}
+	}
+}
+
+// cherryPickSpinoutCmd creates a new branch at HEAD and cherry-picks commits onto it.
+func cherryPickSpinoutCmd(repo *git.Repository, hashes []string, branchName string, opts git.CherryPickOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Cherry-pick spinout"}
+		}
+		ctx := context.Background()
+		// Create new branch at HEAD
+		if err := repo.CreateBranch(ctx, branchName, "HEAD"); err != nil {
+			return operationDoneMsg{err: err, op: "Cherry-pick spinout"}
+		}
+		// Checkout the new branch
+		if err := repo.Checkout(ctx, branchName); err != nil {
+			return operationDoneMsg{err: err, op: "Cherry-pick spinout"}
+		}
+		// Cherry-pick the commits
+		if err := repo.CherryPick(ctx, hashes, opts); err != nil {
+			return operationDoneMsg{err: err, op: "Cherry-pick spinout"}
+		}
+		return operationDoneMsg{op: "Cherry-pick spinout to " + branchName}
+	}
+}
+
+// cherryPickSpinoffCmd creates a new branch, cherry-picks commits onto it,
+// then resets the original branch back.
+func cherryPickSpinoffCmd(repo *git.Repository, hashes []string, originalBranch, branchName string, opts git.CherryPickOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Cherry-pick spinoff"}
+		}
+		ctx := context.Background()
+		// Create new branch at HEAD
+		if err := repo.CreateBranch(ctx, branchName, "HEAD"); err != nil {
+			return operationDoneMsg{err: err, op: "Cherry-pick spinoff"}
+		}
+		// Checkout the new branch
+		if err := repo.Checkout(ctx, branchName); err != nil {
+			return operationDoneMsg{err: err, op: "Cherry-pick spinoff"}
+		}
+		// Cherry-pick the commits
+		if err := repo.CherryPick(ctx, hashes, opts); err != nil {
+			return operationDoneMsg{err: err, op: "Cherry-pick spinoff"}
+		}
+		// Reset original branch to exclude the cherry-picked commits.
+		// Move it back by N commits.
+		target := fmt.Sprintf("%s~%d", originalBranch, len(hashes))
+		if err := repo.MoveBranch(ctx, originalBranch, target); err != nil {
+			return operationDoneMsg{err: err, op: "Cherry-pick spinoff (reset original)"}
+		}
+		return operationDoneMsg{op: "Cherry-pick spinoff to " + branchName}
 	}
 }
 
@@ -1243,6 +1323,49 @@ func stashSnapshotCmd(repo *git.Repository, opts git.StashOpts, label string) te
 	}
 }
 
+// stashWipRefCmd creates a stash commit and stores it under refs/wip/<branch>.
+func stashWipRefCmd(repo *git.Repository, opts git.StashOpts) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Stash WIP ref"}
+		}
+		err := repo.StashCreateWipRef(context.Background(), opts)
+		return operationDoneMsg{err: err, op: "Stash WIP ref"}
+	}
+}
+
+// openStashInCommitViewMsg is sent to open a commit view overlay for a stash entry.
+type openStashInCommitViewMsg struct {
+	ref string
+}
+
+// openStashInCommitViewCmd emits a message to open the commit view for a stash.
+func openStashInCommitViewCmd(_ *git.Repository, index int) tea.Cmd {
+	return func() tea.Msg {
+		ref := fmt.Sprintf("stash@{%d}", index)
+		return openStashInCommitViewMsg{ref: ref}
+	}
+}
+
+// stashFormatPatchCmd creates a patch file from a stash entry.
+func stashFormatPatchCmd(repo *git.Repository, index int) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Stash format-patch"}
+		}
+		ctx := context.Background()
+		patch, err := repo.StashShowPatch(ctx, index)
+		if err != nil {
+			return operationDoneMsg{err: err, op: "Stash format-patch"}
+		}
+		filename := fmt.Sprintf("stash-%d.patch", index)
+		if err := os.WriteFile(filename, []byte(patch), 0o644); err != nil {
+			return operationDoneMsg{err: fmt.Errorf("write patch file: %w", err), op: "Stash format-patch"}
+		}
+		return operationDoneMsg{op: "Stash format-patch: wrote " + filename}
+	}
+}
+
 // --- Reset commands ---
 
 // resetCmd creates a command that executes a git reset.
@@ -1345,6 +1468,28 @@ func remotePruneCmd(repo *git.Repository, name string) tea.Cmd {
 		}
 		err := repo.PruneRemote(context.Background(), name)
 		return operationDoneMsg{err: err, op: "Remote prune"}
+	}
+}
+
+// remoteSetHeadCmd auto-detects and sets the default branch for a remote.
+func remoteSetHeadCmd(repo *git.Repository, name string) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Remote set-head"}
+		}
+		err := repo.SetRemoteHead(context.Background(), name)
+		return operationDoneMsg{err: err, op: "Remote set-head"}
+	}
+}
+
+// fetchUnshallowCmd converts a shallow clone to a full clone.
+func fetchUnshallowCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Fetch unshallow"}
+		}
+		err := repo.FetchUnshallow(context.Background())
+		return operationDoneMsg{err: err, op: "Fetch unshallow"}
 	}
 }
 
@@ -1487,6 +1632,50 @@ func openRemoteConfigCmd(repo *git.Repository, remote string) tea.Cmd {
 			values[k] = v
 		}
 		return remoteConfigLoadedMsg{remote: remote, values: values}
+	}
+}
+
+// openBranchConfigCmd loads git config values for a branch and sends them to open the popup.
+func openBranchConfigCmd(repo *git.Repository, branch string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		keys := []string{
+			"branch." + branch + ".description",
+			"branch." + branch + ".merge",
+			"branch." + branch + ".remote",
+			"branch." + branch + ".rebase",
+			"branch." + branch + ".pushRemote",
+			"pull.rebase",
+			"remote.pushDefault",
+		}
+		values := make(map[string]string)
+		for _, k := range keys {
+			v, err := repo.GetConfigValue(ctx, k)
+			if err != nil {
+				return notification.NotifyMsg{
+					Message: "Failed to read config: " + err.Error(),
+					Kind:    notification.Error,
+				}
+			}
+			values[k] = v
+		}
+		return branchConfigLoadedMsg{branch: branch, values: values}
+	}
+}
+
+// setBranchConfigCmd writes changed git config values for a branch.
+func setBranchConfigCmd(repo *git.Repository, configValues map[string]string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		for key, value := range configValues {
+			if value == "" {
+				continue
+			}
+			if err := repo.SetConfigValue(ctx, key, value); err != nil {
+				return operationDoneMsg{err: err, op: "Branch configure"}
+			}
+		}
+		return operationDoneMsg{op: "Branch configure"}
 	}
 }
 

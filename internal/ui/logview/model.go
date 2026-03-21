@@ -233,9 +233,76 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+
+	// Popup triggers
+	case key.Matches(msg, m.keys.CherryPickPopup):
+		return m, m.openPopupCmd("cherry-pick")
+	case key.Matches(msg, m.keys.BranchPopup):
+		return m, m.openPopupCmd("branch")
+	case key.Matches(msg, m.keys.CommitPopup):
+		return m, m.openPopupCmd("commit")
+	case key.Matches(msg, m.keys.DiffPopup):
+		return m, m.openPopupCmd("diff")
+	case key.Matches(msg, m.keys.FetchPopup):
+		return m, m.openPopupCmd("fetch")
+	case key.Matches(msg, m.keys.MergePopup):
+		return m, m.openPopupCmd("merge")
+	case key.Matches(msg, m.keys.PullPopup):
+		return m, m.openPopupCmd("pull")
+	case key.Matches(msg, m.keys.RebasePopup):
+		return m, m.openPopupCmd("rebase")
+	case key.Matches(msg, m.keys.RevertPopup):
+		return m, m.openPopupCmd("revert")
+	case key.Matches(msg, m.keys.ResetPopup):
+		return m, m.openPopupCmd("reset")
+	case key.Matches(msg, m.keys.TagPopup):
+		return m, m.openPopupCmd("tag")
+	case key.Matches(msg, m.keys.BisectPopup):
+		return m, m.openPopupCmd("bisect")
+	case key.Matches(msg, m.keys.RemotePopup):
+		return m, m.openPopupCmd("remote")
+	case key.Matches(msg, m.keys.WorktreePopup):
+		return m, m.openPopupCmd("worktree")
+	case key.Matches(msg, m.keys.OpenCommitLink):
+		return m, m.openCommitLinkCmd()
 	}
 
 	return m, nil
+}
+
+// openPopupCmd returns a command that emits an OpenPopupMsg for the given popup type.
+func (m Model) openPopupCmd(popupType string) tea.Cmd {
+	hash := ""
+	if len(m.commits) > 0 {
+		idx := m.cursor
+		if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
+			idx = m.filtered[m.cursor]
+		}
+		if idx < len(m.commits) {
+			hash = m.commits[idx].Hash
+		}
+	}
+	return func() tea.Msg {
+		return OpenPopupMsg{Type: popupType, Commit: hash}
+	}
+}
+
+// openCommitLinkCmd returns a command to open the commit URL in a browser.
+func (m Model) openCommitLinkCmd() tea.Cmd {
+	if len(m.commits) == 0 {
+		return nil
+	}
+	idx := m.cursor
+	if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
+		idx = m.filtered[m.cursor]
+	}
+	if idx >= len(m.commits) {
+		return nil
+	}
+	hash := m.commits[idx].Hash
+	return func() tea.Msg {
+		return OpenCommitLinkMsg{Hash: hash}
+	}
 }
 
 func (m Model) handleFilterKey(msg tea.KeyMsg) (Model, tea.Cmd) {
