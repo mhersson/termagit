@@ -1886,6 +1886,175 @@ func TestStatusLoadedMsg_WithoutRestore_UsesDefault(t *testing.T) {
 	}
 }
 
+func TestStatusLoadedMsg_WatcherReload_PreservesCursorOnItem(t *testing.T) {
+	// Simulate a watcher-triggered reload: model already has sections and a
+	// cursor positioned on an item (not the section header). The reload
+	// delivers identical sections without pendingRestore. The cursor must
+	// stay on the same item — not snap back to the section header.
+	sections := []Section{
+		{Kind: SectionUntracked, Title: "Untracked files", Items: []Item{
+			{Entry: makeEntry("new.txt")},
+		}},
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("a.go")},
+			{Entry: makeEntry("b.go")},
+			{Entry: makeEntry("c.go")},
+		}},
+	}
+
+	m := Model{
+		sections: sections,
+		cursor:   Cursor{Section: 1, Item: 1, Hunk: -1, Line: -1}, // on "b.go"
+		loading:  false,
+	}
+
+	// Reload delivers same sections, no pendingRestore
+	reloaded := []Section{
+		{Kind: SectionUntracked, Title: "Untracked files", Items: []Item{
+			{Entry: makeEntry("new.txt")},
+		}},
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("a.go")},
+			{Entry: makeEntry("b.go")},
+			{Entry: makeEntry("c.go")},
+		}},
+	}
+
+	result, _ := update(m, statusLoadedMsg{
+		head:     HeadState{Branch: "main"},
+		sections: reloaded,
+	})
+	resultModel := result.(Model)
+
+	if resultModel.cursor.Section != 1 {
+		t.Errorf("expected cursor Section=1 (Unstaged), got %d", resultModel.cursor.Section)
+	}
+	if resultModel.cursor.Item != 1 {
+		t.Errorf("expected cursor Item=1 (b.go), got %d", resultModel.cursor.Item)
+	}
+}
+
+func TestStatusLoadedMsg_WatcherReload_PreservesCursorOnSectionHeader(t *testing.T) {
+	// When cursor is on a section header during watcher reload, it should
+	// stay on the same section header.
+	sections := []Section{
+		{Kind: SectionUntracked, Title: "Untracked files", Items: []Item{
+			{Entry: makeEntry("new.txt")},
+		}},
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("a.go")},
+		}},
+	}
+
+	m := Model{
+		sections: sections,
+		cursor:   Cursor{Section: 1, Item: -1, Hunk: -1, Line: -1}, // on Unstaged header
+		loading:  false,
+	}
+
+	reloaded := []Section{
+		{Kind: SectionUntracked, Title: "Untracked files", Items: []Item{
+			{Entry: makeEntry("new.txt")},
+		}},
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("a.go")},
+		}},
+	}
+
+	result, _ := update(m, statusLoadedMsg{
+		head:     HeadState{Branch: "main"},
+		sections: reloaded,
+	})
+	resultModel := result.(Model)
+
+	if resultModel.cursor.Section != 1 {
+		t.Errorf("expected cursor Section=1 (Unstaged header), got %d", resultModel.cursor.Section)
+	}
+	if resultModel.cursor.Item != -1 {
+		t.Errorf("expected cursor Item=-1 (section header), got %d", resultModel.cursor.Item)
+	}
+}
+
+func TestStatusLoadedMsg_WatcherReload_PreservesExpandedState(t *testing.T) {
+	// When a file is expanded (Tab) and a watcher reload arrives, the
+	// expanded state and loaded hunks must survive.
+	hunks := []git.Hunk{{Header: "@@ -1,3 +1,4 @@", OldStart: 1, OldCount: 3, NewStart: 1, NewCount: 4}}
+
+	sections := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("a.go"), Expanded: true, Hunks: hunks, HunksFolded: []bool{false}},
+			{Entry: makeEntry("b.go")},
+		}},
+	}
+
+	m := Model{
+		sections: sections,
+		cursor:   Cursor{Section: 0, Item: 0, Hunk: 0, Line: -1},
+	}
+
+	reloaded := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("a.go")},
+			{Entry: makeEntry("b.go")},
+		}},
+	}
+
+	result, _ := update(m, statusLoadedMsg{
+		head:     HeadState{Branch: "main"},
+		sections: reloaded,
+	})
+	rm := result.(Model)
+
+	if !rm.sections[0].Items[0].Expanded {
+		t.Error("expected a.go to remain Expanded after watcher reload")
+	}
+	if len(rm.sections[0].Items[0].Hunks) != 1 {
+		t.Errorf("expected hunks to be preserved, got %d", len(rm.sections[0].Items[0].Hunks))
+	}
+	if rm.sections[0].Items[1].Expanded {
+		t.Error("expected b.go to remain collapsed")
+	}
+}
+
+func TestStatusLoadedMsg_WatcherReload_PreservesSectionFolded(t *testing.T) {
+	// Section fold state must survive a watcher reload.
+	sections := []Section{
+		{Kind: SectionUntracked, Title: "Untracked files", Folded: true, Items: []Item{
+			{Entry: makeEntry("new.txt")},
+		}},
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("a.go")},
+		}},
+	}
+
+	m := Model{
+		sections: sections,
+		cursor:   Cursor{Section: 1, Item: 0, Hunk: -1, Line: -1},
+	}
+
+	reloaded := []Section{
+		{Kind: SectionUntracked, Title: "Untracked files", Items: []Item{
+			{Entry: makeEntry("new.txt")},
+		}},
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("a.go")},
+		}},
+	}
+
+	result, _ := update(m, statusLoadedMsg{
+		head:     HeadState{Branch: "main"},
+		sections: reloaded,
+	})
+	rm := result.(Model)
+
+	if !rm.sections[0].Folded {
+		t.Error("expected Untracked section to remain Folded after watcher reload")
+	}
+	if rm.sections[1].Folded {
+		t.Error("expected Unstaged section to remain unfolded")
+	}
+}
+
 // --- Hunk-level cursor restore tests ---
 
 func TestStatusLoadedMsg_HunkRestore_ExpandsFileAndTriggersDiffLoad(t *testing.T) {

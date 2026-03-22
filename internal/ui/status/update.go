@@ -49,6 +49,12 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 			return m, nil
 		}
+
+		// Save cursor context before replacing sections so we can preserve
+		// position across watcher-triggered reloads.
+		prevCursor := m.cursor
+		prevSections := m.sections
+
 		m.head = msg.head
 		m.sections = msg.sections
 
@@ -80,8 +86,12 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
+		} else if len(prevSections) > 0 {
+			// Watcher-triggered reload: preserve UI state and cursor position.
+			preserveUIState(prevSections, m.sections)
+			m.cursor = preserveCursorAcrossReload(prevSections, prevCursor, m.sections)
 		} else {
-			// Position cursor on first non-empty, non-hidden section
+			// Initial load: position cursor on first non-empty, non-hidden section
 			m.cursor = findFirstValidCursor(m.sections)
 		}
 
@@ -1333,6 +1343,96 @@ func restoreCursor(sections []Section, restore cursorRestore) Cursor {
 	}
 
 	return findFirstValidCursor(sections)
+}
+
+// preserveUIState transfers user-driven UI state (fold/expand, loaded hunks)
+// from old sections to new sections after a watcher-triggered reload. Sections
+// are matched by Kind; items are matched by Entry.Path().
+func preserveUIState(oldSections, newSections []Section) {
+	for _, oldS := range oldSections {
+		var newS *Section
+		for i := range newSections {
+			if newSections[i].Kind == oldS.Kind {
+				newS = &newSections[i]
+				break
+			}
+		}
+		if newS == nil {
+			continue
+		}
+
+		newS.Folded = oldS.Folded
+
+		for _, oldItem := range oldS.Items {
+			if !oldItem.Expanded || oldItem.Entry == nil {
+				continue
+			}
+			for j := range newS.Items {
+				if newS.Items[j].Entry != nil && newS.Items[j].Entry.Path() == oldItem.Entry.Path() {
+					newS.Items[j].Expanded = oldItem.Expanded
+					newS.Items[j].Hunks = oldItem.Hunks
+					newS.Items[j].HunksFolded = oldItem.HunksFolded
+					newS.Items[j].HunksLoading = oldItem.HunksLoading
+					break
+				}
+			}
+		}
+	}
+}
+
+// preserveCursorAcrossReload maps a cursor position from old sections to new
+// sections after a watcher-triggered reload. It matches by section kind and
+// (when on a file item) by file path, falling back to clamped index, then
+// section header, then findFirstValidCursor.
+func preserveCursorAcrossReload(oldSections []Section, oldCursor Cursor, newSections []Section) Cursor {
+	if oldCursor.Section < 0 || oldCursor.Section >= len(oldSections) {
+		return findFirstValidCursor(newSections)
+	}
+
+	oldKind := oldSections[oldCursor.Section].Kind
+
+	// Find the same section kind in new sections.
+	newSectionIdx := -1
+	for i, s := range newSections {
+		if s.Kind == oldKind {
+			newSectionIdx = i
+			break
+		}
+	}
+	if newSectionIdx < 0 || newSections[newSectionIdx].Hidden {
+		return findFirstValidCursor(newSections)
+	}
+
+	// Cursor was on section header.
+	if oldCursor.Item < 0 {
+		return Cursor{Section: newSectionIdx, Item: -1, Hunk: -1, Line: -1}
+	}
+
+	newSection := newSections[newSectionIdx]
+
+	// Try to find the same file by path.
+	if oldCursor.Item < len(oldSections[oldCursor.Section].Items) {
+		oldItem := oldSections[oldCursor.Section].Items[oldCursor.Item]
+		if oldItem.Entry != nil {
+			for i, item := range newSection.Items {
+				if item.Entry != nil && item.Entry.Path() == oldItem.Entry.Path() {
+					return Cursor{Section: newSectionIdx, Item: i, Hunk: -1, Line: -1}
+				}
+			}
+		}
+	}
+
+	// File not found — clamp to same index.
+	if len(newSection.Items) > 0 {
+		idx := oldCursor.Item
+		if idx >= len(newSection.Items) {
+			idx = len(newSection.Items) - 1
+		}
+		return Cursor{Section: newSectionIdx, Item: idx, Hunk: -1, Line: -1}
+	}
+
+	// Section is now empty — fall back to header.
+	return Cursor{Section: newSectionIdx, Item: -1, Hunk: -1, Line: -1}
 }
 
 // saveCursorContext builds a cursorRestore from the current model state.
