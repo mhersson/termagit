@@ -1,12 +1,15 @@
 package popup
 
 import (
+	"fmt"
+
 	"github.com/mhersson/conjit/internal/theme"
 )
 
 // NewIgnorePopup creates the ignore popup matching Neogit exactly.
 // Source: neogit/lua/neogit/popups/ignore/init.lua
-func NewIgnorePopup(tokens theme.Tokens, state *State, hasGlobalIgnore bool) Popup {
+// globalIgnorePath is the path from core.excludesFile; empty means not configured.
+func NewIgnorePopup(tokens theme.Tokens, state *State, globalIgnorePath string) Popup {
 	p := New("Ignore", tokens)
 
 	// Gitignore actions — labels match Neogit's formatting with path examples
@@ -16,9 +19,10 @@ func NewIgnorePopup(tokens theme.Tokens, state *State, hasGlobalIgnore bool) Pop
 		{Key: "p", Label: "privately for this repository  (.git/info/exclude)"},
 	}
 
-	// Only show global option if global ignore file exists
-	if hasGlobalIgnore {
-		actions = append(actions, Action{Key: "g", Label: "privately for all repositories"})
+	// Only show global option if global ignore file is configured
+	if globalIgnorePath != "" {
+		label := fmt.Sprintf("privately for all repositories (%s)", globalIgnorePath)
+		actions = append(actions, Action{Key: "g", Label: label})
 	}
 
 	p.AddActionGroup("Gitignore", actions)

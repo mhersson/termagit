@@ -13,7 +13,8 @@ import (
 // Switch represents a toggleable boolean flag in a popup.
 type Switch struct {
 	Key          string
-	Label        string // CLI flag name (e.g., "all", "verbose")
+	KeyPrefix    string   // prefix key to toggle (default "-", some use "=")
+	Label        string   // CLI flag name (e.g., "all", "verbose")
 	Description  string
 	Enabled      bool
 	Persisted    bool     // whether to persist across sessions (default true)
@@ -23,7 +24,8 @@ type Switch struct {
 // Option represents a key=value setting in a popup.
 type Option struct {
 	Key         string
-	Label       string // CLI flag name
+	KeyPrefix   string   // prefix key to edit (default "=", some use "-")
+	Label       string   // CLI flag name
 	Description string
 	Value       string
 	Persisted   bool     // whether to persist across sessions (default true)
@@ -61,6 +63,12 @@ type Result struct {
 	Config   map[string]string // label -> value
 }
 
+// configSection marks where to render a heading before config items.
+type configSection struct {
+	BeforeIndex int    // config index to insert heading before
+	Title       string // empty string = spacer
+}
+
 // Popup is the base model for all popups.
 type Popup struct {
 	title   string
@@ -68,10 +76,11 @@ type Popup struct {
 	width   int
 	height  int
 
-	config   []Config
-	switches []Switch
-	options  []Option
-	groups   []ActionGroup
+	config         []Config
+	configSections []configSection
+	switches       []Switch
+	options        []Option
+	groups         []ActionGroup
 
 	// incompatible tracks mutually exclusive switches by label
 	incompatible map[string][]string
@@ -104,10 +113,16 @@ func New(title string, tokens theme.Tokens) Popup {
 	}
 }
 
-// AddSwitch adds a switch to the popup.
+// AddSwitch adds a switch with the default "-" key prefix.
 func (p *Popup) AddSwitch(key, label, description string, enabled bool) {
+	p.AddSwitchWithPrefix("-", key, label, description, enabled)
+}
+
+// AddSwitchWithPrefix adds a switch with a custom key prefix.
+func (p *Popup) AddSwitchWithPrefix(prefix, key, label, description string, enabled bool) {
 	p.switches = append(p.switches, Switch{
 		Key:         key,
+		KeyPrefix:   prefix,
 		Label:       label,
 		Description: description,
 		Enabled:     enabled,
@@ -119,6 +134,7 @@ func (p *Popup) AddSwitch(key, label, description string, enabled bool) {
 func (p *Popup) AddSwitchNonPersisted(key, label, description string, enabled bool) {
 	p.switches = append(p.switches, Switch{
 		Key:         key,
+		KeyPrefix:   "-",
 		Label:       label,
 		Description: description,
 		Enabled:     enabled,
@@ -144,10 +160,16 @@ func (p *Popup) SetIncompatible(key1, key2 string) {
 	}
 }
 
-// AddOption adds an option to the popup.
+// AddOption adds an option with the default "=" key prefix.
 func (p *Popup) AddOption(key, label, description, value string) {
+	p.AddOptionWithPrefix("=", key, label, description, value)
+}
+
+// AddOptionWithPrefix adds an option with a custom key prefix.
+func (p *Popup) AddOptionWithPrefix(prefix, key, label, description, value string) {
 	p.options = append(p.options, Option{
 		Key:         key,
+		KeyPrefix:   prefix,
 		Label:       label,
 		Description: description,
 		Value:       value,
@@ -157,8 +179,14 @@ func (p *Popup) AddOption(key, label, description, value string) {
 
 // AddOptionWithChoices adds an option with predefined choices that cycle on toggle.
 func (p *Popup) AddOptionWithChoices(key, label, description, value string, choices []string) {
+	p.AddOptionWithChoicesAndPrefix("=", key, label, description, value, choices)
+}
+
+// AddOptionWithChoicesAndPrefix adds an option with choices and a custom key prefix.
+func (p *Popup) AddOptionWithChoicesAndPrefix(prefix, key, label, description, value string, choices []string) {
 	p.options = append(p.options, Option{
 		Key:         key,
+		KeyPrefix:   prefix,
 		Label:       label,
 		Description: description,
 		Value:       value,
@@ -185,6 +213,15 @@ func (p *Popup) AddConfigWithChoices(key, label, description, value string, choi
 		Description: description,
 		Value:       value,
 		Choices:     choices,
+	})
+}
+
+// AddConfigSection adds a section heading before the next config item added.
+// An empty title renders as a spacer line.
+func (p *Popup) AddConfigSection(title string) {
+	p.configSections = append(p.configSections, configSection{
+		BeforeIndex: len(p.config),
+		Title:       title,
 	})
 }
 
@@ -249,35 +286,30 @@ func (p Popup) handleKey(msg tea.KeyMsg) (Popup, tea.Cmd) {
 		return p, nil
 	}
 
-	// Handle pending key sequences
-	if p.pendingKey == "-" {
+	// Handle pending key sequences (prefix + key)
+	if p.pendingKey != "" {
+		prefix := p.pendingKey
 		p.pendingKey = ""
-		// Toggle switch with this key
+
+		// Search switches with matching prefix+key
 		for i := range p.switches {
-			if p.switches[i].Key == keyStr {
+			if p.switches[i].KeyPrefix == prefix && p.switches[i].Key == keyStr {
 				p.switches[i].Enabled = !p.switches[i].Enabled
-				// Handle incompatible switches
 				if p.switches[i].Enabled {
 					p.disableIncompatible(p.switches[i].Label)
 				}
 				return p, nil
 			}
 		}
-		return p, nil
-	}
 
-	if p.pendingKey == "=" {
-		p.pendingKey = ""
+		// Search options with matching prefix+key
 		for i := range p.options {
-			if p.options[i].Key == keyStr {
+			if p.options[i].KeyPrefix == prefix && p.options[i].Key == keyStr {
 				if len(p.options[i].Choices) > 0 {
-					// Cycle through choices: empty → first → second → ... → empty
 					p.options[i].Value = cycleChoice(p.options[i].Value, p.options[i].Choices)
 				} else if p.options[i].Value != "" {
-					// Toggle off: clear the value
 					p.options[i].Value = ""
 				} else {
-					// Start editing
 					p.editingOption = i
 					ti := textinput.New()
 					ti.Prompt = p.options[i].Label + "="
@@ -296,13 +328,11 @@ func (p Popup) handleKey(msg tea.KeyMsg) (Popup, tea.Cmd) {
 		p.done = true
 		p.buildResult()
 		return p, nil
+	}
 
-	case "-":
-		p.pendingKey = "-"
-		return p, nil
-
-	case "=":
-		p.pendingKey = "="
+	// Check if this key is a registered prefix for any switch or option
+	if p.isPrefix(keyStr) {
+		p.pendingKey = keyStr
 		return p, nil
 	}
 
@@ -395,6 +425,21 @@ func cycleChoice(current string, choices []string) string {
 	return choices[0] // current not in choices, start from first
 }
 
+// isPrefix returns true if the given key is used as a KeyPrefix by any switch or option.
+func (p Popup) isPrefix(key string) bool {
+	for _, sw := range p.switches {
+		if sw.KeyPrefix == key {
+			return true
+		}
+	}
+	for _, opt := range p.options {
+		if opt.KeyPrefix == key {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *Popup) disableIncompatible(label string) {
 	incompatibles := p.incompatible[label]
 	for i := range p.switches {
@@ -435,11 +480,26 @@ func (p Popup) View() string {
 	b.WriteString(p.tokens.PopupBorder.Render(border))
 	b.WriteString("\n")
 
-	// Config items (if any)
+	// Config items (if any), with optional section headings
 	if len(p.config) > 0 {
-		for _, cfg := range p.config {
-			line := p.renderConfigItem(cfg)
-			b.WriteString(line)
+		sectionIdx := 0
+		for i, cfg := range p.config {
+			// Render any section headings that appear before this config item
+			for sectionIdx < len(p.configSections) && p.configSections[sectionIdx].BeforeIndex == i {
+				sec := p.configSections[sectionIdx]
+				if sec.Title == "" {
+					b.WriteString("\n")
+				} else {
+					b.WriteString(p.tokens.PopupSection.Render(sec.Title))
+					b.WriteString("\n")
+				}
+				sectionIdx++
+			}
+			if i == p.editingConfig {
+				b.WriteString("  " + p.optionInput.View())
+			} else {
+				b.WriteString(p.renderConfigItem(cfg))
+			}
 			b.WriteString("\n")
 		}
 		b.WriteString("\n")
@@ -458,9 +518,12 @@ func (p Popup) View() string {
 		}
 
 		// Render options
-		for _, opt := range p.options {
-			line := p.renderOption(opt)
-			b.WriteString(line)
+		for i, opt := range p.options {
+			if i == p.editingOption {
+				b.WriteString("  " + p.optionInput.View())
+			} else {
+				b.WriteString(p.renderOption(opt))
+			}
 			b.WriteString("\n")
 		}
 		b.WriteString("\n")
@@ -473,9 +536,9 @@ func (p Popup) View() string {
 }
 
 func (p Popup) renderSwitch(sw Switch) string {
-	// Format: -key description (--flag)
+	// Format: <prefix>key description (--flag)
 	keyStyle := p.tokens.PopupKey
-	key := keyStyle.Render("-" + sw.Key)
+	key := keyStyle.Render(sw.KeyPrefix + sw.Key)
 
 	desc := sw.Description
 
@@ -491,10 +554,9 @@ func (p Popup) renderSwitch(sw Switch) string {
 }
 
 func (p Popup) renderOption(opt Option) string {
-	// Format: -key description (--option=value)
-	// Key prefix is always "-" (same as switches)
+	// Format: <prefix>key description (--option=value)
 	keyStyle := p.tokens.PopupKey
-	key := keyStyle.Render("-" + opt.Key)
+	key := keyStyle.Render(opt.KeyPrefix + opt.Key)
 
 	desc := opt.Description
 

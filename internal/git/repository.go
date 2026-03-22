@@ -689,6 +689,16 @@ func (r *Repository) GetConfigValue(ctx context.Context, key string) (string, er
 	return strings.TrimSpace(out), nil
 }
 
+// GetGlobalConfigValue reads a global git config value by key.
+// Returns empty string (not error) if the key doesn't exist.
+func (r *Repository) GetGlobalConfigValue(ctx context.Context, key string) (string, error) {
+	out, err := r.runGit(ctx, "config", "--global", "--get", key)
+	if err != nil {
+		return "", nil
+	}
+	return strings.TrimSpace(out), nil
+}
+
 // SetConfigValue sets a git config key to the given value.
 func (r *Repository) SetConfigValue(ctx context.Context, key, value string) error {
 	_, err := r.runGit(ctx, "config", key, value)

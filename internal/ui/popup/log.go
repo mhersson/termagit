@@ -9,17 +9,17 @@ import (
 func NewLogPopup(tokens theme.Tokens, state *State) Popup {
 	p := New("Log", tokens)
 
-	// Commit Limiting
-	p.AddOption("n", "max-count", "Limit number of commits", "256")
-	p.AddOption("A", "author", "Limit to author", "")
-	p.AddOption("F", "grep", "Search messages", "")
+	// Commit Limiting (options use "-" prefix, matching Neogit)
+	p.AddOptionWithPrefix("-", "n", "max-count", "Limit number of commits", "256")
+	p.AddOptionWithPrefix("-", "A", "author", "Limit to author", "")
+	p.AddOptionWithPrefix("-", "F", "grep", "Search messages", "")
 	p.AddSwitch("G", "G", "Search changes", false)
 	p.AddSwitch("S", "S", "Search occurrences", false)
 	p.AddSwitch("L", "L", "Trace line evolution", false)
-	p.AddOption("s", "since", "Limit to commits since", "")
-	p.AddOption("u", "until", "Limit to commits until", "")
-	p.AddSwitch("m", "no-merges", "Omit merges", false)
-	p.AddSwitch("p", "first-parent", "First parent", false)
+	p.AddOptionWithPrefix("-", "s", "since", "Limit to commits since", "")
+	p.AddOptionWithPrefix("-", "u", "until", "Limit to commits until", "")
+	p.AddSwitchWithPrefix("=", "m", "no-merges", "Omit merges", false)
+	p.AddSwitchWithPrefix("=", "p", "first-parent", "First parent", false)
 	p.AddSwitch("i", "invert-grep", "Invert search messages", false)
 
 	// History Simplification
@@ -30,12 +30,17 @@ func NewLogPopup(tokens theme.Tokens, state *State) Popup {
 	p.AddSwitch("r", "reverse", "Reverse order", false)
 	p.AddOptionWithChoices("o", "topo", "Order commits by", "",
 		[]string{"topo", "author-date", "date"})
-	p.AddSwitch("R", "reflog", "List reflog", false)
+	p.AddSwitchWithPrefix("=", "R", "reflog", "List reflog", false)
 
 	// Formatting
 	p.AddSwitch("g", "graph", "Show graph", false)
 	p.AddSwitch("c", "color", "Show graph in color", false)
 	p.AddSwitch("d", "decorate", "Show refnames", true) // enabled by default
+	p.AddSwitchWithPrefix("=", "S", "show-signature", "Show signatures", false)
+
+	// Incompatible switches (matching Neogit)
+	p.SetIncompatible("r", "g") // reverse ↔ graph
+	p.SetIncompatible("r", "c") // reverse ↔ color
 
 	// Log group
 	p.AddActionGroup("Log", []Action{
@@ -43,6 +48,7 @@ func NewLogPopup(tokens theme.Tokens, state *State) Popup {
 		{Key: "h", Label: "HEAD"},
 		{Key: "u", Label: "related"},
 		{Key: "o", Label: "other"},
+		{Spacer: true},
 		{Key: "L", Label: "local branches"},
 		{Key: "b", Label: "all branches"},
 		{Key: "a", Label: "all references"},

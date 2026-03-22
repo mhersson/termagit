@@ -14,7 +14,8 @@ func NewRemoteConfigPopup(tokens theme.Tokens, state *State, remote string) Popu
 	p.AddConfig("U", "remote."+remote+".fetch", "Fetch refspec", "")
 	p.AddConfig("s", "remote."+remote+".pushurl", "Push URL", "")
 	p.AddConfig("S", "remote."+remote+".push", "Push refspec", "")
-	p.AddConfig("O", "remote."+remote+".tagOpt", "Tag option", "")
+	p.AddConfigWithChoices("O", "remote."+remote+".tagOpt", "Tag option", "",
+		[]string{"--no-tags", "--tags"})
 
 	// Apply saved state if provided
 	if state != nil {

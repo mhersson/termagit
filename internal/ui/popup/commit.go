@@ -17,10 +17,10 @@ func NewCommitPopup(tokens theme.Tokens, state *State) Popup {
 	p.AddSwitch("R", "reset-author", "Claim authorship and reset author date", false)
 	p.AddSwitch("s", "signoff", "Add Signed-off-by line", false)
 
-	// Options (from Neogit commit popup)
-	p.AddOption("A", "author", "Override the author", "")
-	p.AddOption("S", "gpg-sign", "Sign using gpg", "")
-	p.AddOption("C", "reuse-message", "Reuse commit message", "")
+	// Options (from Neogit commit popup — all use "-" prefix)
+	p.AddOptionWithPrefix("-", "A", "author", "Override the author", "")
+	p.AddOptionWithPrefix("-", "S", "gpg-sign", "Sign using gpg", "")
+	p.AddOptionWithPrefix("-", "C", "reuse-message", "Reuse commit message", "")
 
 	// Action groups (from Neogit commit popup)
 	p.AddActionGroup("Create", []Action{

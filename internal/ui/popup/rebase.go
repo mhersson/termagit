@@ -34,8 +34,8 @@ func NewRebasePopup(tokens theme.Tokens, state *State, inRebase bool, branch, ba
 		p.AddSwitch("h", "no-verify", "Disable hooks", false)
 
 		// Options
-		p.AddOption("r", "rebase-merges", "Rebase merges", "")
-		p.AddOption("S", "gpg-sign", "Sign using gpg", "")
+		p.AddOptionWithPrefix("-", "r", "rebase-merges", "Rebase merges", "")
+		p.AddOptionWithPrefix("-", "S", "gpg-sign", "Sign using gpg", "")
 
 		// Rebase <branch> onto
 		heading := "Rebase onto"

@@ -1659,7 +1659,31 @@ func openBranchConfigCmd(repo *git.Repository, branch string) tea.Cmd {
 			}
 			values[k] = v
 		}
-		return branchConfigLoadedMsg{branch: branch, values: values}
+
+		// Load remotes for pushRemote/pushDefault choices
+		remotes, err := repo.ListRemotes(ctx)
+		if err != nil {
+			return branchConfigLoadedMsg{branch: branch, values: values, err: err}
+		}
+		remoteNames := make([]string, len(remotes))
+		for i, r := range remotes {
+			remoteNames[i] = r.Name
+		}
+
+		// Load local and global pull.rebase
+		pullRebase := values["pull.rebase"]
+		if pullRebase == "" {
+			pullRebase = "false"
+		}
+		globalPullRebase, _ := repo.GetGlobalConfigValue(ctx, "pull.rebase")
+
+		return branchConfigLoadedMsg{
+			branch:           branch,
+			values:           values,
+			remotes:          remoteNames,
+			pullRebase:       pullRebase,
+			globalPullRebase: globalPullRebase,
+		}
 	}
 }
 

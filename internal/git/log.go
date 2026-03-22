@@ -114,9 +114,10 @@ func (r *Repository) Log(ctx context.Context, opts LogOpts) ([]LogEntry, bool, e
 		args = append(args, "--decorate")
 	}
 
-	if opts.Graph {
-		args = append(args, "--graph")
-	}
+	// Note: --graph is NOT passed to git because it prepends graph
+	// characters (containing "|") to each line, breaking the "|"-delimited
+	// format parser. The Graph flag is preserved in LogOpts for future
+	// internal graph rendering in the UI (like Neogit does).
 
 	if opts.Branch != "" {
 		args = append(args, opts.Branch)

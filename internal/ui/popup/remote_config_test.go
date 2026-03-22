@@ -36,6 +36,24 @@ func TestRemoteConfigPopup_ConfigItems(t *testing.T) {
 	}
 }
 
+func TestRemoteConfigPopup_TagOptHasChoices(t *testing.T) {
+	tokens := testTokens()
+	p := NewRemoteConfigPopup(tokens, nil, "origin")
+
+	for _, c := range p.config {
+		if c.Label == "remote.origin.tagOpt" {
+			if len(c.Choices) != 2 {
+				t.Errorf("expected 2 choices for tagOpt, got %d", len(c.Choices))
+			}
+			if c.Choices[0] != "--no-tags" || c.Choices[1] != "--tags" {
+				t.Errorf("unexpected choices: %v", c.Choices)
+			}
+			return
+		}
+	}
+	t.Error("tagOpt config item not found")
+}
+
 func TestRemoteConfigPopup_CloseWithQ(t *testing.T) {
 	tokens := testTokens()
 	p := NewRemoteConfigPopup(tokens, nil, "origin")

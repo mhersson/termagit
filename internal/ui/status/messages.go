@@ -72,7 +72,10 @@ type remoteConfigLoadedMsg struct {
 
 // branchConfigLoadedMsg is sent when branch config values are loaded for the branch config popup.
 type branchConfigLoadedMsg struct {
-	branch string
-	values map[string]string // config key -> value
-	err    error
+	branch          string
+	values          map[string]string // config key -> value
+	remotes         []string          // configured remote names
+	pullRebase      string            // local pull.rebase value
+	globalPullRebase string           // global pull.rebase value
+	err             error
 }

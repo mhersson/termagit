@@ -19,7 +19,7 @@ func NewRevertPopup(tokens theme.Tokens, state *State, inProgress, hasHunk bool)
 		})
 	} else {
 		// Options (only when not in-progress)
-		p.AddOption("m", "mainline", "Replay merge relative to parent", "")
+		p.AddOptionWithPrefix("-", "m", "mainline", "Replay merge relative to parent", "")
 
 		// Switches (not in-progress)
 		p.AddSwitch("e", "edit", "Edit commit messages", true) // enabled by default in Neogit
@@ -29,7 +29,7 @@ func NewRevertPopup(tokens theme.Tokens, state *State, inProgress, hasHunk bool)
 
 		p.AddOptionWithChoices("s", "strategy", "Strategy", "",
 			[]string{"octopus", "ours", "resolve", "subtree", "recursive"})
-		p.AddOption("S", "gpg-sign", "Sign using gpg", "")
+		p.AddOptionWithPrefix("-", "S", "gpg-sign", "Sign using gpg", "")
 
 		// Revert actions
 		revertActions := []Action{

@@ -8,7 +8,7 @@ import (
 
 func TestBranchConfigPopup_ConfigItems(t *testing.T) {
 	tokens := testTokens()
-	p := NewBranchConfigPopup(tokens, nil, "main")
+	p := NewBranchConfigPopup(tokens, nil, "main", []string{"origin"}, "false", "")
 
 	// Should have config items for the branch
 	if len(p.config) < 5 {
@@ -38,7 +38,7 @@ func TestBranchConfigPopup_ConfigItems(t *testing.T) {
 
 func TestBranchConfigPopup_RepositoryDefaults(t *testing.T) {
 	tokens := testTokens()
-	p := NewBranchConfigPopup(tokens, nil, "main")
+	p := NewBranchConfigPopup(tokens, nil, "main", []string{"origin"}, "false", "")
 
 	// Should have repository default config items
 	expectedRepoConfigs := []string{
@@ -58,9 +58,63 @@ func TestBranchConfigPopup_RepositoryDefaults(t *testing.T) {
 	}
 }
 
+func TestBranchConfigPopup_RebaseHasChoices(t *testing.T) {
+	tokens := testTokens()
+	p := NewBranchConfigPopup(tokens, nil, "main", []string{"origin"}, "false", "")
+
+	for _, c := range p.config {
+		if c.Label == "branch.main.rebase" {
+			if len(c.Choices) < 2 {
+				t.Errorf("expected choices for rebase, got %d", len(c.Choices))
+			}
+			return
+		}
+	}
+	t.Error("rebase config item not found")
+}
+
+func TestBranchConfigPopup_AutoSetupMergeHasChoices(t *testing.T) {
+	tokens := testTokens()
+	p := NewBranchConfigPopup(tokens, nil, "main", []string{"origin"}, "false", "")
+
+	for _, c := range p.config {
+		if c.Label == "branch.autoSetupMerge" {
+			expected := []string{"always", "true", "false", "inherit", "simple", "default:true"}
+			if len(c.Choices) != len(expected) {
+				t.Errorf("expected %d choices for autoSetupMerge, got %d", len(expected), len(c.Choices))
+			}
+			return
+		}
+	}
+	t.Error("autoSetupMerge config item not found")
+}
+
+func TestBranchConfigPopup_HasSectionHeadings(t *testing.T) {
+	tokens := testTokens()
+	p := NewBranchConfigPopup(tokens, nil, "main", []string{"origin"}, "false", "")
+
+	// Should have section headings
+	titles := make([]string, 0)
+	for _, s := range p.configSections {
+		if s.Title != "" {
+			titles = append(titles, s.Title)
+		}
+	}
+
+	expected := []string{"Configure branch", "Configure repository defaults", "Configure branch creation"}
+	if len(titles) != len(expected) {
+		t.Errorf("expected %d section headings, got %d: %v", len(expected), len(titles), titles)
+	}
+	for i, e := range expected {
+		if i < len(titles) && titles[i] != e {
+			t.Errorf("heading %d: expected %q, got %q", i, e, titles[i])
+		}
+	}
+}
+
 func TestBranchConfigPopup_CloseWithQ(t *testing.T) {
 	tokens := testTokens()
-	p := NewBranchConfigPopup(tokens, nil, "main")
+	p := NewBranchConfigPopup(tokens, nil, "main", []string{"origin"}, "false", "")
 	p.SetSize(80, 24)
 
 	// Press 'q' to close

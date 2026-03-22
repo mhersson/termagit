@@ -15,7 +15,7 @@ func NewTagPopup(tokens theme.Tokens, state *State) Popup {
 	p.AddSwitch("s", "sign", "Sign", false)
 
 	// Options
-	p.AddOption("u", "local-user", "Sign as", "")
+	p.AddOptionWithPrefix("-", "u", "local-user", "Sign as", "")
 
 	// Create group
 	p.AddActionGroup("Create", []Action{

@@ -19,7 +19,7 @@ func NewCherryPickPopup(tokens theme.Tokens, state *State, inProgress bool) Popu
 		})
 	} else {
 		// Options (not in-progress)
-		p.AddOption("m", "mainline", "Replay merge relative to parent", "")
+		p.AddOptionWithPrefix("-", "m", "mainline", "Replay merge relative to parent", "")
 		p.AddOptionWithChoices("s", "strategy", "Strategy", "",
 			[]string{"octopus", "ours", "resolve", "subtree", "recursive"})
 
@@ -29,7 +29,7 @@ func NewCherryPickPopup(tokens theme.Tokens, state *State, inProgress bool) Popu
 		p.AddSwitch("e", "edit", "Edit commit messages", false)
 		p.SetIncompatible("F", "e") // ff and edit are incompatible
 		p.AddSwitch("s", "signoff", "Add Signed-off-by lines", false)
-		p.AddOption("S", "gpg-sign", "Sign using gpg", "")
+		p.AddOptionWithPrefix("-", "S", "gpg-sign", "Sign using gpg", "")
 
 		// Apply here
 		p.AddActionGroup("Apply here", []Action{

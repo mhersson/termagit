@@ -256,16 +256,52 @@ func TestPopup_ViewFormat_OptionRendering(t *testing.T) {
 	p.SetSize(80, 24)
 	view := p.View()
 
-	// Should render as: -A Override the author (--author=)
-	// The key prefix is "-" (not "=" as was before)
-	if !strings.Contains(view, "-A") {
-		t.Error("option should have -key format (not =key)")
+	// Options default to "=" prefix (matching Neogit's default for options)
+	if !strings.Contains(view, "=A") {
+		t.Error("option should have =key format (default prefix for options)")
 	}
 	if !strings.Contains(view, "Override the author") {
 		t.Error("option should contain description")
 	}
 	if !strings.Contains(view, "(--author=)") {
 		t.Error("option should have (--option=) format at end")
+	}
+}
+
+func TestPopup_ViewFormat_OptionWithCustomPrefix(t *testing.T) {
+	tokens := testTokens()
+	p := New("Test", tokens)
+	p.AddOptionWithPrefix("-", "A", "author", "Override the author", "")
+
+	p.SetSize(80, 24)
+	view := p.View()
+
+	// Custom "-" prefix should render as -A
+	if !strings.Contains(view, "-A") {
+		t.Error("option with '-' prefix should render with -key")
+	}
+}
+
+func TestPopup_EditingOptionRendersTextInput(t *testing.T) {
+	tokens := testTokens()
+	p := New("Test", tokens)
+	p.AddOptionWithPrefix("-", "A", "author", "Override the author", "")
+
+	p.SetSize(80, 24)
+
+	// Press -A to start editing
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'-'}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'A'}})
+
+	view := p.View()
+
+	// The textinput should be visible (shows "author=" prompt)
+	if !strings.Contains(view, "author=") {
+		t.Errorf("editing option should show textinput with prompt, got:\n%s", view)
+	}
+	// The normal option rendering should NOT show for the edited item
+	if strings.Contains(view, "(--author=)") {
+		t.Error("should show textinput instead of normal option rendering when editing")
 	}
 }
 
@@ -277,9 +313,51 @@ func TestPopup_ViewFormat_OptionWithValue(t *testing.T) {
 	p.SetSize(80, 24)
 	view := p.View()
 
-	// Option with value should render as: -A Override the author (--author=John Doe)
+	// Option with value should render as: =A Override the author (--author=John Doe)
 	if !strings.Contains(view, "(--author=John Doe)") {
 		t.Error("option with value should show value after =")
+	}
+}
+
+func TestPopup_PrefixRouting_SwitchAndOptionSameKey(t *testing.T) {
+	tokens := testTokens()
+	p := New("Test", tokens)
+	// Switch "s" with prefix "-" and option "s" with prefix "="
+	p.AddSwitch("s", "signoff", "Add Signed-off-by", false)
+	p.AddOption("s", "strategy", "Strategy", "")
+
+	p.SetSize(80, 24)
+
+	// Press "-s" to toggle switch
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'-'}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+
+	// Verify the switch is toggled on (check internal state)
+	found := false
+	for _, sw := range p.switches {
+		if sw.Label == "signoff" {
+			found = true
+			if !sw.Enabled {
+				t.Error("switch should be enabled after -s")
+			}
+		}
+	}
+	if !found {
+		t.Error("signoff switch not found")
+	}
+
+	// Verify the option is unaffected
+	for _, opt := range p.options {
+		if opt.Label == "strategy" && opt.Value != "" {
+			t.Error("option should not be affected by -s")
+		}
+	}
+
+	// Close and verify result
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	result := p.Result()
+	if !result.Switches["signoff"] {
+		t.Error("result should have signoff enabled")
 	}
 }
 

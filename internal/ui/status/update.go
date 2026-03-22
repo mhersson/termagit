@@ -3,6 +3,8 @@ package status
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -254,7 +256,8 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			return m, notifyAppCmd("Failed to load branch config: "+msg.err.Error(), notification.Error)
 		}
-		p := popup.NewBranchConfigPopup(m.tokens, nil, msg.branch)
+		p := popup.NewBranchConfigPopup(m.tokens, nil, msg.branch,
+			msg.remotes, msg.pullRebase, msg.globalPullRebase)
 		cfgs := p.GetConfig()
 		for i := range cfgs {
 			if v, ok := msg.values[cfgs[i].Label]; ok {
@@ -2010,9 +2013,17 @@ func handleOpenBisectPopup(m Model) (tea.Model, tea.Cmd) {
 
 // handleOpenIgnorePopup opens the ignore popup.
 func handleOpenIgnorePopup(m Model) (tea.Model, tea.Cmd) {
-	// Check if global gitignore exists
-	hasGlobalIgnore := false // Could check git config core.excludesfile
-	p := popup.NewIgnorePopup(m.tokens, nil, hasGlobalIgnore)
+	// Resolve global gitignore path (empty string if not configured)
+	globalPath, _ := m.repo.GlobalIgnoreFile(context.Background())
+	if globalPath != "" {
+		// Make path relative to home for display, like Neogit
+		if home, err := os.UserHomeDir(); err == nil {
+			if rel, err := filepath.Rel(home, globalPath); err == nil {
+				globalPath = "~/" + rel
+			}
+		}
+	}
+	p := popup.NewIgnorePopup(m.tokens, nil, globalPath)
 	p.SetSize(m.width, m.height)
 	m.popup = &p
 	m.popupKind = PopupIgnore

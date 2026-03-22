@@ -71,6 +71,25 @@ func TestLogPopup_ActionGroups(t *testing.T) {
 	}
 }
 
+func TestLogPopup_LogGroupHasSpacer(t *testing.T) {
+	tokens := testTokens()
+	p := NewLogPopup(tokens, nil)
+
+	logGroup := p.groups[0]
+	// "other" should be followed by a spacer, then "local branches"
+	foundSpacer := false
+	for i, action := range logGroup.Actions {
+		if action.Key == "o" && action.Label == "other" {
+			if i+1 < len(logGroup.Actions) && logGroup.Actions[i+1].Spacer {
+				foundSpacer = true
+			}
+		}
+	}
+	if !foundSpacer {
+		t.Error("expected spacer after 'other' action in Log group")
+	}
+}
+
 func TestLogPopup_LogCurrent(t *testing.T) {
 	tokens := testTokens()
 	p := NewLogPopup(tokens, nil)
@@ -86,6 +105,36 @@ func TestLogPopup_LogCurrent(t *testing.T) {
 	result := p.Result()
 	if result.Action != "l" {
 		t.Errorf("expected action 'l', got %q", result.Action)
+	}
+}
+
+func TestLogPopup_ReverseGraphIncompatible(t *testing.T) {
+	tokens := testTokens()
+	p := NewLogPopup(tokens, nil)
+	p.SetSize(80, 24)
+
+	// Enable graph first
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'-'}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
+
+	// Verify graph is enabled
+	for _, sw := range p.switches {
+		if sw.Label == "graph" && !sw.Enabled {
+			t.Fatal("graph should be enabled after -g")
+		}
+	}
+
+	// Now enable reverse — should disable graph
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'-'}})
+	p, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+
+	for _, sw := range p.switches {
+		if sw.Label == "graph" && sw.Enabled {
+			t.Error("graph should be disabled when reverse is enabled (incompatible)")
+		}
+		if sw.Label == "reverse" && !sw.Enabled {
+			t.Error("reverse should be enabled")
+		}
 	}
 }
 
