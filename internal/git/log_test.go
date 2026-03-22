@@ -208,6 +208,24 @@ func TestCommitDetail_ReturnsFullInfo(t *testing.T) {
 	assert.NotEmpty(t, detail.AuthorEmail)
 }
 
+func TestCommitDetail_BodyDoesNotContainSubject(t *testing.T) {
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	addAndCommit(t, r, "body.txt", "content", "Subject line\n\nThis is the body\nSecond paragraph")
+
+	commits, err := r.RecentCommits(ctx, 1)
+	require.NoError(t, err)
+
+	detail, err := r.CommitDetail(ctx, commits[0].Hash)
+	require.NoError(t, err)
+
+	assert.Equal(t, "Subject line", detail.Subject)
+	assert.NotContains(t, detail.Body, "Subject line", "body should not contain the subject")
+	assert.Contains(t, detail.Body, "This is the body")
+	assert.Contains(t, detail.Body, "Second paragraph")
+}
+
 func TestLog_WhenFieldIsParsedFromAuthorDate(t *testing.T) {
 	r := newTempRepo(t)
 	ctx := context.Background()

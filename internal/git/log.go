@@ -150,8 +150,8 @@ func (r *Repository) Log(ctx context.Context, opts LogOpts) ([]LogEntry, bool, e
 
 // CommitDetail returns full information about a single commit.
 func (r *Repository) CommitDetail(ctx context.Context, hash string) (*LogEntry, error) {
-	// Format with body: %H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d|%B
-	format := "%H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d%x00%B"
+	// Format with body: %H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d|%b
+	format := "%H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d%x00%b"
 
 	out, err := r.runGit(ctx, "log", "-1", "--format="+format, hash)
 	if err != nil {
