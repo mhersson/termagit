@@ -1,7 +1,7 @@
 package popup
 
 import (
-	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/termagit/internal/theme"
 )
 
 // PullPopupParams holds dynamic context for the pull popup.

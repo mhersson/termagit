@@ -1,7 +1,7 @@
 package popup
 
 import (
-	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/termagit/internal/theme"
 )
 
 // NewCommitPopup creates the commit popup matching Neogit exactly.

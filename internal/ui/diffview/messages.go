@@ -2,7 +2,7 @@ package diffview
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/termagit/internal/git"
 )
 
 // OpenDiffViewMsg triggers opening the diff view at the app level.

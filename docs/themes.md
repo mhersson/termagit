@@ -1,17 +1,17 @@
 # Custom Themes
 
-conjit supports custom color themes via TOML files placed in
-`~/.config/conjit/themes/` (or `$XDG_CONFIG_HOME/conjit/themes/`).
+termagit supports custom color themes via TOML files placed in
+`~/.config/termagit/themes/` (or `$XDG_CONFIG_HOME/termagit/themes/`).
 
 There are two ways to define a theme: **palette-based** (recommended) and
 **token-based** (advanced). You can also combine both approaches.
 
 ## Palette-Based Themes (Recommended)
 
-A palette defines ~21 named colors. conjit maps these to all the UI elements
+A palette defines ~21 named colors. termagit maps these to all the UI elements
 automatically. This is the simplest way to create a theme.
 
-Create a file like `~/.config/conjit/themes/my-theme.toml`:
+Create a file like `~/.config/termagit/themes/my-theme.toml`:
 
 ```toml
 [palette]
@@ -197,7 +197,7 @@ need specific colors that don't fit the standard mapping.
 
 ## Built-in Themes
 
-conjit ships with three built-in themes:
+termagit ships with three built-in themes:
 
 - **catppuccin-mocha** (default) — warm, pastel colors on a dark base
 - **everforest-dark** — muted, earthy tones inspired by nature

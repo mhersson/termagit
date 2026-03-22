@@ -3,7 +3,7 @@ package popup
 import (
 	"fmt"
 
-	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/termagit/internal/theme"
 )
 
 // NewIgnorePopup creates the ignore popup matching Neogit exactly.

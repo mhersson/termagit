@@ -15,7 +15,7 @@ func TestConfigDir_UsesXDGConfigHome_WhenSet(t *testing.T) {
 	dir, err := ConfigDir()
 
 	require.NoError(t, err)
-	assert.Equal(t, "/custom/config/conjit", dir)
+	assert.Equal(t, "/custom/config/termagit", dir)
 }
 
 func TestConfigDir_FallsBackToHomeConfig_WhenUnset(t *testing.T) {
@@ -25,7 +25,7 @@ func TestConfigDir_FallsBackToHomeConfig_WhenUnset(t *testing.T) {
 	dir, err := ConfigDir()
 
 	require.NoError(t, err)
-	assert.Equal(t, "/home/user/.config/conjit", dir)
+	assert.Equal(t, "/home/user/.config/termagit", dir)
 }
 
 func TestStateDir_UsesXDGStateHome_WhenSet(t *testing.T) {
@@ -35,7 +35,7 @@ func TestStateDir_UsesXDGStateHome_WhenSet(t *testing.T) {
 	dir, err := StateDir()
 
 	require.NoError(t, err)
-	assert.Equal(t, "/custom/state/conjit", dir)
+	assert.Equal(t, "/custom/state/termagit", dir)
 }
 
 func TestStateDir_FallsBackToLocalState_WhenUnset(t *testing.T) {
@@ -45,7 +45,7 @@ func TestStateDir_FallsBackToLocalState_WhenUnset(t *testing.T) {
 	dir, err := StateDir()
 
 	require.NoError(t, err)
-	assert.Equal(t, "/home/user/.local/state/conjit", dir)
+	assert.Equal(t, "/home/user/.local/state/termagit", dir)
 }
 
 func TestThemesDir_IsSubdirOfConfigDir(t *testing.T) {

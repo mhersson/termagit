@@ -1,8 +1,8 @@
 .PHONY: build test test-integration lint run install clean
 
-BINARY := conjit
+BINARY := termagit
 BIN_DIR := bin
-CMD_DIR := cmd/conjit
+CMD_DIR := cmd/termagit
 
 build:
 	@mkdir -p $(BIN_DIR)

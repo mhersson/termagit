@@ -1,6 +1,6 @@
 package commit
 
-import "github.com/mhersson/conjit/internal/git"
+import "github.com/mhersson/termagit/internal/git"
 
 // OpenCommitEditorMsg triggers opening the commit editor.
 type OpenCommitEditorMsg struct {

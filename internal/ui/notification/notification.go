@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/termagit/internal/theme"
 )
 
 // Kind represents the severity of a notification.

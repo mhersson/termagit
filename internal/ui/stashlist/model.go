@@ -6,8 +6,8 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/mhersson/conjit/internal/git"
-	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/termagit/internal/git"
+	"github.com/mhersson/termagit/internal/theme"
 )
 
 // confirmMode indicates what type of confirmation is pending.

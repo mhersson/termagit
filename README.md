@@ -1,4 +1,4 @@
-# conjit
+# termagit
 
 
 A standalone terminal Git UI, feature-complete and visually identical to
@@ -13,7 +13,7 @@ interface ever made. When I moved away from Emacs I found
 [Neogit](https://github.com/NeogitOrg/neogit) — a fantastic Magit port for
 Neovim — and it became an essential part of my workflow. But I kept wishing for
 something editor-agnostic. Something I could launch from any terminal, in any
-project, without needing Neovim running. conjit is that thing.
+project, without needing Neovim running. termagit is that thing.
 
 Every line of code in this project was written by
 [Claude Code](https://docs.anthropic.com/en/docs/claude-code). I used this
@@ -45,22 +45,22 @@ new way of building software, and I learned a lot from doing it.
 - **File watcher** — auto-refreshes when the working tree changes
 - **Themeable** — ships with catppuccin-mocha, everforest-dark, and tokyo-night;
   supports custom themes via TOML
-- **All Neogit key bindings** — if you know Neogit, you know conjit
+- **All Neogit key bindings** — if you know Neogit, you know termagit
 
 ## Installation
 
 ### From source
 
 ```bash
-go install github.com/mhersson/conjit/cmd/conjit@latest
+go install github.com/mhersson/termagit/cmd/termagit@latest
 ```
 
 ### Build locally
 
 ```bash
-git clone https://github.com/mhersson/conjit.git
-cd conjit
-make build        # binary at bin/conjit
+git clone https://github.com/mhersson/termagit.git
+cd termagit
+make build        # binary at bin/termagit
 make install      # copies to $GOPATH/bin/
 ```
 
@@ -69,16 +69,16 @@ Requires Go 1.26+.
 ## Usage
 
 ```bash
-conjit                        # open in current directory
-conjit -path /path/to/repo    # open a specific repository
-conjit -theme everforest-dark # override the color theme
-conjit -version               # print version
+termagit                        # open in current directory
+termagit -path /path/to/repo    # open a specific repository
+termagit -theme everforest-dark # override the color theme
+termagit -version               # print version
 ```
 
 ## Configuration
 
-conjit uses a TOML config file at `~/.config/conjit/config.toml` (or
-`$XDG_CONFIG_HOME/conjit/config.toml`). Missing fields fall back to sensible
+termagit uses a TOML config file at `~/.config/termagit/config.toml` (or
+`$XDG_CONFIG_HOME/termagit/config.toml`). Missing fields fall back to sensible
 defaults — you only need to specify what you want to change.
 
 See [docs/configuration.md](docs/configuration.md) for the full reference with
@@ -104,13 +104,13 @@ Three built-in themes are available:
 - `everforest-dark`
 - `tokyo-night`
 
-Custom themes can be placed in `~/.config/conjit/themes/` as TOML files. The
-easiest way is to define a palette of ~21 colors — conjit maps them to all UI
+Custom themes can be placed in `~/.config/termagit/themes/` as TOML files. The
+easiest way is to define a palette of ~21 colors — termagit maps them to all UI
 elements automatically. See [docs/themes.md](docs/themes.md) for the full guide.
 
 ## Key Bindings
 
-conjit uses the same key bindings as Neogit. Here are the essentials:
+termagit uses the same key bindings as Neogit. Here are the essentials:
 
 | Key | Action |
 |-----|--------|
@@ -145,7 +145,7 @@ conjit uses the same key bindings as Neogit. Here are the essentials:
 ## Acknowledgements
 
 - [Magit](https://magit.vc/) — the original and best Git porcelain
-- [Neogit](https://github.com/NeogitOrg/neogit) — the Neovim port that conjit
+- [Neogit](https://github.com/NeogitOrg/neogit) — the Neovim port that termagit
   mirrors
 - [Bubble Tea](https://github.com/charmbracelet/bubbletea) and
   [Lip Gloss](https://github.com/charmbracelet/lipgloss) — the TUI framework

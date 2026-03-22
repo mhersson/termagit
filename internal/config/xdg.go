@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 )
 
-const appName = "conjit"
+const appName = "termagit"
 
-// ConfigDir returns the conjit configuration directory.
-// Uses $XDG_CONFIG_HOME/conjit or falls back to $HOME/.config/conjit.
+// ConfigDir returns the termagit configuration directory.
+// Uses $XDG_CONFIG_HOME/termagit or falls back to $HOME/.config/termagit.
 func ConfigDir() (string, error) {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
 		return filepath.Join(xdg, appName), nil
@@ -17,8 +17,8 @@ func ConfigDir() (string, error) {
 	return filepath.Join(home, ".config", appName), nil
 }
 
-// StateDir returns the conjit state directory.
-// Uses $XDG_STATE_HOME/conjit or falls back to $HOME/.local/state/conjit.
+// StateDir returns the termagit state directory.
+// Uses $XDG_STATE_HOME/termagit or falls back to $HOME/.local/state/termagit.
 func StateDir() (string, error) {
 	if xdg := os.Getenv("XDG_STATE_HOME"); xdg != "" {
 		return filepath.Join(xdg, appName), nil

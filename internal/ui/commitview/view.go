@@ -7,7 +7,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/termagit/internal/git"
 )
 
 // View implements tea.Model.

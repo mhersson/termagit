@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/termagit/internal/git"
 )
 
 // View renders the reflog view.

@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mhersson/conjit/internal/config"
-	"github.com/mhersson/conjit/internal/git"
-	"github.com/mhersson/conjit/internal/theme"
-	"github.com/mhersson/conjit/internal/ui/commit/vim"
+	"github.com/mhersson/termagit/internal/config"
+	"github.com/mhersson/termagit/internal/git"
+	"github.com/mhersson/termagit/internal/theme"
+	"github.com/mhersson/termagit/internal/ui/commit/vim"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

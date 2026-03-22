@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mhersson/conjit/internal/git"
-	"github.com/mhersson/conjit/internal/ui/notification"
+	"github.com/mhersson/termagit/internal/git"
+	"github.com/mhersson/termagit/internal/ui/notification"
 )
 
 // View renders the stash list view.

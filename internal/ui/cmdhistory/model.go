@@ -3,8 +3,8 @@ package cmdhistory
 import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mhersson/conjit/internal/cmdlog"
-	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/termagit/internal/cmdlog"
+	"github.com/mhersson/termagit/internal/theme"
 )
 
 // CloseMsg signals that the command history view should be closed.

@@ -9,11 +9,11 @@ import (
 	"strconv"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mhersson/conjit/internal/config"
-	"github.com/mhersson/conjit/internal/git"
-	"github.com/mhersson/conjit/internal/platform"
-	"github.com/mhersson/conjit/internal/ui/notification"
-	"github.com/mhersson/conjit/internal/ui/rebaseeditor"
+	"github.com/mhersson/termagit/internal/config"
+	"github.com/mhersson/termagit/internal/git"
+	"github.com/mhersson/termagit/internal/platform"
+	"github.com/mhersson/termagit/internal/ui/notification"
+	"github.com/mhersson/termagit/internal/ui/rebaseeditor"
 )
 
 // loadStatusCmd loads the HEAD state and all 12 sections.

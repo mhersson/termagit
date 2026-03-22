@@ -1,12 +1,12 @@
 # Configuration
 
-conjit is configured via a TOML file at:
+termagit is configured via a TOML file at:
 
 ```
-~/.config/conjit/config.toml
+~/.config/termagit/config.toml
 ```
 
-Or more precisely, `$XDG_CONFIG_HOME/conjit/config.toml`. If the file doesn't
+Or more precisely, `$XDG_CONFIG_HOME/termagit/config.toml`. If the file doesn't
 exist, all defaults are used.
 
 You only need to specify the values you want to change. Missing fields keep
@@ -22,7 +22,7 @@ their defaults — the config is merged on top of the defaults, not replaced.
 theme = "everforest-dark"
 ```
 
-Custom themes are loaded from `~/.config/conjit/themes/*.toml`. A partial theme
+Custom themes are loaded from `~/.config/termagit/themes/*.toml`. A partial theme
 file inherits missing values from the default (catppuccin-mocha).
 
 ## Git
@@ -141,7 +141,7 @@ hidden = true
 ## Command Log
 
 Settings for the internal command log (stored at
-`~/.local/state/conjit/commands.log`).
+`~/.local/state/termagit/commands.log`).
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|

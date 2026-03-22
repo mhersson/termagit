@@ -23,7 +23,7 @@ func TestState_SaveAndLoad(t *testing.T) {
 	}
 
 	// Verify file exists
-	stateFile := filepath.Join(dir, "conjit", "popup_state.toml")
+	stateFile := filepath.Join(dir, "termagit", "popup_state.toml")
 	if _, err := os.Stat(stateFile); os.IsNotExist(err) {
 		t.Fatalf("state file not created at %s", stateFile)
 	}

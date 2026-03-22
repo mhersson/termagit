@@ -22,7 +22,7 @@ func TestLoad_MissingFile_ReturnsDefaults(t *testing.T) {
 
 func TestLoad_OnlyTheme_AllOtherFieldsAreDefaults(t *testing.T) {
 	dir := t.TempDir()
-	configDir := filepath.Join(dir, "conjit")
+	configDir := filepath.Join(dir, "termagit")
 	require.NoError(t, os.MkdirAll(configDir, 0o755))
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
@@ -46,7 +46,7 @@ func TestLoad_OnlyTheme_AllOtherFieldsAreDefaults(t *testing.T) {
 
 func TestLoad_PartialSections_UnsetSectionsAreDefaults(t *testing.T) {
 	dir := t.TempDir()
-	configDir := filepath.Join(dir, "conjit")
+	configDir := filepath.Join(dir, "termagit")
 	require.NoError(t, os.MkdirAll(configDir, 0o755))
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
@@ -72,7 +72,7 @@ hidden = true
 
 func TestLoad_FullFile_OverridesAllDefaults(t *testing.T) {
 	dir := t.TempDir()
-	configDir := filepath.Join(dir, "conjit")
+	configDir := filepath.Join(dir, "termagit")
 	require.NoError(t, os.MkdirAll(configDir, 0o755))
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
@@ -209,7 +209,7 @@ func TestDefaults_CommitEditorConfigHasDefaults(t *testing.T) {
 
 func TestLoad_GenerateCommitMessageCommand_Loaded(t *testing.T) {
 	dir := t.TempDir()
-	configDir := filepath.Join(dir, "conjit")
+	configDir := filepath.Join(dir, "termagit")
 	require.NoError(t, os.MkdirAll(configDir, 0o755))
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
@@ -239,7 +239,7 @@ func TestDefaults_FilewatcherConfigHasDefaults(t *testing.T) {
 
 func TestLoad_PartialUI_UnsetFieldsAreDefaults(t *testing.T) {
 	dir := t.TempDir()
-	configDir := filepath.Join(dir, "conjit")
+	configDir := filepath.Join(dir, "termagit")
 	require.NoError(t, os.MkdirAll(configDir, 0o755))
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
@@ -264,7 +264,7 @@ recent_commit_count = 10
 
 func TestLoad_PartialGit_UnsetFieldsAreDefaults(t *testing.T) {
 	dir := t.TempDir()
-	configDir := filepath.Join(dir, "conjit")
+	configDir := filepath.Join(dir, "termagit")
 	require.NoError(t, os.MkdirAll(configDir, 0o755))
 	t.Setenv("XDG_CONFIG_HOME", dir)
 

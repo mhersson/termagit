@@ -4,8 +4,8 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/mhersson/conjit/internal/git"
-	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/termagit/internal/git"
+	"github.com/mhersson/termagit/internal/theme"
 )
 
 // Model is the commit view model for displaying commit details.

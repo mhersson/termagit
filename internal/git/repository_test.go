@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	gogit "github.com/go-git/go-git/v5"
-	"github.com/mhersson/conjit/internal/cmdlog"
+	"github.com/mhersson/termagit/internal/cmdlog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

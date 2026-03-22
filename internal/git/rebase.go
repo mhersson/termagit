@@ -319,7 +319,7 @@ func (r *Repository) GenerateRebaseTodo(ctx context.Context, base string) ([]Tod
 func (r *Repository) RebaseWithTodo(ctx context.Context, base string, entries []TodoEntry, opts RebaseOpts) error {
 	// Write entries to a temp file
 	content := FormatTodoEntries(entries)
-	tmpFile, err := os.CreateTemp("", "conjit-rebase-todo-*")
+	tmpFile, err := os.CreateTemp("", "termagit-rebase-todo-*")
 	if err != nil {
 		return fmt.Errorf("rebase with todo: create temp: %w", err)
 	}

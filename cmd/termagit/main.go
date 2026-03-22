@@ -9,18 +9,18 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/mhersson/conjit/internal/app"
-	"github.com/mhersson/conjit/internal/cmdlog"
-	"github.com/mhersson/conjit/internal/config"
-	"github.com/mhersson/conjit/internal/git"
-	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/termagit/internal/app"
+	"github.com/mhersson/termagit/internal/cmdlog"
+	"github.com/mhersson/termagit/internal/config"
+	"github.com/mhersson/termagit/internal/git"
+	"github.com/mhersson/termagit/internal/theme"
 )
 
 var version = "dev"
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintf(os.Stderr, "conjit: %v\n", err)
+		fmt.Fprintf(os.Stderr, "termagit: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -35,7 +35,7 @@ func run() error {
 	flag.Parse()
 
 	if *flagVersion {
-		fmt.Println("conjit", version)
+		fmt.Println("termagit", version)
 		return nil
 	}
 

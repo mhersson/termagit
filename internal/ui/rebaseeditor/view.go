@@ -6,8 +6,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/mhersson/conjit/internal/git"
-	"github.com/mhersson/conjit/internal/theme"
+	"github.com/mhersson/termagit/internal/git"
+	"github.com/mhersson/termagit/internal/theme"
 )
 
 // View renders the rebase editor.

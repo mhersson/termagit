@@ -2,7 +2,7 @@ package stashlist
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/termagit/internal/git"
 )
 
 // CloseStashListMsg signals that the stash list view should close.

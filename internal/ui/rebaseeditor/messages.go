@@ -1,6 +1,6 @@
 package rebaseeditor
 
-import "github.com/mhersson/conjit/internal/git"
+import "github.com/mhersson/termagit/internal/git"
 
 // OpenRebaseEditorMsg triggers opening the rebase editor with pre-loaded entries.
 // Used for new interactive rebases where we generate the todo from the commit range.

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
-	"github.com/mhersson/conjit/internal/config"
+	"github.com/mhersson/termagit/internal/config"
 )
 
 // stateFile is the name of the popup state file.

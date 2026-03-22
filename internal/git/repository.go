@@ -15,7 +15,7 @@ import (
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/mhersson/conjit/internal/cmdlog"
+	"github.com/mhersson/termagit/internal/cmdlog"
 )
 
 // ErrNotARepo is returned when the path is not inside a git repository.

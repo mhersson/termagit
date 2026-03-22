@@ -1,4 +1,4 @@
-module github.com/mhersson/conjit
+module github.com/mhersson/termagit
 
 go 1.26
 
