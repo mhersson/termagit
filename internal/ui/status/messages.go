@@ -64,6 +64,17 @@ type OpenReflogViewMsg struct {
 	Ref     string
 }
 
+// OpenRefsViewMsg is sent to open the refs view.
+type OpenRefsViewMsg struct {
+	Refs    *git.RefsResult
+	Remotes []git.Remote
+}
+
+// OpenStashListMsg is sent to open the stash list view.
+type OpenStashListMsg struct {
+	Stashes []git.StashEntry
+}
+
 // remoteConfigLoadedMsg is sent when remote config values are loaded for the remote config popup.
 type remoteConfigLoadedMsg struct {
 	remote string

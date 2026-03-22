@@ -1718,3 +1718,28 @@ func setRemoteConfigCmd(repo *git.Repository, configValues map[string]string) te
 		return operationDoneMsg{op: "Remote configure"}
 	}
 }
+
+// loadRefsCmd loads all refs and remotes for the refs view.
+func loadRefsCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		refs, err := repo.ListRefs(ctx)
+		if err != nil {
+			return notification.NotifyMsg{Message: "Failed to load refs: " + err.Error(), Kind: notification.Error}
+		}
+		remotes, _ := repo.ListRemotes(ctx)
+		return OpenRefsViewMsg{Refs: refs, Remotes: remotes}
+	}
+}
+
+// loadStashListCmd loads all stashes for the stash list view.
+func loadStashListCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		stashes, err := repo.ListStashes(ctx)
+		if err != nil {
+			return notification.NotifyMsg{Message: "Failed to load stashes: " + err.Error(), Kind: notification.Error}
+		}
+		return OpenStashListMsg{Stashes: stashes}
+	}
+}

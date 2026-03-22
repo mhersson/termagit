@@ -2724,27 +2724,14 @@ func createTestCommitView(tokens theme.Tokens) commitview.Model {
 
 // --- Tests for newly wired key handlers ---
 
-func TestHandleShowRefs_OpensYankPopup(t *testing.T) {
-	tokens := theme.Compile(theme.Fallback().Raw())
+func TestHandleShowRefs_EmitsLoadRefsCmd(t *testing.T) {
 	m := Model{
-		sections: []Section{
-			{Kind: SectionRecentCommits, Title: "Recent Commits", Items: []Item{
-				{Commit: &git.LogEntry{Hash: "abc123def456"}},
-			}},
-		},
-		cursor: Cursor{Section: 0, Item: 0, Hunk: -1, Line: -1},
-		keys:   DefaultKeyMap(),
-		tokens: tokens,
-		width:  80,
-		height: 40,
+		keys: DefaultKeyMap(),
 	}
-	m.viewport.Width = 80
-	m.viewport.Height = 40
 
-	result, _ := handleShowRefs(m)
-	rm := result.(Model)
-	if rm.popup == nil {
-		t.Fatal("expected popup to be opened")
+	_, cmd := handleShowRefs(m)
+	if cmd == nil {
+		t.Fatal("expected a command to be returned for loading refs")
 	}
 }
 

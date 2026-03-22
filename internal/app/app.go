@@ -24,6 +24,8 @@ import (
 	"github.com/mhersson/conjit/internal/ui/popup"
 	"github.com/mhersson/conjit/internal/ui/rebaseeditor"
 	"github.com/mhersson/conjit/internal/ui/reflogview"
+	"github.com/mhersson/conjit/internal/ui/refsview"
+	"github.com/mhersson/conjit/internal/ui/stashlist"
 	"github.com/mhersson/conjit/internal/ui/status"
 )
 
@@ -69,6 +71,8 @@ type Model struct {
 	cmdHistory     *cmdhistory.Model
 	logView        *logview.Model
 	reflogView     *reflogview.Model
+	refsView       *refsview.Model
+	stashList      *stashlist.Model
 
 	notifications notification.Stack
 
@@ -142,6 +146,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case ScreenCommitView:
 			if m.commitView != nil {
 				m.commitView.SetSize(msg.Width, msg.Height)
+			}
+		case ScreenRefsView:
+			if m.refsView != nil {
+				m.refsView.SetSize(msg.Width, msg.Height)
+			}
+		case ScreenStashList:
+			if m.stashList != nil {
+				m.stashList.SetSize(msg.Width, msg.Height)
 			}
 		}
 		return m, nil
@@ -300,6 +312,46 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case reflogview.OpenCommitLinkMsg:
 		return m, openCommitURLCmd(m.repo, msg.Hash)
 
+	// Refs view
+	case status.OpenRefsViewMsg:
+		return m.openRefsView(msg.Refs, msg.Remotes)
+
+	case refsview.CloseRefsViewMsg:
+		m.active = ScreenStatus
+		return m, nil
+
+	case refsview.OpenCommitViewMsg:
+		return m.openCommitView(msg.Hash, nil)
+
+	case refsview.OpenPopupMsg:
+		newStatus, cmd := m.status.Update(msg)
+		m.status = newStatus.(status.Model)
+		m.active = ScreenStatus
+		return m, cmd
+
+	case refsview.YankMsg:
+		return m, yankToClipboardCmd(msg.Text)
+
+	// Stash list view
+	case status.OpenStashListMsg:
+		return m.openStashList(msg.Stashes)
+
+	case stashlist.CloseStashListMsg:
+		m.active = ScreenStatus
+		return m, nil
+
+	case stashlist.OpenCommitViewMsg:
+		return m.openCommitView(msg.Hash, nil)
+
+	case stashlist.OpenPopupMsg:
+		newStatus, cmd := m.status.Update(msg)
+		m.status = newStatus.(status.Model)
+		m.active = ScreenStatus
+		return m, cmd
+
+	case stashlist.YankMsg:
+		return m, yankToClipboardCmd(msg.Text)
+
 	// Commit view
 	case commitview.OpenCommitViewMsg:
 		return m.openCommitView(msg.CommitID, msg.Filter)
@@ -375,6 +427,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.commitView = &cv
 			return m, cmd
 		}
+	case ScreenRefsView:
+		if m.refsView != nil {
+			newRefsView, cmd := m.refsView.Update(msg)
+			rv := newRefsView.(refsview.Model)
+			m.refsView = &rv
+			return m, cmd
+		}
+	case ScreenStashList:
+		if m.stashList != nil {
+			newStashList, cmd := m.stashList.Update(msg)
+			sl := newStashList.(stashlist.Model)
+			m.stashList = &sl
+			return m, cmd
+		}
 	}
 
 	return m, nil
@@ -424,6 +490,24 @@ func (m Model) openCommitView(commitID string, filter []string) (Model, tea.Cmd)
 	return m, cv.Init()
 }
 
+// openRefsView switches to the refs view screen.
+func (m Model) openRefsView(refs *git.RefsResult, remotes []git.Remote) (Model, tea.Cmd) {
+	rv := refsview.New(refs, remotes, m.repo, m.tokens)
+	rv.SetSize(m.width, m.height)
+	m.refsView = &rv
+	m.active = ScreenRefsView
+	return m, nil
+}
+
+// openStashList switches to the stash list view screen.
+func (m Model) openStashList(stashes []git.StashEntry) (Model, tea.Cmd) {
+	sl := stashlist.New(stashes, m.repo, m.tokens)
+	sl.SetSize(m.width, m.height)
+	m.stashList = &sl
+	m.active = ScreenStashList
+	return m, nil
+}
+
 // View renders the model.
 func (m Model) View() string {
 	var base string
@@ -461,6 +545,18 @@ func (m Model) View() string {
 			base = m.commitView.View()
 		} else {
 			base = "Commit view not available"
+		}
+	case ScreenRefsView:
+		if m.refsView != nil {
+			base = m.refsView.View()
+		} else {
+			base = "Refs view not available"
+		}
+	case ScreenStashList:
+		if m.stashList != nil {
+			base = m.stashList.View()
+		} else {
+			base = "Stash list not available"
 		}
 	default:
 		base = "Unknown screen"

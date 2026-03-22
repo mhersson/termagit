@@ -2729,20 +2729,9 @@ func handleInputPromptKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // --- Newly wired key handlers ---
 
-// handleShowRefs opens the YankPopup for the current item.
+// handleShowRefs opens the refs view (matching Neogit y = ShowRefs).
 func handleShowRefs(m Model) (tea.Model, tea.Cmd) {
-	item, _ := getCurrentItem(m)
-	if item == nil {
-		return m, nil
-	}
-
-	hasURL := m.head.UpstreamRemote != ""
-	hasTags := m.head.Tag != ""
-	p := popup.NewYankPopup(m.tokens, nil, hasURL, hasTags)
-	p.SetSize(m.width, m.height)
-	m.popup = &p
-	m.popupKind = PopupYank
-	return m, nil
+	return m, loadRefsCmd(m.repo)
 }
 
 // handleGoToParentRepo navigates to the parent repository if in a submodule.
@@ -3200,8 +3189,8 @@ func handleStashPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 		return m, stashDropCmd(m.repo, idx)
 
 	// Inspect group
-	case "l": // list — requires Phase 11 Stash List View
-		return m, notifyAppCmd("Stash list view not yet available", notification.Info)
+	case "l": // list — open stash list view
+		return m, loadStashListCmd(m.repo)
 	case "v": // show — open commit view for the stash
 		idx, ok := getStashIndex(m)
 		if !ok {

@@ -2,6 +2,8 @@ package commitview
 
 import (
 	"context"
+	"strconv"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/git"
@@ -29,11 +31,15 @@ func (m Model) loadCommitDataCmd() tea.Cmd {
 			overview = nil
 		}
 
-		// Load diffs
-		diffs, err := m.repo.CommitDiff(ctx, m.commitID)
-		if err != nil {
-			// Non-fatal - continue without diffs
-			diffs = nil
+		// Load diffs — stash refs need special handling
+		var diffs []git.FileDiff
+		if idx, ok := parseStashIndex(m.commitID); ok {
+			patch, patchErr := m.repo.StashShowPatch(ctx, idx)
+			if patchErr == nil {
+				diffs = git.ParseDiffOutput(patch, git.DiffCommit)
+			}
+		} else {
+			diffs, _ = m.repo.CommitDiff(ctx, m.commitID)
 		}
 
 		// Filter diffs if filter is specified
@@ -70,4 +76,18 @@ func filterDiffs(diffs []git.FileDiff, filter []string) []git.FileDiff {
 		}
 	}
 	return result
+}
+
+// parseStashIndex extracts the numeric index from a stash ref like "stash@{0}".
+// Returns the index and true if the ref is a stash ref, or 0 and false otherwise.
+func parseStashIndex(ref string) (int, bool) {
+	if !strings.HasPrefix(ref, "stash@{") || !strings.HasSuffix(ref, "}") {
+		return 0, false
+	}
+	idxStr := ref[7 : len(ref)-1]
+	idx, err := strconv.Atoi(idxStr)
+	if err != nil {
+		return 0, false
+	}
+	return idx, true
 }

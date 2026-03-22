@@ -117,6 +117,11 @@ func (r *Repository) UntrackedDiff(ctx context.Context, path string) (*FileDiff,
 	return fd, nil
 }
 
+// ParseDiffOutput parses raw git diff output into FileDiff structs.
+func ParseDiffOutput(output string, kind DiffKind) []FileDiff {
+	return parseDiffOutput(output, kind)
+}
+
 // parseDiffOutput parses the output of git diff into FileDiff structs.
 func parseDiffOutput(output string, kind DiffKind) []FileDiff {
 	if output == "" {

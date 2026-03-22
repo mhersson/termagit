@@ -185,8 +185,9 @@ type Tokens struct {
 	GraphYellow lipgloss.Style
 	GraphCyan   lipgloss.Style
 	GraphPurple lipgloss.Style
-	GraphGray   lipgloss.Style
-	GraphWhite  lipgloss.Style
+	GraphGray       lipgloss.Style
+	GraphWhite      lipgloss.Style
+	GraphBoldPurple lipgloss.Style // NeogitGraphBoldPurple: bold variant for @ indicator
 
 	// Sequencer section header styles
 	Merging   lipgloss.Style
@@ -284,7 +285,8 @@ func Compile(r RawTokens) Tokens {
 		GraphCyan:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphCyan)),
 		GraphPurple: lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphPurple)),
 		GraphGray:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphGray)),
-		GraphWhite:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphWhite)),
+		GraphWhite:      lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphWhite)),
+		GraphBoldPurple: lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphPurple)).Bold(true),
 
 		Merging:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.Merging)).Bold(true),
 		Rebasing:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.Rebasing)).Bold(true),
