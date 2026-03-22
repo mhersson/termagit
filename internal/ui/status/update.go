@@ -1811,6 +1811,11 @@ func handleCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.Model, tea
 		return handleResetCommitSelected(m, msg)
 	}
 
+	// Check if this is a diff popup commit/stash selection
+	if m.diffCommitKind != diffCommitNone {
+		return handleDiffCommitSelected(m, msg)
+	}
+
 	opts := m.commitSpecialOpts
 	kind := m.commitSpecialKind
 
@@ -2885,6 +2890,18 @@ func handleBranchSelected(m Model, msg branchselect.SelectedMsg) (tea.Model, tea
 		return m, cherryPickDonateCmd(m.repo, hashes, m.head.Branch, msg.Name, opts)
 	case branchActionMergePreview:
 		return m, mergePreviewCmd(m.repo, msg.Name)
+	case branchActionDiffRangeFrom:
+		m.diffRangeFrom = msg.Name
+		m.branchActionKind = branchActionDiffRangeTo
+		return m, loadAllBranchesCmd(m.repo)
+	case branchActionDiffRangeTo:
+		rangeSpec := m.diffRangeFrom + ".." + msg.Name
+		m.diffRangeFrom = ""
+		return m, func() tea.Msg {
+			return diffview.OpenDiffViewMsg{
+				Source: diffview.DiffSource{Kind: git.DiffRange, Range: rangeSpec},
+			}
+		}
 	default:
 		return m, nil
 	}
@@ -3461,10 +3478,9 @@ func handleDiffPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, notifyAppCmd("No commit selected", notification.Warning)
-	case "r": // range
-		return m, notifyAppCmd("Diff range not yet implemented", notification.Info)
-	case "p": // paths
-		return m, notifyAppCmd("Diff paths not yet implemented", notification.Info)
+	case "r": // range — pick two refs, then open diff for from..to
+		m.branchActionKind = branchActionDiffRangeFrom
+		return m, loadAllBranchesCmd(m.repo)
 	case "u": // unstaged
 		return m, func() tea.Msg {
 			return diffview.OpenDiffViewMsg{
@@ -3483,12 +3499,37 @@ func handleDiffPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 				Source: diffview.DiffSource{Kind: git.DiffRange, Range: "HEAD"},
 			}
 		}
-	case "c": // Commit
-		return m, notifyAppCmd("Diff commit select not yet implemented", notification.Info)
-	case "t": // Stash
-		return m, notifyAppCmd("Diff stash select not yet implemented", notification.Info)
+	case "c": // Commit — pick a commit, then open diff view
+		m.diffCommitKind = diffCommitShow
+		return m, loadCommitsForSelectCmd(m.repo)
+	case "t": // Stash — pick a stash, then open diff view
+		m.diffCommitKind = diffCommitStash
+		return m, loadStashesForSelectCmd(m.repo)
 	default:
 		return m, notifyAppCmd("Unknown diff action: "+result.Action, notification.Warning)
+	}
+}
+
+// handleDiffCommitSelected handles the user selecting a commit/stash for the diff popup.
+func handleDiffCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.Model, tea.Cmd) {
+	kind := m.diffCommitKind
+	m.diffCommitKind = diffCommitNone
+
+	switch kind {
+	case diffCommitShow:
+		return m, func() tea.Msg {
+			return diffview.OpenDiffViewMsg{
+				Source: diffview.DiffSource{Kind: git.DiffCommit, Commit: msg.FullHash},
+			}
+		}
+	case diffCommitStash:
+		return m, func() tea.Msg {
+			return diffview.OpenDiffViewMsg{
+				Source: diffview.DiffSource{Kind: git.DiffStash, Stash: msg.Hash},
+			}
+		}
+	default:
+		return m, nil
 	}
 }
 

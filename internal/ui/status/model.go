@@ -184,6 +184,8 @@ const (
 	branchActionWorktreeCheckout               // Worktree popup: w (select branch for worktree checkout)
 	branchActionDonate                         // Cherry-pick popup: d (select branch to donate to)
 	branchActionMergePreview                   // Merge popup: p (preview merge with selected branch)
+	branchActionDiffRangeFrom                  // Diff popup: r (first ref for range)
+	branchActionDiffRangeTo                    // Diff popup: r (second ref for range)
 )
 
 // inputPromptKind identifies which action is pending text input.
@@ -264,6 +266,15 @@ const (
 	mergeActionAbsorb                   // a: absorb
 	mergeActionSquash                   // s: squash merge
 	mergeActionDissolve                 // i: dissolve
+)
+
+// diffCommitKind identifies which diff action is pending commit selection.
+type diffCommitKind int
+
+const (
+	diffCommitNone  diffCommitKind = iota
+	diffCommitShow                 // c: open diff view for selected commit
+	diffCommitStash                // t: open diff view for selected stash
 )
 
 // DateStyle identifies how dates are displayed in commit margins.
@@ -374,6 +385,10 @@ type Model struct {
 	// Pending reset action (waiting for commit select result)
 	resetActionKind resetActionKind
 	resetMode       git.ResetMode
+
+	// Pending diff action (waiting for commit/branch select result)
+	diffCommitKind diffCommitKind
+	diffRangeFrom  string // first ref for range diff (set after first branch select)
 
 	// Pending tag options (captured from popup before text input)
 	tagOpts git.TagOpts

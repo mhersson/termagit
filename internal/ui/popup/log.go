@@ -13,9 +13,9 @@ func NewLogPopup(tokens theme.Tokens, state *State) Popup {
 	p.AddOptionWithPrefix("-", "n", "max-count", "Limit number of commits", "256")
 	p.AddOptionWithPrefix("-", "A", "author", "Limit to author", "")
 	p.AddOptionWithPrefix("-", "F", "grep", "Search messages", "")
-	p.AddSwitch("G", "G", "Search changes", false)
-	p.AddSwitch("S", "S", "Search occurrences", false)
-	p.AddSwitch("L", "L", "Trace line evolution", false)
+	p.AddOptionWithPrefix("-", "G", "G", "Search changes", "")
+	p.AddOptionWithPrefix("-", "S", "S", "Search occurrences", "")
+	p.AddOptionWithPrefix("-", "L", "L", "Trace line evolution", "")
 	p.AddOptionWithPrefix("-", "s", "since", "Limit to commits since", "")
 	p.AddOptionWithPrefix("-", "u", "until", "Limit to commits until", "")
 	p.AddSwitchWithPrefix("=", "m", "no-merges", "Omit merges", false)
@@ -52,9 +52,9 @@ func NewLogPopup(tokens theme.Tokens, state *State) Popup {
 		{Key: "L", Label: "local branches"},
 		{Key: "b", Label: "all branches"},
 		{Key: "a", Label: "all references"},
-		{Key: "B", Label: "matching branches"},
-		{Key: "T", Label: "matching tags"},
-		{Key: "m", Label: "merged"},
+		{Key: "B", Label: "matching branches", Disabled: true},
+		{Key: "T", Label: "matching tags", Disabled: true},
+		{Key: "m", Label: "merged", Disabled: true},
 	})
 
 	// Reflog group
@@ -66,7 +66,7 @@ func NewLogPopup(tokens theme.Tokens, state *State) Popup {
 
 	// Other group
 	p.AddActionGroup("Other", []Action{
-		{Key: "s", Label: "shortlog"},
+		{Key: "s", Label: "shortlog", Disabled: true},
 	})
 
 	// Apply saved state if provided

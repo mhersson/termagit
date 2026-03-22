@@ -882,6 +882,28 @@ func loadRecentBranchesCmd(repo *git.Repository) tea.Cmd {
 	}
 }
 
+// loadStashesForSelectCmd loads stashes as LogEntry items for the commit select view.
+func loadStashesForSelectCmd(repo *git.Repository) tea.Cmd {
+	return func() tea.Msg {
+		if repo == nil {
+			return commitsLoadedMsg{err: fmt.Errorf("no repository")}
+		}
+		stashes, err := repo.ListStashes(context.Background())
+		if err != nil {
+			return commitsLoadedMsg{err: err}
+		}
+		entries := make([]git.LogEntry, len(stashes))
+		for i, s := range stashes {
+			entries[i] = git.LogEntry{
+				Hash:            s.Hash,
+				AbbreviatedHash: s.Name,
+				Subject:         s.Message,
+			}
+		}
+		return commitsLoadedMsg{commits: entries}
+	}
+}
+
 // checkoutBranchCmd checks out a branch.
 func checkoutBranchCmd(repo *git.Repository, name string) tea.Cmd {
 	return func() tea.Msg {

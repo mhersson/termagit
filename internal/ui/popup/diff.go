@@ -14,7 +14,7 @@ func NewDiffPopup(tokens theme.Tokens, state *State, hasItem, commitSelected boo
 		{Key: "d", Label: "this", Disabled: !hasItem},
 		{Key: "h", Label: "this..HEAD", Disabled: !commitSelected},
 		{Key: "r", Label: "range"},
-		{Key: "p", Label: "paths"},
+		{Key: "p", Label: "paths", Disabled: true},
 	})
 
 	// Unlabeled group
