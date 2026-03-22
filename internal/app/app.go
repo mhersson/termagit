@@ -28,6 +28,7 @@ import (
 	"github.com/mhersson/conjit/internal/ui/refsview"
 	"github.com/mhersson/conjit/internal/ui/stashlist"
 	"github.com/mhersson/conjit/internal/ui/status"
+	"github.com/mhersson/conjit/internal/watcher"
 )
 
 // Screen represents the active screen.
@@ -56,10 +57,11 @@ type SwitchScreenMsg struct {
 
 // Model is the main application model.
 type Model struct {
-	repo   *git.Repository
-	cfg    *config.Config
-	tokens theme.Tokens
-	logger *cmdlog.Logger
+	repo    *git.Repository
+	cfg     *config.Config
+	tokens  theme.Tokens
+	logger  *cmdlog.Logger
+	watcher *watcher.Watcher
 
 	active         Screen
 	previousScreen Screen // for returning from commit view
@@ -85,13 +87,31 @@ type Model struct {
 // New creates a new application model.
 func New(repo *git.Repository, cfg *config.Config, tokens theme.Tokens, logger *cmdlog.Logger) Model {
 	keys := status.DefaultKeyMap()
-	return Model{
+	m := Model{
 		repo:   repo,
 		cfg:    cfg,
 		tokens: tokens,
 		logger: logger,
 		active: ScreenStatus,
 		status: status.New(repo, cfg, tokens, keys),
+	}
+
+	// Create watcher if enabled (started later via StartWatcher)
+	if cfg.Filewatcher.Enabled {
+		w, err := watcher.New(repo.GitDir())
+		if err == nil {
+			m.watcher = w
+		}
+	}
+
+	return m
+}
+
+// StartWatcher begins file watching. Call after the tea.Program is created
+// so that program.Send can be passed as the callback.
+func (m *Model) StartWatcher(send func(tea.Msg)) {
+	if m.watcher != nil {
+		m.watcher.Start(send)
 	}
 }
 
@@ -163,6 +183,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+
+	case tea.QuitMsg:
+		if m.watcher != nil {
+			m.watcher.Stop()
+		}
+		return m, tea.Quit
+
+	case watcher.RepoChangedMsg:
+		// Refresh the status buffer on repo changes
+		return m, m.status.Init()
 
 	// Notification system
 	case notification.NotifyMsg:

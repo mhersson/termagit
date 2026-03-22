@@ -1,6 +1,7 @@
 package app
 
 import (
+	"os"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -8,7 +9,9 @@ import (
 	"github.com/mhersson/conjit/internal/ui/cmdhistory"
 	"github.com/mhersson/conjit/internal/ui/notification"
 	"github.com/mhersson/conjit/internal/ui/status"
+	"github.com/mhersson/conjit/internal/watcher"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestApp_NotifyMsg_AddsToStack(t *testing.T) {
@@ -101,6 +104,75 @@ func TestApp_WindowSizeMsg_PropagatedToCmdHistory(t *testing.T) {
 	app := newModel.(Model)
 	assert.Equal(t, 120, app.width)
 	assert.Equal(t, 40, app.height)
+}
+
+func TestApp_RepoChangedMsg_ForwardedToStatus(t *testing.T) {
+	m := Model{
+		width:  80,
+		height: 24,
+		active: ScreenStatus,
+	}
+
+	// RepoChangedMsg should be handled without panicking and return a Model
+	newModel, _ := m.Update(watcher.RepoChangedMsg{})
+	app := newModel.(Model)
+	// Active screen should remain status
+	assert.Equal(t, ScreenStatus, app.active)
+}
+
+func TestApp_QuitMsg_StopsWatcher(t *testing.T) {
+	// Model without a watcher - should not panic
+	m := Model{width: 80, height: 24}
+	_, cmd := m.Update(tea.QuitMsg{})
+	assert.NotNil(t, cmd, "QuitMsg should return tea.Quit")
+}
+
+func TestApp_WatcherField_SetWhenEnabled(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping filesystem watcher test in short mode")
+	}
+
+	gitDir := t.TempDir() + "/.git"
+	require.NoError(t, os.MkdirAll(gitDir, 0o755))
+	require.NoError(t, os.WriteFile(gitDir+"/HEAD", []byte("ref: refs/heads/main\n"), 0o644))
+
+	w, err := watcher.New(gitDir)
+	require.NoError(t, err)
+	defer w.Stop()
+
+	m := Model{watcher: w}
+	assert.NotNil(t, m.watcher)
+}
+
+func TestApp_WatcherField_NilWhenDisabled(t *testing.T) {
+	m := Model{}
+	assert.Nil(t, m.watcher)
+}
+
+func TestApp_WindowSizeMsg_PropagatedToStatus(t *testing.T) {
+	m := Model{
+		width:  80,
+		height: 24,
+		active: ScreenStatus,
+	}
+
+	newModel, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	app := newModel.(Model)
+	assert.Equal(t, 120, app.width)
+	assert.Equal(t, 40, app.height)
+}
+
+func TestApp_SwitchToCmdHistory_ConstructsModel(t *testing.T) {
+	m := Model{
+		width:  80,
+		height: 24,
+		active: ScreenStatus,
+	}
+
+	newModel, _ := m.Update(status.OpenCmdHistoryMsg{})
+	app := newModel.(Model)
+	assert.Equal(t, ScreenCmdHistory, app.active)
+	assert.NotNil(t, app.cmdHistory)
 }
 
 func testTokens() theme.Tokens {

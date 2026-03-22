@@ -121,6 +121,10 @@ func run() error {
 		tea.WithInput(tty),
 		tea.WithOutput(tty),
 	)
+
+	// Start file watcher with program.Send as the callback
+	model.StartWatcher(p.Send)
+
 	_, err = p.Run()
 
 	// Defensive: reset terminal modes that might linger after abnormal exit.
