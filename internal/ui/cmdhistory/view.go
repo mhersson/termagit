@@ -3,6 +3,8 @@ package cmdhistory
 import (
 	"fmt"
 	"strings"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 // commandMask contains flags stripped from displayed commands (matching Neogit).
@@ -69,7 +71,7 @@ func (m Model) View() string {
 		row := fmt.Sprintf("%s %s  %s %s", code, cmd, timeStr, stdio)
 
 		if isCursor {
-			row = m.tokens.Cursor.Render(row)
+			row = m.tokens.Cursor.Render(ansi.Strip(row))
 		}
 
 		b.WriteString(row)

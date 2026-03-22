@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/mhersson/termagit/internal/config"
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/theme"
@@ -191,7 +192,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-		generated := strings.TrimSpace(msg.Message)
+		generated := strings.TrimSpace(ansi.Strip(msg.Message))
 		if generated != "" {
 			m.vimEditor.SetContent(generated + "\n" + m.buildCommentContent())
 			m.vimEditor.SetCursor(0, 0)

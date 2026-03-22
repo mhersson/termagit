@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/ui/notification"
 )
@@ -37,7 +38,7 @@ func (m Model) View() string {
 		}
 
 		if isCursor {
-			line = m.tokens.Cursor.Render(line)
+			line = m.tokens.Cursor.Render(ansi.Strip(line))
 		}
 
 		b.WriteString(line)

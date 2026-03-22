@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/ui/notification"
 )
@@ -33,7 +34,7 @@ func (m Model) View() string {
 		row := m.renderStashRow(m.stashes[i])
 
 		if isCursor {
-			row = m.tokens.Cursor.Render(row)
+			row = m.tokens.Cursor.Render(ansi.Strip(row))
 		}
 
 		b.WriteString(row)

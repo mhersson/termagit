@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/graph"
 )
@@ -223,7 +224,7 @@ func (m Model) renderCommitRow(c git.LogEntry, isCursor bool, graphCells graph.R
 	// Calculate subject width
 	refsWidth := 0
 	if refs != "" {
-		refsWidth = len(stripAnsi(refs)) + 1 // +1 for space after refs
+		refsWidth = len(ansi.Strip(refs)) + 1 // +1 for space after refs
 	}
 	subjectWidth := middleWidth - refsWidth
 	if subjectWidth < minSubjectWidth {
@@ -265,7 +266,7 @@ func (m Model) renderCommitRow(c git.LogEntry, isCursor bool, graphCells graph.R
 	}
 
 	if isCursor {
-		row = m.tokens.Cursor.Render(row)
+		row = m.tokens.Cursor.Render(ansi.Strip(row))
 	}
 
 	return row
@@ -341,28 +342,6 @@ func (m Model) renderRefsFlat(refs []git.Ref) string {
 	}
 
 	return strings.Join(parts, " ")
-}
-
-// stripAnsi removes ANSI escape codes to get actual string length.
-func stripAnsi(s string) string {
-	// Simple approach: count visible characters
-	// ANSI codes are \x1b[...m
-	result := make([]byte, 0, len(s))
-	inEscape := false
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\x1b' {
-			inEscape = true
-			continue
-		}
-		if inEscape {
-			if s[i] == 'm' {
-				inEscape = false
-			}
-			continue
-		}
-		result = append(result, s[i])
-	}
-	return string(result)
 }
 
 // padRight pads a string with spaces on the right to reach the target width.
