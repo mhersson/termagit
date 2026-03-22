@@ -6,6 +6,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/mhersson/conjit/internal/git"
 )
 
@@ -202,13 +204,14 @@ func renderHintBar(m Model) string {
 // renderWithBlockCursor renders a line with a block cursor at position 0.
 // The first character is shown with reverse video, rest has cursor line background.
 func renderWithBlockCursor(tokens Tokens, line string) string {
-	if len(line) == 0 {
+	stripped := ansi.Strip(line)
+	if len(stripped) == 0 {
 		return tokens.CursorBlock.Render(" ") + "\n"
 	}
 
-	// Get first rune (handles multi-byte UTF-8)
-	firstRune, size := utf8.DecodeRuneInString(line)
-	rest := line[size:]
+	// Get first visible rune (handles multi-byte UTF-8)
+	firstRune, size := utf8.DecodeRuneInString(stripped)
+	rest := stripped[size:]
 
 	// First character: reverse video, rest: cursor line background
 	return tokens.CursorBlock.Render(string(firstRune)) + tokens.Cursor.Render(rest) + "\n"

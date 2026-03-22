@@ -7,6 +7,8 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/mhersson/conjit/internal/theme"
 )
 
@@ -720,13 +722,14 @@ func (p Popup) renderActionsGrid() string {
 // renderWithBlockCursor renders a line with a block cursor at position 0.
 // Only the first character gets reverse video - no background on the rest.
 func renderWithBlockCursor(tokens theme.Tokens, line string) string {
-	if len(line) == 0 {
+	stripped := ansi.Strip(line)
+	if len(stripped) == 0 {
 		return tokens.CursorBlock.Render(" ") + "\n"
 	}
 
-	// Get first rune (handles multi-byte UTF-8)
-	firstRune, size := utf8.DecodeRuneInString(line)
-	rest := line[size:]
+	// Get first visible rune (handles multi-byte UTF-8)
+	firstRune, size := utf8.DecodeRuneInString(stripped)
+	rest := stripped[size:]
 
 	// First character: reverse video, rest: no special styling
 	return tokens.CursorBlock.Render(string(firstRune)) + rest + "\n"
