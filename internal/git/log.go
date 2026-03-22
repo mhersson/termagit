@@ -175,7 +175,7 @@ func (r *Repository) RecentCommits(ctx context.Context, n int) ([]LogEntry, erro
 
 // LogAhead returns commits in ref..HEAD (commits ahead of ref).
 func (r *Repository) LogAhead(ctx context.Context, ref string, max int) ([]LogEntry, error) {
-	args := []string{"log", "--format=%H|%h|%s|%an|%ae|%aI%x00", ref + "..HEAD"}
+	args := []string{"log", "--format=%H|%h|%P|%s|%an|%ae|%aI%x00", ref + "..HEAD"}
 	if max > 0 {
 		args = append(args, fmt.Sprintf("-n%d", max))
 	}
@@ -190,7 +190,7 @@ func (r *Repository) LogAhead(ctx context.Context, ref string, max int) ([]LogEn
 
 // LogBehind returns commits in HEAD..ref (commits behind HEAD).
 func (r *Repository) LogBehind(ctx context.Context, ref string, max int) ([]LogEntry, error) {
-	args := []string{"log", "--format=%H|%h|%s|%an|%ae|%aI%x00", "HEAD.." + ref}
+	args := []string{"log", "--format=%H|%h|%P|%s|%an|%ae|%aI%x00", "HEAD.." + ref}
 	if max > 0 {
 		args = append(args, fmt.Sprintf("-n%d", max))
 	}
