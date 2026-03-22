@@ -7,9 +7,16 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/conjit/internal/graph"
 	"github.com/mhersson/conjit/internal/theme"
 	"github.com/mhersson/conjit/internal/ui/commitview"
 )
+
+// displayRow represents a single rendered line in the log view.
+type displayRow struct {
+	commitIdx  int          // Index into m.commits (-1 for graph-only connector rows)
+	graphCells graph.Row    // Graph cells for this row (nil when graph disabled)
+}
 
 // Model is the log view model.
 type Model struct {
@@ -36,6 +43,9 @@ type Model struct {
 
 	commitView *commitview.Model // overlay (nil = not showing)
 
+	graphEnabled bool
+	displayRows  []displayRow
+
 	width  int
 	height int
 }
@@ -53,18 +63,20 @@ func New(commits []git.LogEntry, repo *git.Repository, tokens theme.Tokens, opts
 
 	expanded := make([]bool, len(commits))
 
-	return Model{
-		repo:     repo,
-		tokens:   tokens,
-		keys:     DefaultKeyMap(),
-		opts:     logOpts,
-		commits:  commits,
-		hasMore:  hasMore,
-		header:   "Commits on " + branch,
-		expanded: expanded,
-
-		filterInput: ti,
+	m := Model{
+		repo:         repo,
+		tokens:       tokens,
+		keys:         DefaultKeyMap(),
+		opts:         logOpts,
+		commits:      commits,
+		hasMore:      hasMore,
+		header:       "Commits on " + branch,
+		expanded:     expanded,
+		graphEnabled: logOpts.Graph,
+		filterInput:  ti,
 	}
+	m.computeDisplayRows()
+	return m
 }
 
 // Init implements tea.Model.
@@ -118,10 +130,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				AbbreviatedHash: c.abbrevHash,
 				Subject:         c.subject,
 				AuthorName:      c.authorName,
+				ParentHashes:    c.parentHashes,
 			})
 			m.expanded = append(m.expanded, false)
 		}
 		m.hasMore = msg.HasMore
+		// Recompute display rows (graph needs all commits for correct topology)
+		m.computeDisplayRows()
 		return m, nil
 	}
 
@@ -368,24 +383,83 @@ func (m *Model) applyFilter() {
 	}
 }
 
+// computeDisplayRows builds the display row list from commits and graph data.
+func (m *Model) computeDisplayRows() {
+	if !m.graphEnabled || len(m.commits) == 0 {
+		// No graph — one display row per commit
+		m.displayRows = make([]displayRow, len(m.commits))
+		for i := range m.commits {
+			m.displayRows[i] = displayRow{commitIdx: i}
+		}
+		return
+	}
+
+	// Convert commits to graph input
+	inputs := make([]graph.CommitInput, len(m.commits))
+	for i, c := range m.commits {
+		var parents []string
+		if c.ParentHashes != "" {
+			parents = strings.Fields(c.ParentHashes)
+		}
+		inputs[i] = graph.CommitInput{OID: c.Hash, Parents: parents}
+	}
+
+	graphRows := graph.Build(inputs)
+
+	// Build display rows by matching graph rows to commits via OID
+	// Build a map from OID -> commit index for lookup
+	oidToIdx := make(map[string]int, len(m.commits))
+	for i, c := range m.commits {
+		oidToIdx[c.Hash] = i
+	}
+
+	m.displayRows = make([]displayRow, 0, len(graphRows))
+	for _, gr := range graphRows {
+		dr := displayRow{
+			commitIdx:  -1,
+			graphCells: gr,
+		}
+		if len(gr) > 0 && gr[0].OID != "" {
+			if idx, ok := oidToIdx[gr[0].OID]; ok {
+				dr.commitIdx = idx
+			}
+		}
+		m.displayRows = append(m.displayRows, dr)
+	}
+}
+
 func (m Model) moveDown(n int) Model {
 	max := m.maxCursor()
 	if max < 0 {
 		return m
 	}
 
-	m.cursor += n
-	if m.cursor > max {
-		m.cursor = max
+	for i := 0; i < n; i++ {
+		next := m.cursor + 1
+		// Skip connector rows (commitIdx == -1)
+		for next <= max && m.graphEnabled && len(m.displayRows) > 0 && m.displayRows[next].commitIdx < 0 {
+			next++
+		}
+		if next > max {
+			break
+		}
+		m.cursor = next
 	}
 	m.ensureVisible()
 	return m
 }
 
 func (m Model) moveUp(n int) Model {
-	m.cursor -= n
-	if m.cursor < 0 {
-		m.cursor = 0
+	for i := 0; i < n; i++ {
+		next := m.cursor - 1
+		// Skip connector rows (commitIdx == -1)
+		for next >= 0 && m.graphEnabled && len(m.displayRows) > 0 && m.displayRows[next].commitIdx < 0 {
+			next--
+		}
+		if next < 0 {
+			break
+		}
+		m.cursor = next
 	}
 	m.ensureVisible()
 	return m
@@ -403,6 +477,15 @@ func (m Model) goToBottom() Model {
 func (m Model) maxCursor() int {
 	if len(m.filtered) > 0 {
 		return len(m.filtered) - 1
+	}
+	if m.graphEnabled && len(m.displayRows) > 0 {
+		// Find the last display row with a commit
+		for i := len(m.displayRows) - 1; i >= 0; i-- {
+			if m.displayRows[i].commitIdx >= 0 {
+				return i
+			}
+		}
+		return -1
 	}
 	return len(m.commits) - 1
 }

@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -55,6 +56,27 @@ func TestParseRefs_ParsesMultipleRefs(t *testing.T) {
 func TestParseRefs_EmptyString_ReturnsEmpty(t *testing.T) {
 	refs := parseRefs("", nil)
 	assert.Empty(t, refs)
+}
+
+// parseLogRecord tests
+
+func TestParseLogRecord_ParsesParentHashes(t *testing.T) {
+	// Format: %H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d
+	record := "abc123|abc123d|parent1 parent2|Test commit|Test User|test@example.com|2024-01-15T10:30:00Z|Test User|test@example.com|2024-01-15T10:30:00Z|"
+	entry := parseLogRecord(record, nil)
+	require.NotNil(t, entry)
+	assert.Equal(t, "parent1 parent2", entry.ParentHashes)
+	assert.Equal(t, "Test commit", entry.Subject)
+	assert.Equal(t, "Test User", entry.AuthorName)
+}
+
+func TestParseLogRecord_EmptyParentHashes(t *testing.T) {
+	// Root commit has no parents — %P is empty
+	record := "abc123|abc123d||Initial commit|Test User|test@example.com|2024-01-15T10:30:00Z|||"
+	entry := parseLogRecord(record, nil)
+	require.NotNil(t, entry)
+	assert.Equal(t, "", entry.ParentHashes)
+	assert.Equal(t, "Initial commit", entry.Subject)
 }
 
 // LogEntry tests
@@ -211,6 +233,44 @@ func TestLog_RefNameIsPopulatedForDecoratedCommits(t *testing.T) {
 
 	// HEAD commit should have decoration (branch name at minimum)
 	assert.NotEmpty(t, entries[0].RefName, "RefName should be populated for HEAD commit")
+}
+
+func TestLog_IncludesParentHashes(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Create a branch, commit on both, then merge to get a commit with 2 parents
+	cmd := exec.Command("git", "checkout", "-b", "feature")
+	cmd.Dir = r.path
+	require.NoError(t, cmd.Run())
+	addAndCommit(t, r, "feature.txt", "feature", "Feature commit")
+
+	cmd = exec.Command("git", "checkout", "master")
+	cmd.Dir = r.path
+	require.NoError(t, cmd.Run())
+	addAndCommit(t, r, "main.txt", "main", "Main commit")
+
+	cmd = exec.Command("git", "merge", "feature", "--no-edit")
+	cmd.Dir = r.path
+	require.NoError(t, cmd.Run())
+
+	entries, _, err := r.Log(ctx, LogOpts{MaxCount: 5})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(entries), 1)
+
+	// The merge commit (first entry) should have 2 space-separated parent hashes
+	mergeEntry := entries[0]
+	parents := strings.Fields(mergeEntry.ParentHashes)
+	assert.Len(t, parents, 2, "merge commit should have 2 parent hashes")
+
+	// Non-merge commits should have 1 parent
+	for _, e := range entries[1:] {
+		if e.ParentHashes != "" {
+			parents := strings.Fields(e.ParentHashes)
+			assert.LessOrEqual(t, len(parents), 1, "non-merge commit should have at most 1 parent")
+		}
+	}
 }
 
 func TestLog_GraphOptionAddsGraphFlag(t *testing.T) {

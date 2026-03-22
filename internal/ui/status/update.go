@@ -2523,6 +2523,7 @@ func loadLogCmd(repo *git.Repository, opts git.LogOpts, branch string) tea.Cmd {
 			Commits: commits,
 			HasMore: hasMore,
 			Branch:  branch,
+			Opts:    &opts,
 		}
 	}
 }

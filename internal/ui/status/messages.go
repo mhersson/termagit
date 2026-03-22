@@ -55,6 +55,7 @@ type OpenLogViewMsg struct {
 	Commits []git.LogEntry
 	HasMore bool
 	Branch  string
+	Opts    *git.LogOpts
 }
 
 // OpenReflogViewMsg is sent to open the reflog view with the given entries.

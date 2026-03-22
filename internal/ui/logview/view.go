@@ -6,7 +6,9 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/mhersson/conjit/internal/git"
+	"github.com/mhersson/conjit/internal/graph"
 )
 
 // View renders the log view.
@@ -52,39 +54,71 @@ func (m Model) renderLogContent() string {
 	}
 
 	maxLines := m.height - reservedLines
-	commitCount := len(m.commits)
-	if len(m.filtered) > 0 {
-		commitCount = len(m.filtered)
-	}
 
-	// Render commits from offset
-	for i := m.offset; i < commitCount && linesUsed < maxLines; i++ {
-		idx := i
-		if len(m.filtered) > 0 && i < len(m.filtered) {
-			idx = m.filtered[i]
+	if m.graphEnabled && len(m.displayRows) > 0 {
+		// Graph mode: iterate displayRows
+		rowCount := len(m.displayRows)
+		for i := m.offset; i < rowCount && linesUsed < maxLines; i++ {
+			dr := m.displayRows[i]
+			if dr.commitIdx >= 0 && dr.commitIdx < len(m.commits) {
+				// Commit row
+				c := m.commits[dr.commitIdx]
+				isCursor := i == m.cursor
+				row := m.renderCommitRow(c, isCursor, dr.graphCells)
+				b.WriteString(row)
+				b.WriteString("\n")
+				linesUsed++
+
+				// Show expanded details if there's room
+				if dr.commitIdx < len(m.expanded) && m.expanded[dr.commitIdx] {
+					details := m.renderCommitDetails(c)
+					detailLines := strings.Count(details, "\n")
+					if linesUsed+detailLines <= maxLines {
+						b.WriteString(details)
+						linesUsed += detailLines
+					}
+				}
+			} else {
+				// Graph-only connector row
+				row := m.renderGraphOnlyRow(dr.graphCells)
+				b.WriteString(row)
+				b.WriteString("\n")
+				linesUsed++
+			}
+		}
+	} else {
+		// Non-graph mode: iterate commits directly
+		commitCount := len(m.commits)
+		if len(m.filtered) > 0 {
+			commitCount = len(m.filtered)
 		}
 
-		if idx >= len(m.commits) {
-			continue
-		}
+		for i := m.offset; i < commitCount && linesUsed < maxLines; i++ {
+			idx := i
+			if len(m.filtered) > 0 && i < len(m.filtered) {
+				idx = m.filtered[i]
+			}
 
-		c := m.commits[idx]
-		isCursor := i == m.cursor
+			if idx >= len(m.commits) {
+				continue
+			}
 
-		row := m.renderCommitRow(c, isCursor)
-		b.WriteString(row)
-		b.WriteString("\n")
-		linesUsed++
+			c := m.commits[idx]
+			isCursor := i == m.cursor
 
-		// Show expanded details if there's room
-		if idx < len(m.expanded) && m.expanded[idx] {
-			details := m.renderCommitDetails(c)
-			detailLines := strings.Count(details, "\n")
+			row := m.renderCommitRow(c, isCursor, nil)
+			b.WriteString(row)
+			b.WriteString("\n")
+			linesUsed++
 
-			// Only show details if they fit
-			if linesUsed+detailLines <= maxLines {
-				b.WriteString(details)
-				linesUsed += detailLines
+			// Show expanded details if there's room
+			if idx < len(m.expanded) && m.expanded[idx] {
+				details := m.renderCommitDetails(c)
+				detailLines := strings.Count(details, "\n")
+				if linesUsed+detailLines <= maxLines {
+					b.WriteString(details)
+					linesUsed += detailLines
+				}
 			}
 		}
 	}
@@ -139,8 +173,8 @@ func (m Model) renderCommitViewOverlay() string {
 	return b.String()
 }
 
-func (m Model) renderCommitRow(c git.LogEntry, isCursor bool) string {
-	// Format: hash refs subject          author    time
+func (m Model) renderCommitRow(c git.LogEntry, isCursor bool, graphCells graph.Row) string {
+	// Format: hash [graph] refs subject          author    time
 	// Author/time are always at fixed positions from right edge
 
 	// Fixed widths
@@ -164,9 +198,17 @@ func (m Model) renderCommitRow(c git.LogEntry, isCursor bool) string {
 	// Relative time (fuller format like Neogit)
 	relTime := formatRelativeTimeFull(c.When)
 
+	// Graph column
+	graphStr := ""
+	graphVisualWidth := 0
+	if len(graphCells) > 0 {
+		graphStr = m.renderGraphCells(graphCells)
+		graphVisualWidth = graphCellWidth(graphCells) + 1 // +1 for space after graph
+	}
+
 	// Calculate space available for refs + subject
 	rightSideWidth := authorColWidth + timeColWidth
-	middleWidth := m.width - hashWidth - rightSideWidth
+	middleWidth := m.width - hashWidth - graphVisualWidth - rightSideWidth
 
 	if middleWidth < minSubjectWidth {
 		middleWidth = minSubjectWidth
@@ -198,12 +240,17 @@ func (m Model) renderCommitRow(c git.LogEntry, isCursor bool) string {
 	var row string
 	if m.width > 60 {
 		// Wide terminal: show full format
+		graphPart := ""
+		if graphStr != "" {
+			graphPart = graphStr + " "
+		}
 		refsStr := ""
 		if refs != "" {
 			refsStr = refs + " "
 		}
-		row = fmt.Sprintf("%s %s%s %s %s",
+		row = fmt.Sprintf("%s %s%s%s %s %s",
 			m.tokens.Hash.Render(hash),
+			graphPart,
 			refsStr,
 			padRight(subject, subjectWidth),
 			m.tokens.CommitAuthor.Render(padRight(author, authorColWidth)),
@@ -222,6 +269,57 @@ func (m Model) renderCommitRow(c git.LogEntry, isCursor bool) string {
 	}
 
 	return row
+}
+
+// renderGraphCells renders graph cells with appropriate styling.
+func (m Model) renderGraphCells(cells graph.Row) string {
+	var b strings.Builder
+	for _, cell := range cells {
+		b.WriteString(m.graphColorStyle(cell.Color).Render(cell.Text))
+	}
+	return b.String()
+}
+
+// renderGraphOnlyRow renders a graph-only connector row (no commit data).
+func (m Model) renderGraphOnlyRow(cells graph.Row) string {
+	// Left-pad with hashWidth spaces to align with commit rows
+	padding := strings.Repeat(" ", 8) // hashWidth = 8
+	return padding + m.renderGraphCells(cells)
+}
+
+// graphCellWidth returns the visual width of graph cells.
+func graphCellWidth(cells graph.Row) int {
+	w := 0
+	for _, c := range cells {
+		w += utf8.RuneCountInString(c.Text)
+	}
+	return w
+}
+
+// graphColorStyle returns the lipgloss style for a graph color name.
+func (m Model) graphColorStyle(color string) lipgloss.Style {
+	switch color {
+	case "Red":
+		return m.tokens.GraphRed
+	case "Green":
+		return m.tokens.GraphGreen
+	case "Blue":
+		return m.tokens.GraphBlue
+	case "Yellow":
+		return m.tokens.GraphYellow
+	case "Cyan":
+		return m.tokens.GraphCyan
+	case "Purple":
+		return m.tokens.GraphPurple
+	case "Gray":
+		return m.tokens.GraphGray
+	case "White":
+		return m.tokens.GraphWhite
+	case "Orange":
+		return m.tokens.GraphOrange
+	default:
+		return m.tokens.GraphPurple
+	}
 }
 
 // renderRefsFlat renders refs without parentheses, space-separated.

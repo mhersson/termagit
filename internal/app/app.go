@@ -259,7 +259,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Log view
 	case status.OpenLogViewMsg:
-		return m.openLogView(msg.Commits, msg.HasMore, msg.Branch)
+		return m.openLogView(msg.Commits, msg.HasMore, msg.Branch, msg.Opts)
 
 	case logview.CloseLogViewMsg:
 		m.active = ScreenStatus
@@ -390,8 +390,8 @@ func (m Model) openCmdHistory() (Model, tea.Cmd) {
 }
 
 // openLogView switches to the log view screen.
-func (m Model) openLogView(commits []git.LogEntry, hasMore bool, branch string) (Model, tea.Cmd) {
-	lv := logview.New(commits, m.repo, m.tokens, nil, hasMore, branch)
+func (m Model) openLogView(commits []git.LogEntry, hasMore bool, branch string, opts *git.LogOpts) (Model, tea.Cmd) {
+	lv := logview.New(commits, m.repo, m.tokens, opts, hasMore, branch)
 	lv.SetSize(m.width, m.height)
 	m.logView = &lv
 	m.active = ScreenLog

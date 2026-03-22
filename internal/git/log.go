@@ -39,6 +39,7 @@ type LogEntry struct {
 	Refs            []Ref    // Branches/tags pointing at this commit
 	When            time.Time // Parsed from AuthorDate
 	RefName         string    // Raw decoration string from git
+	ParentHashes    string    // Space-separated parent commit hashes
 }
 
 // LogOpts controls what commits are returned by Log.
@@ -63,8 +64,8 @@ type LogOpts struct {
 // Returns (entries, hasMore, error).
 func (r *Repository) Log(ctx context.Context, opts LogOpts) ([]LogEntry, bool, error) {
 	// Build git log command
-	// Format: %H|%h|%s|%an|%ae|%aI|%cn|%ce|%cI|%d|%B|END
-	format := "%H|%h|%s|%an|%ae|%aI|%cn|%ce|%cI|%d%x00"
+	// Format: %H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d
+	format := "%H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d%x00"
 
 	args := []string{"log", "--format=" + format}
 
@@ -149,8 +150,8 @@ func (r *Repository) Log(ctx context.Context, opts LogOpts) ([]LogEntry, bool, e
 
 // CommitDetail returns full information about a single commit.
 func (r *Repository) CommitDetail(ctx context.Context, hash string) (*LogEntry, error) {
-	// Format with body: %H|%h|%s|%an|%ae|%aI|%cn|%ce|%cI|%d|%B
-	format := "%H|%h|%s|%an|%ae|%aI|%cn|%ce|%cI|%d%x00%B"
+	// Format with body: %H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d|%B
+	format := "%H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d%x00%B"
 
 	out, err := r.runGit(ctx, "log", "-1", "--format="+format, hash)
 	if err != nil {
@@ -317,39 +318,40 @@ func parseLogOutputWithBody(output string, remotes []string) []LogEntry {
 }
 
 // parseLogRecord parses a single log record.
-// Format: %H|%h|%s|%an|%ae|%aI|%cn|%ce|%cI|%d
+// Format: %H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d
 func parseLogRecord(record string, remotes []string) *LogEntry {
 	parts := strings.Split(record, "|")
-	if len(parts) < 6 {
+	if len(parts) < 7 {
 		return nil
 	}
 
 	entry := &LogEntry{
 		Hash:            parts[0],
 		AbbreviatedHash: parts[1],
-		Subject:         parts[2],
-		AuthorName:      parts[3],
-		AuthorEmail:     parts[4],
-		AuthorDate:      parts[5],
+		ParentHashes:    parts[2],
+		Subject:         parts[3],
+		AuthorName:      parts[4],
+		AuthorEmail:     parts[5],
+		AuthorDate:      parts[6],
 	}
 
 	// Parse When from AuthorDate (ISO 8601 / RFC3339)
-	if t, err := time.Parse(time.RFC3339, parts[5]); err == nil {
+	if t, err := time.Parse(time.RFC3339, parts[6]); err == nil {
 		entry.When = t
 	}
 
 	// Optional fields
-	if len(parts) > 6 {
-		entry.CommitterName = parts[6]
-	}
 	if len(parts) > 7 {
-		entry.CommitterEmail = parts[7]
+		entry.CommitterName = parts[7]
 	}
 	if len(parts) > 8 {
-		entry.CommitterDate = parts[8]
+		entry.CommitterEmail = parts[8]
 	}
 	if len(parts) > 9 {
-		decoration := strings.TrimSpace(parts[9])
+		entry.CommitterDate = parts[9]
+	}
+	if len(parts) > 10 {
+		decoration := strings.TrimSpace(parts[10])
 		entry.RefName = decoration
 		// Remove parentheses from decoration
 		decoration = strings.TrimPrefix(decoration, "(")

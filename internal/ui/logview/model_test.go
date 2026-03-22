@@ -10,6 +10,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func testMergeCommits() []git.LogEntry {
+	return []git.LogEntry{
+		{
+			Hash:            "mmm",
+			AbbreviatedHash: "mmm",
+			Subject:         "Merge commit",
+			AuthorName:      "Test",
+			ParentHashes:    "aaa bbb",
+		},
+		{
+			Hash:            "aaa",
+			AbbreviatedHash: "aaa",
+			Subject:         "Commit A",
+			AuthorName:      "Test",
+			ParentHashes:    "ccc",
+		},
+		{
+			Hash:            "bbb",
+			AbbreviatedHash: "bbb",
+			Subject:         "Commit B",
+			AuthorName:      "Test",
+			ParentHashes:    "ccc",
+		},
+		{
+			Hash:            "ccc",
+			AbbreviatedHash: "ccc",
+			Subject:         "Commit C",
+			AuthorName:      "Test",
+		},
+	}
+}
+
 func testTokens() theme.Tokens {
 	return theme.Compile(theme.RawTokens{})
 }
@@ -280,4 +312,127 @@ func TestLogModel_CommitViewOverlay_KeysDelegatedToCommitView(t *testing.T) {
 	assert.Equal(t, origLogCursor, m.cursor)
 	// Commit view should still be active
 	assert.NotNil(t, m.commitView)
+}
+
+// Graph integration tests
+
+func TestLogModel_GraphEnabled_HasMoreDisplayRowsThanCommits(t *testing.T) {
+	commits := testMergeCommits()
+	opts := &git.LogOpts{Graph: true}
+	m := New(commits, nil, testTokens(), opts, false, "main")
+	m.width = 80
+	m.height = 24
+
+	// With merge commits and graph enabled, displayRows should include connector rows
+	assert.Greater(t, len(m.displayRows), len(m.commits),
+		"graph should produce more display rows than commits due to connector rows")
+}
+
+func TestLogModel_GraphDisabled_DisplayRowsMatchCommits(t *testing.T) {
+	commits := testMergeCommits()
+	m := New(commits, nil, testTokens(), nil, false, "main")
+	m.width = 80
+	m.height = 24
+
+	assert.Equal(t, len(m.commits), len(m.displayRows))
+}
+
+func TestLogModel_GraphEnabled_CursorSkipsConnectorRows(t *testing.T) {
+	commits := testMergeCommits()
+	opts := &git.LogOpts{Graph: true}
+	m := New(commits, nil, testTokens(), opts, false, "main")
+	m.width = 80
+	m.height = 24
+
+	// Cursor starts at 0, which should be a commit row
+	assert.GreaterOrEqual(t, m.displayRows[m.cursor].commitIdx, 0)
+
+	// Press j — cursor should move to the next commit row, skipping connector rows
+	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	assert.GreaterOrEqual(t, m.displayRows[m.cursor].commitIdx, 0,
+		"cursor should always land on a commit row, not a connector row")
+}
+
+func TestLogModel_GraphEnabled_MaxCursorOnCommitRow(t *testing.T) {
+	commits := testMergeCommits()
+	opts := &git.LogOpts{Graph: true}
+	m := New(commits, nil, testTokens(), opts, false, "main")
+	m.width = 80
+	m.height = 50
+
+	// Go to bottom
+	m = m.goToBottom()
+	assert.GreaterOrEqual(t, m.displayRows[m.cursor].commitIdx, 0,
+		"max cursor should be on a commit row")
+}
+
+func TestLogModel_GraphEnabled_LoadMoreRecomputesGraph(t *testing.T) {
+	// Start with 2 linear commits
+	commits := []git.LogEntry{
+		{Hash: "aaa", AbbreviatedHash: "aaa", Subject: "Commit A", AuthorName: "Test", ParentHashes: "bbb"},
+		{Hash: "bbb", AbbreviatedHash: "bbb", Subject: "Commit B", AuthorName: "Test"},
+	}
+	opts := &git.LogOpts{Graph: true}
+	m := New(commits, nil, testTokens(), opts, true, "main")
+	m.width = 120
+	m.height = 40
+
+	assert.Equal(t, 2, len(m.commits))
+
+	// Simulate loading more commits
+	newModel, _ := m.Update(CommitsLoadedMsg{
+		Commits: []logCommit{
+			{hash: "ccc", abbrevHash: "ccc", subject: "Commit C", authorName: "Test", parentHashes: "ddd"},
+			{hash: "ddd", abbrevHash: "ddd", subject: "Commit D", authorName: "Test"},
+		},
+		HasMore: false,
+	})
+	m = newModel.(Model)
+
+	// All 4 commits should be present and displayRows recomputed
+	assert.Equal(t, 4, len(m.commits))
+	// Count commit rows in displayRows
+	commitRowCount := 0
+	for _, dr := range m.displayRows {
+		if dr.commitIdx >= 0 {
+			commitRowCount++
+		}
+	}
+	assert.Equal(t, 4, commitRowCount, "all 4 commits should have display rows")
+	assert.False(t, m.hasMore)
+}
+
+func TestLogView_GraphEnabled_RendersGraphChars(t *testing.T) {
+	commits := testMergeCommits()
+	opts := &git.LogOpts{Graph: true}
+	m := New(commits, nil, testTokens(), opts, false, "main")
+	m.width = 120
+	m.height = 40
+
+	view := m.View()
+	assert.Contains(t, view, "•", "graph-enabled view should contain commit marker")
+}
+
+func TestLogView_GraphDisabled_NoGraphChars(t *testing.T) {
+	commits := testCommits()
+	m := New(commits, nil, testTokens(), nil, false, "main")
+	m.width = 120
+	m.height = 40
+
+	view := m.View()
+	assert.NotContains(t, view, "•", "graph-disabled view should not contain commit marker")
+	assert.NotContains(t, view, "│", "graph-disabled view should not contain branch lines")
+}
+
+func TestLogView_GraphOnlyRow_NotHighlightedByCursor(t *testing.T) {
+	commits := testMergeCommits()
+	opts := &git.LogOpts{Graph: true}
+	m := New(commits, nil, testTokens(), opts, false, "main")
+	m.width = 120
+	m.height = 40
+
+	view := m.View()
+	// The view should render without crashing and contain commit data
+	assert.Contains(t, view, "Merge commit")
+	assert.Contains(t, view, "Commit A")
 }

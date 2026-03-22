@@ -24,7 +24,7 @@ type CommitsLoadedMsg struct {
 
 // logCommit is an internal type for loaded commits.
 type logCommit struct {
-	hash, abbrevHash, subject, authorName string
+	hash, abbrevHash, subject, authorName, parentHashes string
 }
 
 // yankCmd returns a command that yanks text to clipboard.
