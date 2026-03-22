@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/mhersson/conjit/internal/theme"
 )
 
@@ -229,10 +230,8 @@ func Overlay(base, overlay string, width int) string {
 			break
 		}
 
-		olPlain := stripAnsi(ol)
-		olLen := len([]rune(olPlain))
-		basePlain := stripAnsi(baseLines[i])
-		baseLen := len([]rune(basePlain))
+		olLen := ansi.StringWidth(ol)
+		baseLen := ansi.StringWidth(baseLines[i])
 
 		startCol := width - olLen
 		if startCol < 0 {
@@ -245,8 +244,7 @@ func Overlay(base, overlay string, width int) string {
 			baseLines[i] = baseLines[i] + padding + ol
 		} else {
 			// Overwrite the right portion of the base line
-			runes := []rune(basePlain)
-			left := string(runes[:startCol])
+			left := ansi.Truncate(baseLines[i], startCol, "")
 			baseLines[i] = left + ol
 		}
 	}
@@ -275,8 +273,7 @@ func CenterOverlay(base, overlay string, width, height int) string {
 			break
 		}
 
-		olPlain := stripAnsi(ol)
-		olLen := len([]rune(olPlain))
+		olLen := ansi.StringWidth(ol)
 
 		// Horizontal centering
 		startCol := (width - olLen) / 2
@@ -284,19 +281,17 @@ func CenterOverlay(base, overlay string, width, height int) string {
 			startCol = 0
 		}
 
-		basePlain := stripAnsi(baseLines[row])
-		baseLen := len([]rune(basePlain))
+		baseLen := ansi.StringWidth(baseLines[row])
 
 		if baseLen < startCol {
 			padding := strings.Repeat(" ", startCol-baseLen)
 			baseLines[row] = baseLines[row] + padding + ol
 		} else {
-			runes := []rune(basePlain)
-			left := string(runes[:startCol])
+			left := ansi.Truncate(baseLines[row], startCol, "")
 			endCol := startCol + olLen
 			var right string
 			if endCol < baseLen {
-				right = string(runes[endCol:])
+				right = ansi.TruncateLeft(baseLines[row], endCol, "")
 			}
 			baseLines[row] = left + ol + right
 		}
@@ -328,22 +323,3 @@ func (d ConfirmDialog) View(tokens theme.Tokens, maxWidth int) string {
 	return box.Render(content)
 }
 
-// stripAnsi removes ANSI escape sequences for length calculation.
-func stripAnsi(s string) string {
-	var out strings.Builder
-	inEscape := false
-	for _, r := range s {
-		if r == '\x1b' {
-			inEscape = true
-			continue
-		}
-		if inEscape {
-			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
-				inEscape = false
-			}
-			continue
-		}
-		out.WriteRune(r)
-	}
-	return out.String()
-}

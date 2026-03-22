@@ -302,6 +302,27 @@ func TestNotification_View_FitsLongMessage(t *testing.T) {
 	assert.Contains(t, v, longMsg)
 }
 
+func TestOverlay_PreservesBaseANSICodes(t *testing.T) {
+	// Base line with ANSI styling (bold "Hello")
+	styled := "\x1b[1mHello\x1b[0m world!!"
+	base := styled + "\n" + "second line..."
+	overlay := "XX"
+	result := Overlay(base, overlay, 14)
+	lines := strings.Split(result, "\n")
+	// The left portion should still contain the ANSI bold code
+	assert.Contains(t, lines[0], "\x1b[1m")
+}
+
+func TestCenterOverlay_PreservesBaseANSICodes(t *testing.T) {
+	styled := "\x1b[1mHello\x1b[0m world!!"
+	base := styled + "\n" + styled + "\n" + styled
+	overlay := "XX"
+	result := CenterOverlay(base, overlay, 14, 3)
+	lines := strings.Split(result, "\n")
+	// The overlaid line should still contain ANSI codes in the preserved portions
+	assert.Contains(t, lines[1], "\x1b[1m")
+}
+
 func TestNotification_borderColor(t *testing.T) {
 	tokens := testTokens()
 
