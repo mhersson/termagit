@@ -144,6 +144,100 @@ func TestLoadDir_MalformedFile_SkipsWithWarning(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestLoadDir_PaletteTheme_GeneratesTokens(t *testing.T) {
+	dir := t.TempDir()
+
+	content := `
+[palette]
+bg        = "#000000"
+bg1       = "#111111"
+bg2       = "#222222"
+bg3       = "#333333"
+diff_add_bg = "#001100"
+diff_del_bg = "#110000"
+fg        = "#ffffff"
+fg1       = "#eeeeee"
+fg2       = "#cccccc"
+dim       = "#666666"
+dim1      = "#888888"
+blue      = "#0000ff"
+green     = "#00ff00"
+red       = "#ff0000"
+yellow    = "#ffff00"
+purple    = "#800080"
+teal      = "#008080"
+cyan      = "#00ffff"
+orange    = "#ff8800"
+pink      = "#ff69b4"
+lavender  = "#b57edc"
+`
+	err := os.WriteFile(filepath.Join(dir, "palette-test.toml"), []byte(content), 0o644)
+	require.NoError(t, err)
+
+	err = LoadDir(dir)
+	require.NoError(t, err)
+
+	theme, ok := Get("palette-test")
+	require.True(t, ok)
+
+	raw := theme.Raw()
+	assertNoEmptyFields(t, raw, "palette-test")
+
+	// Verify palette mapping
+	assert.Equal(t, "#eeeeee", raw.Normal)  // fg1
+	assert.Equal(t, "#0000ff", raw.Branch)  // blue
+	assert.Equal(t, "#00ff00", raw.Staged)  // green
+	assert.Equal(t, "#ff0000", raw.Conflict) // red
+}
+
+func TestLoadDir_PaletteWithTokenOverrides(t *testing.T) {
+	dir := t.TempDir()
+
+	content := `
+# Token override takes precedence over palette
+normal = "#aaaaaa"
+
+[palette]
+bg        = "#000000"
+bg1       = "#111111"
+bg2       = "#222222"
+bg3       = "#333333"
+diff_add_bg = "#001100"
+diff_del_bg = "#110000"
+fg        = "#ffffff"
+fg1       = "#eeeeee"
+fg2       = "#cccccc"
+dim       = "#666666"
+dim1      = "#888888"
+blue      = "#0000ff"
+green     = "#00ff00"
+red       = "#ff0000"
+yellow    = "#ffff00"
+purple    = "#800080"
+teal      = "#008080"
+cyan      = "#00ffff"
+orange    = "#ff8800"
+pink      = "#ff69b4"
+lavender  = "#b57edc"
+`
+	err := os.WriteFile(filepath.Join(dir, "palette-override.toml"), []byte(content), 0o644)
+	require.NoError(t, err)
+
+	err = LoadDir(dir)
+	require.NoError(t, err)
+
+	theme, ok := Get("palette-override")
+	require.True(t, ok)
+
+	raw := theme.Raw()
+	assertNoEmptyFields(t, raw, "palette-override")
+
+	// Token override should win over palette-generated value
+	assert.Equal(t, "#aaaaaa", raw.Normal) // explicitly set, not fg1
+	// Non-overridden tokens should come from palette
+	assert.Equal(t, "#0000ff", raw.Branch) // blue from palette
+}
+
 func TestMergeTokens_FillsEmptyFields(t *testing.T) {
 	dst := RawTokens{Normal: "#ffffff"}
 	src := RawTokens{

@@ -9,6 +9,13 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// themeFile is the TOML structure for external theme files.
+// It supports both palette-based and token-based definitions.
+type themeFile struct {
+	Pal Palette   `toml:"palette"`
+	RawTokens              // anonymous embed — token fields decode at top level
+}
+
 // LoadDir loads all *.toml theme files from the given directory.
 // Missing fields are filled from the fallback theme.
 func LoadDir(dir string) error {
@@ -34,17 +41,41 @@ func LoadDir(dir string) error {
 		path := filepath.Join(dir, entry.Name())
 		name := strings.TrimSuffix(entry.Name(), ".toml")
 
-		var raw RawTokens
-		if _, err := toml.DecodeFile(path, &raw); err != nil {
+		var f themeFile
+		if _, err := toml.DecodeFile(path, &f); err != nil {
 			// Skip malformed files
 			continue
 		}
 
+		var raw RawTokens
+		if f.Pal.hasPalette() {
+			// Generate base tokens from palette
+			raw = FromPalette(f.Pal)
+			// Overlay any explicit token-level overrides
+			overlayTokens(&raw, &f.RawTokens)
+		} else {
+			raw = f.RawTokens
+		}
+
+		// Fill remaining empty fields from fallback
 		mergeTokens(&raw, &fallbackRaw)
 		Register(&externalTheme{name: name, raw: raw})
 	}
 
 	return nil
+}
+
+// overlayTokens copies non-empty fields from src to dst.
+func overlayTokens(dst, src *RawTokens) {
+	dv := reflect.ValueOf(dst).Elem()
+	sv := reflect.ValueOf(src).Elem()
+
+	for i := 0; i < dv.NumField(); i++ {
+		sf := sv.Field(i)
+		if sf.Kind() == reflect.String && sf.String() != "" {
+			dv.Field(i).SetString(sf.String())
+		}
+	}
 }
 
 // mergeTokens fills empty fields in dst from src.
