@@ -261,6 +261,47 @@ func TestNotification_New_ConcurrentUniqueIDs(t *testing.T) {
 	assert.Equal(t, goroutines, len(seen))
 }
 
+func TestConfirmDialog_View_FitsLongMessage(t *testing.T) {
+	tokens := testTokens()
+	longPath := "internal/very/deep/nested/directory/structure/with/long/filename_test.go"
+	msg := "Discard changes to " + longPath + "?"
+	d := ConfirmDialog{Message: msg}
+	// maxWidth large enough that content should NOT wrap
+	v := d.View(tokens, 200)
+
+	lines := strings.Split(v, "\n")
+	// A non-wrapping bordered box should be exactly 3 lines: top border, content, bottom border
+	assert.Equal(t, 3, len(lines), "long message should render on a single content line, got %d lines:\n%s", len(lines), v)
+	assert.Contains(t, v, longPath, "full path should be visible")
+}
+
+func TestConfirmDialog_View_CapsAtMaxWidth(t *testing.T) {
+	tokens := testTokens()
+	longPath := "internal/very/deep/nested/directory/structure/with/long/filename_test.go"
+	msg := "Discard changes to " + longPath + "?"
+	d := ConfirmDialog{Message: msg}
+	// maxWidth too small for content — output should be truncated to maxWidth
+	v := d.View(tokens, 40)
+
+	lines := strings.Split(v, "\n")
+	for _, line := range lines {
+		assert.LessOrEqual(t, lipgloss.Width(line), 40, "line should not exceed maxWidth")
+	}
+	// Full path should NOT be visible since it's truncated
+	assert.NotContains(t, v, "filename_test.go", "truncated dialog should not show the full path")
+}
+
+func TestNotification_View_FitsLongMessage(t *testing.T) {
+	tokens := testTokens()
+	longMsg := "Successfully pushed refs/heads/feature/very-long-branch-name-for-testing to origin"
+	n := New(longMsg, Success, 3*time.Second)
+	v := n.View(tokens, 200)
+
+	lines := strings.Split(v, "\n")
+	assert.Equal(t, 3, len(lines), "long notification should render on a single content line, got %d lines:\n%s", len(lines), v)
+	assert.Contains(t, v, longMsg)
+}
+
 func TestNotification_borderColor(t *testing.T) {
 	tokens := testTokens()
 

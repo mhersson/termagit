@@ -467,19 +467,19 @@ func (m Model) View() string {
 	}
 
 	// Overlay notifications on top-right
-	notifView := m.notifications.View(m.tokens, 50)
+	notifView := m.notifications.View(m.tokens, m.width-2)
 	if notifView != "" {
 		base = notification.Overlay(base, notifView, m.width)
 	}
 
 	// Overlay confirmation dialog (centered)
 	if m.active == ScreenStatus {
-		confirmView := m.status.ConfirmView(50)
+		confirmView := m.status.ConfirmView(m.width - 4)
 		if confirmView != "" {
 			base = notification.CenterOverlay(base, confirmView, m.width, m.height)
 		}
 
-		inputView := m.status.InputPromptView(60)
+		inputView := m.status.InputPromptView(m.width - 4)
 		if inputView != "" {
 			base = notification.CenterOverlay(base, inputView, m.width, m.height)
 		}
