@@ -43,6 +43,8 @@ const (
 	DiffStaged   DiffKind = iota // Staged changes (index vs HEAD)
 	DiffUnstaged                 // Unstaged changes (worktree vs index)
 	DiffCommit                   // Changes in a commit
+	DiffRange                    // Range diff (e.g. main..feature)
+	DiffStash                    // Stash diff
 )
 
 // FileDiff represents the diff for a single file.
@@ -115,6 +117,41 @@ func (r *Repository) UntrackedDiff(ctx context.Context, path string) (*FileDiff,
 	fd.IsNew = true
 	fd.Path = path
 	return fd, nil
+}
+
+// RangeDiff returns the diff for a range specification (e.g. "main..feature").
+func (r *Repository) RangeDiff(ctx context.Context, rangeSpec string) ([]FileDiff, error) {
+	out, err := r.runGit(ctx, "diff", rangeSpec)
+	if err != nil {
+		return nil, fmt.Errorf("range diff %s: %w", rangeSpec, err)
+	}
+
+	return parseDiffOutput(out, DiffRange), nil
+}
+
+// DiffStat returns file statistics for a diff command.
+// The args are passed directly to git diff (e.g. "--cached", or a range spec).
+func (r *Repository) DiffStat(ctx context.Context, args ...string) (*CommitOverview, error) {
+	cmdArgs := append([]string{"diff"}, args...)
+	cmdArgs = append(cmdArgs, "--stat")
+
+	out, err := r.runGit(ctx, cmdArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("diff stat: %w", err)
+	}
+
+	return parseStat(out), nil
+}
+
+// StashDiffStat returns file statistics for a stash entry.
+func (r *Repository) StashDiffStat(ctx context.Context, index int) (*CommitOverview, error) {
+	ref := fmt.Sprintf("stash@{%d}", index)
+	out, err := r.runGit(ctx, "stash", "show", "--stat", ref)
+	if err != nil {
+		return nil, fmt.Errorf("stash diff stat %s: %w", ref, err)
+	}
+
+	return parseStat(out), nil
 }
 
 // ParseDiffOutput parses raw git diff output into FileDiff structs.

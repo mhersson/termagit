@@ -74,15 +74,20 @@ var (
 )
 
 func parseCommitOverview(output string) *CommitOverview {
+	lines := strings.Split(output, "\n")
+	// Skip the first line (oneline commit info)
+	if len(lines) > 1 {
+		return parseStat(strings.Join(lines[1:], "\n"))
+	}
+	return &CommitOverview{}
+}
+
+// parseStat parses --stat output (without a header line) into a CommitOverview.
+func parseStat(output string) *CommitOverview {
 	overview := &CommitOverview{}
 	lines := strings.Split(output, "\n")
 
-	// Skip the first line (oneline commit info)
-	for i, line := range lines {
-		if i == 0 {
-			continue
-		}
-
+	for _, line := range lines {
 		// Check for summary line
 		if matches := statSummaryRegex.FindStringSubmatch(line); matches != nil {
 			overview.Summary = strings.TrimSpace(matches[1])

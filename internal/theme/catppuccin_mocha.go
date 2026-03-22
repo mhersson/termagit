@@ -108,5 +108,11 @@ func (t *catppuccinMocha) Raw() RawTokens {
 		CommitViewHeaderFg: "#1e1e2e", // base (dark text on cyan)
 		FilePath:           "#89b4fa", // blue (italic for paths)
 		Number:             "#fab387", // peach (numbers)
+
+		// Diff view
+		DiffHeader:   "#45475a", // surface1 (bg3)
+		DiffHeaderFg: "#89b4fa", // blue
+		FloatHeader:  "#313244", // surface0 (bg2)
+		FloatHeaderFg: "#89dceb", // sky (cyan)
 	}
 }

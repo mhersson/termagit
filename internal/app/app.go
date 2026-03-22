@@ -19,6 +19,7 @@ import (
 	"github.com/mhersson/conjit/internal/ui/commit"
 	"github.com/mhersson/conjit/internal/ui/commitselect"
 	"github.com/mhersson/conjit/internal/ui/commitview"
+	"github.com/mhersson/conjit/internal/ui/diffview"
 	"github.com/mhersson/conjit/internal/ui/logview"
 	"github.com/mhersson/conjit/internal/ui/notification"
 	"github.com/mhersson/conjit/internal/ui/popup"
@@ -67,6 +68,7 @@ type Model struct {
 	commitSelect   commitselect.Model
 	branchSelect   branchselect.Model
 	commitView     *commitview.Model
+	diffView       *diffview.Model
 	rebaseEditor   rebaseeditor.Model
 	cmdHistory     *cmdhistory.Model
 	logView        *logview.Model
@@ -154,6 +156,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case ScreenStashList:
 			if m.stashList != nil {
 				m.stashList.SetSize(msg.Width, msg.Height)
+			}
+		case ScreenDiffView:
+			if m.diffView != nil {
+				m.diffView.SetSize(msg.Width, msg.Height)
 			}
 		}
 		return m, nil
@@ -375,6 +381,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case commitview.OpenURLMsg:
 		return m, openURLCmd(msg.URL)
+
+	// Diff view
+	case diffview.OpenDiffViewMsg:
+		return m.openDiffView(msg.Source)
+
+	case diffview.CloseDiffViewMsg:
+		m.active = m.previousScreen
+		return m, nil
 	}
 
 	// Delegate to active screen
@@ -439,6 +453,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			newStashList, cmd := m.stashList.Update(msg)
 			sl := newStashList.(stashlist.Model)
 			m.stashList = &sl
+			return m, cmd
+		}
+	case ScreenDiffView:
+		if m.diffView != nil {
+			newDiffView, cmd := m.diffView.Update(msg)
+			dv := newDiffView.(diffview.Model)
+			m.diffView = &dv
 			return m, cmd
 		}
 	}
@@ -508,6 +529,16 @@ func (m Model) openStashList(stashes []git.StashEntry) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// openDiffView switches to the diff view screen.
+func (m Model) openDiffView(source diffview.DiffSource) (Model, tea.Cmd) {
+	m.previousScreen = m.active
+	dv := diffview.New(m.repo, source, m.cfg, m.tokens)
+	dv.SetSize(m.width, m.height)
+	m.diffView = &dv
+	m.active = ScreenDiffView
+	return m, dv.Init()
+}
+
 // View renders the model.
 func (m Model) View() string {
 	var base string
@@ -557,6 +588,12 @@ func (m Model) View() string {
 			base = m.stashList.View()
 		} else {
 			base = "Stash list not available"
+		}
+	case ScreenDiffView:
+		if m.diffView != nil {
+			base = m.diffView.View()
+		} else {
+			base = "Diff view not available"
 		}
 	default:
 		base = "Unknown screen"

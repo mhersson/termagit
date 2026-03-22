@@ -106,5 +106,11 @@ func (t *tokyoNight) Raw() RawTokens {
 		CommitViewHeaderFg: "#1a1b26", // bg (dark text on cyan)
 		FilePath:           "#7aa2f7", // blue (italic for paths)
 		Number:             "#ff9e64", // orange (numbers)
+
+		// Diff view
+		DiffHeader:   "#3b4261", // bg3
+		DiffHeaderFg: "#7aa2f7", // blue
+		FloatHeader:  "#292e42", // bg2
+		FloatHeaderFg: "#7dcfff", // cyan
 	}
 }

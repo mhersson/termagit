@@ -103,6 +103,12 @@ type RawTokens struct {
 	CommitViewHeaderFg string `toml:"commit_view_header_fg"` // fg for header bar
 	FilePath           string `toml:"file_path"`             // file paths in commit view
 	Number             string `toml:"number"`                // numbers in stat
+
+	// Diff view
+	DiffHeader   string `toml:"diff_header"`    // NeogitDiffHeader bg (bg3)
+	DiffHeaderFg string `toml:"diff_header_fg"` // NeogitDiffHeader fg (blue)
+	FloatHeader  string `toml:"float_header"`   // NeogitFloatHeaderHighlight bg (bg2)
+	FloatHeaderFg string `toml:"float_header_fg"` // NeogitFloatHeaderHighlight fg (cyan)
 }
 
 // Tokens holds compiled lipgloss.Style values for rendering.
@@ -211,6 +217,10 @@ type Tokens struct {
 	CommitViewHeader lipgloss.Style // NeogitCommitViewHeader: bg=cyan, fg=dark
 	FilePath         lipgloss.Style // Italic blue for file paths
 	Number           lipgloss.Style // Numbers in stat
+
+	// Diff view styles
+	DiffHeader           lipgloss.Style // NeogitDiffHeader: bg=bg3, fg=blue, bold
+	FloatHeaderHighlight lipgloss.Style // NeogitFloatHeaderHighlight: bg=bg2, fg=cyan, bold
 }
 
 // Compile converts RawTokens to compiled Tokens.
@@ -308,5 +318,14 @@ func Compile(r RawTokens) Tokens {
 			Background(lipgloss.Color(r.CommitViewHeader)),
 		FilePath: lipgloss.NewStyle().Foreground(lipgloss.Color(r.FilePath)).Italic(true),
 		Number:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.Number)),
+
+		DiffHeader: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(r.DiffHeaderFg)).
+			Background(lipgloss.Color(r.DiffHeader)).
+			Bold(true),
+		FloatHeaderHighlight: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(r.FloatHeaderFg)).
+			Background(lipgloss.Color(r.FloatHeader)).
+			Bold(true),
 	}
 }

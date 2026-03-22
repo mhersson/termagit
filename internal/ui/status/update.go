@@ -16,6 +16,7 @@ import (
 	"github.com/mhersson/conjit/internal/ui/commit"
 	"github.com/mhersson/conjit/internal/ui/commitselect"
 	"github.com/mhersson/conjit/internal/ui/commitview"
+	"github.com/mhersson/conjit/internal/ui/diffview"
 	"github.com/mhersson/conjit/internal/ui/logview"
 	"github.com/mhersson/conjit/internal/ui/notification"
 	"github.com/mhersson/conjit/internal/ui/popup"
@@ -3435,21 +3436,44 @@ func handleDiffPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 	case "d": // this — expand inline diff for current item
 		return handleToggle(m)
 	case "h": // this..HEAD — show diff for commit vs HEAD
-		return m, notifyAppCmd("Diff commit..HEAD not yet implemented", notification.Info)
+		item, _ := getCurrentItem(m)
+		if item != nil && item.Commit != nil {
+			return m, func() tea.Msg {
+				return diffview.OpenDiffViewMsg{
+					Source: diffview.DiffSource{
+						Kind:  git.DiffRange,
+						Range: item.Commit.Hash + "..HEAD",
+					},
+				}
+			}
+		}
+		return m, notifyAppCmd("No commit selected", notification.Warning)
 	case "r": // range
 		return m, notifyAppCmd("Diff range not yet implemented", notification.Info)
 	case "p": // paths
 		return m, notifyAppCmd("Diff paths not yet implemented", notification.Info)
 	case "u": // unstaged
-		return m, notifyAppCmd("Diff unstaged view not yet implemented", notification.Info)
+		return m, func() tea.Msg {
+			return diffview.OpenDiffViewMsg{
+				Source: diffview.DiffSource{Kind: git.DiffUnstaged},
+			}
+		}
 	case "s": // staged
-		return m, notifyAppCmd("Diff staged view not yet implemented", notification.Info)
+		return m, func() tea.Msg {
+			return diffview.OpenDiffViewMsg{
+				Source: diffview.DiffSource{Kind: git.DiffStaged},
+			}
+		}
 	case "w": // worktree
-		return m, notifyAppCmd("Diff worktree view not yet implemented", notification.Info)
+		return m, func() tea.Msg {
+			return diffview.OpenDiffViewMsg{
+				Source: diffview.DiffSource{Kind: git.DiffRange, Range: "HEAD"},
+			}
+		}
 	case "c": // Commit
-		return m, notifyAppCmd("Diff commit view not yet implemented", notification.Info)
+		return m, notifyAppCmd("Diff commit select not yet implemented", notification.Info)
 	case "t": // Stash
-		return m, notifyAppCmd("Diff stash view not yet implemented", notification.Info)
+		return m, notifyAppCmd("Diff stash select not yet implemented", notification.Info)
 	default:
 		return m, notifyAppCmd("Unknown diff action: "+result.Action, notification.Warning)
 	}

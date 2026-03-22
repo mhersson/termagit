@@ -398,3 +398,52 @@ func TestApplyPatch_DiscardsHunk(t *testing.T) {
 		}
 	}
 }
+
+// DiffKind constant tests
+
+func TestDiffKind_Constants(t *testing.T) {
+	assert.Equal(t, DiffKind(0), DiffStaged)
+	assert.Equal(t, DiffKind(1), DiffUnstaged)
+	assert.Equal(t, DiffKind(2), DiffCommit)
+	assert.Equal(t, DiffKind(3), DiffRange)
+	assert.Equal(t, DiffKind(4), DiffStash)
+}
+
+// RangeDiff tests
+
+func TestRangeDiff_ParsesOutput(t *testing.T) {
+	output := `diff --git a/file.go b/file.go
+index abc..def 100644
+--- a/file.go
++++ b/file.go
+@@ -1,3 +1,4 @@
+ line1
+ line2
++added
+ line3
+`
+	diffs := ParseDiffOutput(output, DiffRange)
+	require.Len(t, diffs, 1)
+	assert.Equal(t, DiffRange, diffs[0].Kind)
+	assert.Equal(t, "file.go", diffs[0].Path)
+	require.Len(t, diffs[0].Hunks, 1)
+}
+
+// DiffStat tests
+
+func TestDiffStat_ParsesStatOutput(t *testing.T) {
+	// parseStat is tested indirectly through parseCommitOverview,
+	// but verify the new DiffRange/DiffStash kinds propagate correctly.
+	output := `diff --git a/file.go b/file.go
+index abc..def 100644
+--- a/file.go
++++ b/file.go
+@@ -1,3 +1,4 @@
+ line1
++added
+ line3
+`
+	diffs := ParseDiffOutput(output, DiffStash)
+	require.Len(t, diffs, 1)
+	assert.Equal(t, DiffStash, diffs[0].Kind)
+}

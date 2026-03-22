@@ -106,5 +106,11 @@ func (t *everforestDark) Raw() RawTokens {
 		CommitViewHeaderFg: "#2d353b", // bg (dark text on cyan)
 		FilePath:           "#7fbbb3", // blue (italic for paths)
 		Number:             "#e69875", // orange (numbers)
+
+		// Diff view
+		DiffHeader:   "#475258", // bg3
+		DiffHeaderFg: "#7fbbb3", // blue
+		FloatHeader:  "#374145", // bg2
+		FloatHeaderFg: "#83c092", // aqua (cyan)
 	}
 }
