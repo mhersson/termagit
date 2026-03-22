@@ -54,6 +54,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	// Handle pending bracket sequences ([c / ]c)
+	if m.pendingBracket != "" {
+		bracket := m.pendingBracket
+		m.pendingBracket = ""
+		if msg.String() == "c" {
+			if bracket == "]" {
+				m.viewport.YOffset++
+				if m.viewport.YOffset > m.totalLines-m.viewport.Height {
+					m.viewport.YOffset = m.totalLines - m.viewport.Height
+				}
+				if m.viewport.YOffset < 0 {
+					m.viewport.YOffset = 0
+				}
+			} else {
+				m.viewport.YOffset--
+				if m.viewport.YOffset < 0 {
+					m.viewport.YOffset = 0
+				}
+			}
+		}
+		return m, nil
+	}
+
 	switch {
 	case key.Matches(msg, m.keys.Close), key.Matches(msg, m.keys.CloseEscape):
 		m.done = true
@@ -106,22 +129,13 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.ensureCursorVisible()
 		return m, nil
 
-	// Scroll
-	case key.Matches(msg, m.keys.ScrollDown):
-		m.viewport.YOffset++
-		if m.viewport.YOffset > m.totalLines-m.viewport.Height {
-			m.viewport.YOffset = m.totalLines - m.viewport.Height
-		}
-		if m.viewport.YOffset < 0 {
-			m.viewport.YOffset = 0
-		}
+	// Two-key scroll sequences: ]c / [c
+	case msg.String() == "]":
+		m.pendingBracket = "]"
 		return m, nil
 
-	case key.Matches(msg, m.keys.ScrollUp):
-		m.viewport.YOffset--
-		if m.viewport.YOffset < 0 {
-			m.viewport.YOffset = 0
-		}
+	case msg.String() == "[":
+		m.pendingBracket = "["
 		return m, nil
 
 	// Yank

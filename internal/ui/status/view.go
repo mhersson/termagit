@@ -232,8 +232,13 @@ func renderCursorLine(m Model, line string) string {
 func renderHeadBar(m Model) string {
 	var b strings.Builder
 
+	padding := 10
+	if m.cfg != nil && m.cfg.UI.HEADPadding > 0 {
+		padding = m.cfg.UI.HEADPadding
+	}
+
 	// Head line
-	headLabel := padRight("Head:", 10)
+	headLabel := padRight("Head:", padding)
 	b.WriteString(m.tokens.Bold.Render(headLabel))
 
 	if m.head.AbbrevOid != "" {
@@ -255,7 +260,7 @@ func renderHeadBar(m Model) string {
 	// Merge line (if applicable)
 	if m.head.UpstreamBranch != "" {
 		b.WriteString("\n")
-		mergeLabel := padRight("Merge:", 10)
+		mergeLabel := padRight("Merge:", padding)
 		b.WriteString(m.tokens.Bold.Render(mergeLabel))
 
 		if m.head.UpstreamOid != "" {
@@ -275,7 +280,7 @@ func renderHeadBar(m Model) string {
 	// Push line (if applicable)
 	if m.head.PushBranch != "" {
 		b.WriteString("\n")
-		pushLabel := padRight("Push:", 10)
+		pushLabel := padRight("Push:", padding)
 		b.WriteString(m.tokens.Bold.Render(pushLabel))
 
 		if m.head.PushOid != "" {
@@ -295,7 +300,7 @@ func renderHeadBar(m Model) string {
 	// Tag line (if applicable)
 	if m.head.Tag != "" {
 		b.WriteString("\n")
-		tagLabel := padRight("Tag:", 10)
+		tagLabel := padRight("Tag:", padding)
 		b.WriteString(m.tokens.Bold.Render(tagLabel))
 		b.WriteString(m.tokens.Tag.Render(m.head.Tag))
 
@@ -428,6 +433,55 @@ func renderBisectItem(m Model, item *Item, onItem bool) string {
 	b.WriteString(" ")
 	b.WriteString(subject)
 	b.WriteString("\n")
+	return b.String()
+}
+
+// renderBisectDetailItem renders the "Bisecting at" commit details.
+// Matches Neogit's BisectDetailsSection layout.
+func renderBisectDetailItem(m Model, entry *git.LogEntry, onItem bool) string {
+	var b strings.Builder
+
+	// Author line
+	author := fmt.Sprintf("  %s%s <%s>", padRight("Author:", 12), entry.AuthorName, entry.AuthorEmail)
+	if onItem {
+		b.WriteString(renderCursorLine(m, author))
+	} else {
+		b.WriteString("  ")
+		b.WriteString(m.tokens.SubtleText.Render(padRight("Author:", 12)))
+		fmt.Fprintf(&b, "%s <%s>", entry.AuthorName, entry.AuthorEmail)
+		b.WriteString("\n")
+	}
+
+	// AuthorDate line
+	b.WriteString("  ")
+	b.WriteString(m.tokens.SubtleText.Render(padRight("AuthorDate:", 12)))
+	b.WriteString(entry.AuthorDate)
+	b.WriteString("\n")
+
+	// Committer line
+	b.WriteString("  ")
+	b.WriteString(m.tokens.SubtleText.Render(padRight("Committer:", 12)))
+	fmt.Fprintf(&b, "%s <%s>", entry.CommitterName, entry.CommitterEmail)
+	b.WriteString("\n")
+
+	// CommitDate line
+	b.WriteString("  ")
+	b.WriteString(m.tokens.SubtleText.Render(padRight("CommitDate:", 12)))
+	b.WriteString(entry.CommitterDate)
+	b.WriteString("\n")
+
+	// Blank line + description
+	if entry.Body != "" {
+		b.WriteString("\n")
+		for _, line := range strings.Split(entry.Body, "\n") {
+			if line != "" {
+				b.WriteString("  ")
+				b.WriteString(line)
+			}
+			b.WriteString("\n")
+		}
+	}
+
 	return b.String()
 }
 
@@ -627,9 +681,15 @@ func renderSectionWithLineTracking(m Model, sectionIdx int, s *Section, startLin
 
 	// Build header with styled title and normal count
 	style := getSectionHeaderStyle(m.tokens, s.Kind)
+
+	// "Bisecting at" shows OID instead of count
+	isBisectDetails := s.Title == "Bisecting at" && len(s.Items) > 0 && s.Items[0].BisectDetail != nil
+
 	if onHeader {
 		var header string
-		if len(s.Items) > 0 {
+		if isBisectDetails {
+			header = fmt.Sprintf("%s %s %s", sign, s.Title, s.Items[0].BisectDetail.AbbreviatedHash)
+		} else if len(s.Items) > 0 {
 			header = fmt.Sprintf("%s %s (%d)", sign, s.Title, len(s.Items))
 		} else {
 			header = fmt.Sprintf("%s %s", sign, s.Title)
@@ -637,7 +697,10 @@ func renderSectionWithLineTracking(m Model, sectionIdx int, s *Section, startLin
 		b.WriteString(renderCursorLine(m, header))
 	} else {
 		b.WriteString(style.Render(fmt.Sprintf("%s %s", sign, s.Title)))
-		if len(s.Items) > 0 {
+		if isBisectDetails {
+			b.WriteString(" ")
+			b.WriteString(m.tokens.Hash.Render(s.Items[0].BisectDetail.AbbreviatedHash))
+		} else if len(s.Items) > 0 {
 			fmt.Fprintf(&b, " (%d)", len(s.Items))
 		}
 		b.WriteString("\n")
@@ -666,6 +729,12 @@ func renderItemWithLineTracking(m Model, sectionIdx, itemIdx int, item *Item, se
 
 	if onItem {
 		*cursorLine = lineNum
+	}
+
+	// Bisect details item ("Bisecting at" section)
+	if item.BisectDetail != nil {
+		b.WriteString(renderBisectDetailItem(m, item.BisectDetail, onItem))
+		return b.String()
 	}
 
 	// Sequencer/Rebase/Bisect items (have Action)

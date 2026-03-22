@@ -192,25 +192,9 @@ func (r *Repository) AheadBehind(ctx context.Context) (ahead, behind int, err er
 		return 0, 0, nil // Upstream doesn't exist locally
 	}
 
-	// Count commits
-	headCommit, err := r.raw.CommitObject(head.Hash())
-	if err != nil {
-		return 0, 0, fmt.Errorf("get head commit: %w", err)
-	}
-
-	upstreamCommit, err := r.raw.CommitObject(upstream.Hash())
-	if err != nil {
-		return 0, 0, fmt.Errorf("get upstream commit: %w", err)
-	}
-
-	// Find merge base and count commits
-	// For simplicity, we'll use git rev-list for accurate counting
-	// This is a common case where shelling out is more reliable
+	// Use git rev-list for accurate ahead/behind counting
 	aheadCount, behindCount, err := r.countAheadBehind(ctx, head.Hash().String(), upstream.Hash().String())
 	if err != nil {
-		// Fallback: just return 0,0 if we can't count
-		_ = headCommit
-		_ = upstreamCommit
 		return 0, 0, nil
 	}
 
@@ -383,7 +367,54 @@ func (r *Repository) BisectState(ctx context.Context) (BisectState, error) {
 		}
 	}
 
+	// Read the current commit being tested from BISECT_EXPECTED_REV
+	expectedPath := filepath.Join(r.gitDir, "BISECT_EXPECTED_REV")
+	if expectedData, err := os.ReadFile(expectedPath); err == nil {
+		rev := strings.TrimSpace(string(expectedData))
+		if rev != "" {
+			entry, err := r.commitDetailForBisect(ctx, rev)
+			if err == nil {
+				state.Current = entry
+			}
+		}
+	}
+
 	return state, nil
+}
+
+// commitDetailForBisect returns a LogEntry with fuller details for bisect display.
+func (r *Repository) commitDetailForBisect(ctx context.Context, rev string) (*LogEntry, error) {
+	out, err := r.runGit(ctx, "show", "--no-patch",
+		"--format=%H%n%an%n%ae%n%aI%n%cn%n%ce%n%cI%n%s%n%b", rev)
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) < 8 {
+		return nil, fmt.Errorf("unexpected show output for %s", rev)
+	}
+
+	entry := &LogEntry{
+		Hash:           lines[0],
+		AuthorName:     lines[1],
+		AuthorEmail:    lines[2],
+		AuthorDate:     lines[3],
+		CommitterName:  lines[4],
+		CommitterEmail: lines[5],
+		CommitterDate:  lines[6],
+		Subject:        lines[7],
+	}
+
+	if len(entry.Hash) >= 7 {
+		entry.AbbreviatedHash = entry.Hash[:7]
+	}
+
+	if len(lines) > 8 {
+		entry.Body = strings.Join(lines[8:], "\n")
+	}
+
+	return entry, nil
 }
 
 // parseBisectComment parses a bisect log comment line.

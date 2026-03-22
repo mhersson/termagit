@@ -922,6 +922,46 @@ func TestModel_BisectSection_ShowsEntries(t *testing.T) {
 	}
 }
 
+func TestModel_BisectDetailsSection_ShowsCurrentCommit(t *testing.T) {
+	m := Model{
+		head: HeadState{Branch: "main"},
+		sections: []Section{
+			{
+				Kind:  SectionBisect,
+				Title: "Bisecting at",
+				Items: []Item{
+					{BisectDetail: &git.LogEntry{
+						Hash:           "abc1234def5678901234567890abcdef12345678",
+						AbbreviatedHash: "abc1234",
+						AuthorName:     "Test Author",
+						AuthorEmail:    "test@example.com",
+						AuthorDate:     "2024-01-15",
+						CommitterName:  "Test Committer",
+						CommitterEmail: "committer@example.com",
+						CommitterDate:  "2024-01-15",
+						Subject:        "Test bisect commit",
+					}},
+				},
+			},
+		},
+	}
+
+	output := view(m)
+
+	if !contains(output, "Bisecting at") {
+		t.Error("expected 'Bisecting at' section title")
+	}
+	if !contains(output, "abc1234") {
+		t.Error("expected abbreviated hash in output")
+	}
+	if !contains(output, "Test Author") {
+		t.Error("expected author name in output")
+	}
+	if !contains(output, "test@example.com") {
+		t.Error("expected author email in output")
+	}
+}
+
 func TestModel_SequencerSection_ShowsCherryPick(t *testing.T) {
 	m := Model{
 		head: HeadState{Branch: "main"},

@@ -21,8 +21,6 @@ type KeyMap struct {
 	PreviousSection key.Binding // <c-p>
 	NextHunkHeader  key.Binding // }
 	PrevHunkHeader  key.Binding // {
-	OpenOrScrollDown key.Binding // ]c
-	OpenOrScrollUp   key.Binding // [c
 	PeekDown        key.Binding // <c-j>
 	PeekUp          key.Binding // <c-k>
 
@@ -136,14 +134,6 @@ func DefaultKeyMap() KeyMap {
 		PrevHunkHeader: key.NewBinding(
 			key.WithKeys("{"),
 			key.WithHelp("{", "prev hunk"),
-		),
-		OpenOrScrollDown: key.NewBinding(
-			key.WithKeys("]c"),
-			key.WithHelp("]c", "open/scroll down"),
-		),
-		OpenOrScrollUp: key.NewBinding(
-			key.WithKeys("[c"),
-			key.WithHelp("[c", "open/scroll up"),
 		),
 		PeekDown: key.NewBinding(
 			key.WithKeys("ctrl+j"),

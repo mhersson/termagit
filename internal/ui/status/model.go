@@ -97,6 +97,9 @@ type Item struct {
 	ActionSubject string
 	ActionDone    bool
 	ActionStopped bool // current position marker in rebase
+
+	// Bisect details item (for "Bisecting at" section)
+	BisectDetail *git.LogEntry
 }
 
 // Cursor tracks the current position in the status buffer.
@@ -339,8 +342,9 @@ type Model struct {
 	// Notification bar
 	notification string
 
-	// Pending key for multi-key sequences (e.g., "gg")
-	pendingKey string
+	// Pending key for multi-key sequences (e.g., "gg", "[c", "]c")
+	pendingKey     string
+	pendingBracket string // "[" or "]" for [c/]c sequences
 
 	// Commit view overlay (nil = no commit view)
 	commitView *commitview.Model

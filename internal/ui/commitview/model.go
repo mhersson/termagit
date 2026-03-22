@@ -30,10 +30,11 @@ type Model struct {
 	err      error
 
 	// Cursor and overlay mode fields
-	cursorLine  int  // current cursor position (0-indexed line)
-	totalLines  int  // total navigable lines
-	overlayMode bool // true when rendered as split overlay
-	done        bool // true when view should close
+	cursorLine     int    // current cursor position (0-indexed line)
+	totalLines     int    // total navigable lines
+	overlayMode    bool   // true when rendered as split overlay
+	done           bool   // true when view should close
+	pendingBracket string // "[" or "]" for [c/]c two-key sequences
 }
 
 // New creates a new commit view model.

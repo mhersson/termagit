@@ -509,9 +509,10 @@ func TestScrollDown_MovesViewport(t *testing.T) {
 
 	initialOffset := model.viewport.YOffset
 
-	// Press ]c to scroll down
-	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{']', 'c'}}
-	newM, _ = model.Update(keyMsg)
+	// Press ] then c (two-key sequence)
+	newM, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{']'}})
+	model = newM.(Model)
+	newM, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
 	model = newM.(Model)
 
 	assert.GreaterOrEqual(t, model.viewport.YOffset, initialOffset, "viewport should scroll down")
@@ -537,9 +538,10 @@ func TestScrollUp_MovesViewport(t *testing.T) {
 	// Scroll down first
 	model.viewport.YOffset = 5
 
-	// Press [c to scroll up
-	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'[', 'c'}}
-	newM, _ = model.Update(keyMsg)
+	// Press [ then c (two-key sequence)
+	newM, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'['}})
+	model = newM.(Model)
+	newM, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
 	model = newM.(Model)
 
 	assert.LessOrEqual(t, model.viewport.YOffset, 5, "viewport should scroll up")

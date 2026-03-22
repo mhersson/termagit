@@ -332,16 +332,27 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return handleInputPromptKey(m, msg)
 	}
 
-	// Handle pending key sequences (e.g., "gg", "gp")
+	// Handle pending key sequences (e.g., "gg", "gp", "[c", "]c")
 	if m.pendingKey == "g" {
-		m.pendingKey = "" // Clear pending key
+		m.pendingKey = ""
 		switch msg.String() {
 		case "g":
 			return handleGoToTop(m)
 		case "p":
 			return handleGoToParentRepo(m)
 		}
-		// "g" followed by something else - ignore the g prefix
+	}
+
+	if m.pendingBracket != "" {
+		bracket := m.pendingBracket
+		m.pendingBracket = ""
+		if msg.String() == "c" {
+			if bracket == "]" {
+				return handleOpenOrScrollDown(m)
+			}
+			return handleOpenOrScrollUp(m)
+		}
+		return m, nil
 	}
 
 	switch {
@@ -548,11 +559,13 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// In TUI these are all aliases for GoToFile
 		return handleGoToFile(m)
 
-	case key.Matches(msg, m.keys.OpenOrScrollDown):
-		return handleOpenOrScrollDown(m)
+	case msg.String() == "]":
+		m.pendingBracket = "]"
+		return m, nil
 
-	case key.Matches(msg, m.keys.OpenOrScrollUp):
-		return handleOpenOrScrollUp(m)
+	case msg.String() == "[":
+		m.pendingBracket = "["
+		return m, nil
 
 	case key.Matches(msg, m.keys.PeekDown):
 		return handlePeekDown(m)

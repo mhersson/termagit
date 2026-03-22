@@ -13,8 +13,6 @@ type KeyMap struct {
 	HalfPageUp     key.Binding
 	PrevHunkHeader key.Binding
 	NextHunkHeader key.Binding
-	ScrollUp       key.Binding
-	ScrollDown     key.Binding
 
 	// Actions
 	OpenFileInWorktree key.Binding
@@ -73,15 +71,6 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("}"),
 			key.WithHelp("}", "next hunk"),
 		),
-		ScrollUp: key.NewBinding(
-			key.WithKeys("[c"),
-			key.WithHelp("[c", "scroll up"),
-		),
-		ScrollDown: key.NewBinding(
-			key.WithKeys("]c"),
-			key.WithHelp("]c", "scroll down"),
-		),
-
 		OpenFileInWorktree: key.NewBinding(
 			key.WithKeys("a"),
 			key.WithHelp("a", "open file in worktree"),

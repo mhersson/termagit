@@ -106,8 +106,6 @@ func Build(commits []CommitInput) []Row {
 		nmissingParentsStrings := 0
 
 		// Init visual data
-		ncommitCols := 0
-		_ = ncommitCols
 		ncomplex := 0
 		nmissingParents := 0
 
@@ -269,7 +267,6 @@ func Build(commits []CommitInput) []Row {
 
 			// Draw commit lines
 			if branchIndex <= ncommitBranches {
-				ncommitCols += 2
 				ncommitStrings++
 
 				if isCommit {

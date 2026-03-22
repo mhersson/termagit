@@ -109,10 +109,15 @@ func loadStatusCmd(repo *git.Repository, cfg *config.Config) tea.Cmd {
 		// 4. Bisect in progress
 		if repo.BisectInProgress() {
 			state, err := repo.BisectState(ctx)
-			if err == nil && len(state.Items) > 0 {
-				sec := buildBisectSection(cfg, state)
-				if sec != nil {
-					sections = append(sections, *sec)
+			if err == nil {
+				if state.Current != nil && !getSectionConfig(cfg, SectionBisect).Hidden {
+					sections = append(sections, buildBisectDetailsSection(cfg, state.Current))
+				}
+				if len(state.Items) > 0 {
+					sec := buildBisectSection(cfg, state)
+					if sec != nil {
+						sections = append(sections, *sec)
+					}
 				}
 			}
 		}
@@ -221,9 +226,9 @@ func loadStatusCmd(repo *git.Repository, cfg *config.Config) tea.Cmd {
 
 		// 11. Recent commits
 		if !getSectionConfig(cfg, SectionRecentCommits).Hidden {
-			recentCount := 10 // Default
-			if cfg != nil && cfg.Sections.Recent.Folded {
-				recentCount = 5 // Fewer when folded
+			recentCount := 10
+			if cfg != nil && cfg.UI.RecentCommitCount > 0 {
+				recentCount = cfg.UI.RecentCommitCount
 			}
 			recent, _ := repo.RecentCommits(ctx, recentCount)
 			if len(recent) > 0 {
@@ -386,6 +391,16 @@ func buildSequencerSection(cfg *config.Config, state git.SequencerState) *Sectio
 }
 
 // buildBisectSection builds the bisect section.
+// buildBisectDetailsSection builds the "Bisecting at" section showing the current commit.
+func buildBisectDetailsSection(cfg *config.Config, current *git.LogEntry) Section {
+	return Section{
+		Kind:   SectionBisect,
+		Title:  "Bisecting at",
+		Folded: getSectionConfig(cfg, SectionBisect).Folded,
+		Items:  []Item{{BisectDetail: current}},
+	}
+}
+
 func buildBisectSection(cfg *config.Config, state git.BisectState) *Section {
 	if getSectionConfig(cfg, SectionBisect).Hidden {
 		return nil
