@@ -310,11 +310,7 @@ func (p Popup) handleKey(msg tea.KeyMsg) (Popup, tea.Cmd) {
 				} else if p.options[i].Value != "" {
 					p.options[i].Value = ""
 				} else {
-					p.editingOption = i
-					ti := textinput.New()
-					ti.Prompt = p.options[i].Label + "="
-					ti.Focus()
-					p.optionInput = ti
+					return p.startEditingOption(i)
 				}
 				return p, nil
 			}
@@ -346,12 +342,7 @@ func (p Popup) handleKey(msg tea.KeyMsg) (Popup, tea.Cmd) {
 				// Clear value
 				p.config[i].Value = ""
 			} else {
-				// Start editing
-				p.editingConfig = i
-				ti := textinput.New()
-				ti.Prompt = p.config[i].Description + "="
-				ti.Focus()
-				p.optionInput = ti
+				return p.startEditingConfig(i)
 			}
 			return p, nil
 		}
@@ -423,6 +414,32 @@ func cycleChoice(current string, choices []string) string {
 		}
 	}
 	return choices[0] // current not in choices, start from first
+}
+
+// startEditingOption creates a textinput for editing an option value and returns the Focus cmd.
+func (p Popup) startEditingOption(i int) (Popup, tea.Cmd) {
+	p.editingOption = i
+	ti := textinput.New()
+	ti.Prompt = p.options[i].Label + "="
+	ti.PromptStyle = p.tokens.PopupOption
+	ti.TextStyle = p.tokens.Normal
+	ti.Cursor.Style = lipgloss.NewStyle().Reverse(true)
+	cmd := ti.Focus()
+	p.optionInput = ti
+	return p, cmd
+}
+
+// startEditingConfig creates a textinput for editing a config value and returns the Focus cmd.
+func (p Popup) startEditingConfig(i int) (Popup, tea.Cmd) {
+	p.editingConfig = i
+	ti := textinput.New()
+	ti.Prompt = p.config[i].Description + "="
+	ti.PromptStyle = p.tokens.PopupOption
+	ti.TextStyle = p.tokens.Normal
+	ti.Cursor.Style = lipgloss.NewStyle().Reverse(true)
+	cmd := ti.Focus()
+	p.optionInput = ti
+	return p, cmd
 }
 
 // isPrefix returns true if the given key is used as a KeyPrefix by any switch or option.
