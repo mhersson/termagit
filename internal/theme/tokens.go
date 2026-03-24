@@ -32,6 +32,7 @@ type RawTokens struct {
 	DiffDelete     string `toml:"diff_delete"`
 	DiffDeleteBg   string `toml:"diff_delete_bg"`
 	DiffContext    string `toml:"diff_context"`
+	DiffContextBg  string `toml:"diff_context_bg"`
 	DiffHunkHeader string `toml:"diff_hunk_header"`
 
 	// Change indicators
@@ -246,7 +247,7 @@ func Compile(r RawTokens) Tokens {
 
 		DiffAdd:        lipgloss.NewStyle().Foreground(lipgloss.Color(r.DiffAdd)).Background(lipgloss.Color(r.DiffAddBg)),
 		DiffDelete:     lipgloss.NewStyle().Foreground(lipgloss.Color(r.DiffDelete)).Background(lipgloss.Color(r.DiffDeleteBg)),
-		DiffContext:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.DiffContext)),
+		DiffContext:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.DiffContext)).Background(lipgloss.Color(r.DiffContextBg)),
 		DiffHunkHeader: lipgloss.NewStyle().Foreground(lipgloss.Color(r.DiffHunkHeader)).Bold(true),
 
 		ChangeModified:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.ChangeModified)).Bold(true),

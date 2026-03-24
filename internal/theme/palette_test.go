@@ -14,9 +14,10 @@ func TestFromPalette_NoEmptyFields(t *testing.T) {
 		Bg1:       "#313244",
 		Bg2:       "#45475a",
 		Bg3:       "#585b70",
-		DiffAddBg: "#1e3a2f",
-		DiffDelBg: "#3b1f29",
-		Fg:        "#cdd6f4",
+		DiffAddBg:     "#1e3a2f",
+		DiffDelBg:     "#3b1f29",
+		DiffContextBg: "#313244",
+		Fg:            "#cdd6f4",
 		Fg1:       "#cdd6f4",
 		Fg2:       "#bac2de",
 		Dim:       "#6c7086",
@@ -43,9 +44,10 @@ func TestFromPalette_MapsColorsCorrectly(t *testing.T) {
 		Bg1:       "#bg1111",
 		Bg2:       "#bg2222",
 		Bg3:       "#bg3333",
-		DiffAddBg: "#dab000",
-		DiffDelBg: "#ddb000",
-		Fg:        "#fg0000",
+		DiffAddBg:     "#dab000",
+		DiffDelBg:     "#ddb000",
+		DiffContextBg: "#dcb000",
+		Fg:            "#fg0000",
 		Fg1:       "#fg1111",
 		Fg2:       "#fg2222",
 		Dim:       "#dim000",
@@ -89,6 +91,7 @@ func TestFromPalette_MapsColorsCorrectly(t *testing.T) {
 	assert.Equal(t, "#red000", raw.DiffDelete)
 	assert.Equal(t, "#ddb000", raw.DiffDeleteBg)
 	assert.Equal(t, "#fg2222", raw.DiffContext)
+	assert.Equal(t, "#dcb000", raw.DiffContextBg)
 	assert.Equal(t, "#teal00", raw.DiffHunkHeader)
 
 	// Change indicators

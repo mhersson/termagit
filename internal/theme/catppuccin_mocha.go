@@ -16,8 +16,9 @@ func (t *catppuccinMocha) Raw() RawTokens {
 		Bg1:       "#313244", // surface0
 		Bg2:       "#45475a", // surface1
 		Bg3:       "#585b70", // surface2
-		DiffAddBg: "#1e3a2f",
-		DiffDelBg: "#3b1f29",
+		DiffAddBg:     "#1e3a2f",
+		DiffDelBg:     "#3b1f29",
+		DiffContextBg: "#313244",
 		Fg:        "#cdd6f4", // text
 		Fg1:       "#cdd6f4", // text
 		Fg2:       "#bac2de", // subtext1

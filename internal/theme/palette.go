@@ -8,7 +8,8 @@ type Palette struct {
 	Bg2       string `toml:"bg2"`        // surface 1 — select bg, diff header bg
 	Bg3       string `toml:"bg3"`        // surface 2 — popup border
 	DiffAddBg string `toml:"diff_add_bg"`  // diff added line background
-	DiffDelBg string `toml:"diff_del_bg"`  // diff deleted line background
+	DiffDelBg    string `toml:"diff_del_bg"`     // diff deleted line background
+	DiffContextBg string `toml:"diff_context_bg"` // diff context line background
 	Fg        string `toml:"fg"`         // bright foreground — bold text, popup title, cursor
 	Fg1       string `toml:"fg1"`        // normal foreground — body text, popup actions
 	Fg2       string `toml:"fg2"`        // secondary foreground — commit date, diff context
@@ -54,6 +55,7 @@ func FromPalette(p Palette) RawTokens {
 		DiffDelete:     p.Red,
 		DiffDeleteBg:   p.DiffDelBg,
 		DiffContext:    p.Fg2,
+		DiffContextBg: p.DiffContextBg,
 		DiffHunkHeader: p.Teal,
 
 		// Change indicators

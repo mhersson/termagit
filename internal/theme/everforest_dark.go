@@ -14,8 +14,9 @@ func (t *everforestDark) Raw() RawTokens {
 		Bg1:       "#374145", // bg_visual
 		Bg2:       "#475258",
 		Bg3:       "#4f585e",
-		DiffAddBg: "#2d4a3e",
-		DiffDelBg: "#4c3743",
+		DiffAddBg:     "#2d4a3e",
+		DiffDelBg:     "#4c3743",
+		DiffContextBg: "#374145",
 		Fg:        "#d3c6aa",
 		Fg1:       "#d3c6aa",
 		Fg2:       "#9da9a0", // grey2

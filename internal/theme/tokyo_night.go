@@ -14,8 +14,9 @@ func (t *tokyoNight) Raw() RawTokens {
 		Bg1:       "#292e42", // bg_highlight
 		Bg2:       "#33467c",
 		Bg3:       "#3b4261",
-		DiffAddBg: "#20303b",
-		DiffDelBg: "#37222c",
+		DiffAddBg:     "#20303b",
+		DiffDelBg:     "#37222c",
+		DiffContextBg: "#292e42",
 		Fg:        "#c0caf5",
 		Fg1:       "#a9b1d6",
 		Fg2:       "#9aa5ce",
