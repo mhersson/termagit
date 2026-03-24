@@ -8,34 +8,35 @@ There are two ways to define a theme: **palette-based** (recommended) and
 
 ## Palette-Based Themes (Recommended)
 
-A palette defines ~21 named colors. termagit maps these to all the UI elements
+A palette defines ~22 named colors. termagit maps these to all the UI elements
 automatically. This is the simplest way to create a theme.
 
 Create a file like `~/.config/termagit/themes/my-theme.toml`:
 
 ```toml
 [palette]
-bg           = "#1e1e2e"   # base background
-bg1          = "#313244"   # surface - cursor highlight, float header bg
-bg2          = "#45475a"   # surface - selection bg, diff header bg
-bg3          = "#585b70"   # surface - popup border
-diff_add_bg  = "#1e3a2f"   # diff added line background
-diff_del_bg  = "#3b1f29"   # diff deleted line background
-fg           = "#cdd6f4"   # bright foreground - bold text, popup title, cursor
-fg1          = "#cdd6f4"   # normal foreground - body text, popup actions
-fg2          = "#bac2de"   # secondary foreground - commit date, diff context
-dim          = "#6c7086"   # dimmed - comments, subtle text, graph gray
-dim1         = "#7f849c"   # slightly brighter dim - hash, untracked label
-blue         = "#89b4fa"   # branches, modified, popup key, info notifications
-green        = "#a6e3a1"   # remote, staged, added, diff add, success
-red          = "#f38ba8"   # deleted, conflict, diff delete, error
-yellow       = "#f9e2af"   # tag, unstaged, option, confirm key
-purple       = "#cba6f7"   # section header, renamed, popup section, stashes
-teal         = "#94e2d5"   # hunk header, copied, rebasing
-cyan         = "#89dceb"   # popup switch, commit view header, float header fg
-orange       = "#fab387"   # warning, confirm border, numbers
-pink         = "#f5c2e7"   # commit author, merging
-lavender     = "#b4befe"   # current commit hash
+bg               = "#1e1e2e"   # base background
+bg1              = "#313244"   # surface - cursor highlight, float header bg
+bg2              = "#45475a"   # surface - selection bg, diff header bg
+bg3              = "#585b70"   # surface - popup border
+diff_add_bg      = "#1e3a2f"   # diff added line background
+diff_del_bg      = "#3b1f29"   # diff deleted line background
+diff_context_bg  = "#313244"   # diff context line background
+fg               = "#cdd6f4"   # bright foreground - bold text, popup title, cursor
+fg1              = "#cdd6f4"   # normal foreground - body text, popup actions
+fg2              = "#bac2de"   # secondary foreground - commit date, diff context
+dim              = "#6c7086"   # dimmed - comments, subtle text, graph gray
+dim1             = "#7f849c"   # slightly brighter dim - hash, untracked label
+blue             = "#89b4fa"   # branches, modified, popup key, info notifications
+green            = "#a6e3a1"   # remote, staged, added, diff add, success
+red              = "#f38ba8"   # deleted, conflict, diff delete, error
+yellow           = "#f9e2af"   # tag, unstaged, option, confirm key
+purple           = "#cba6f7"   # section header, renamed, popup section, stashes
+teal             = "#94e2d5"   # hunk header, copied, rebasing
+cyan             = "#89dceb"   # popup switch, commit view header, float header fg
+orange           = "#fab387"   # warning, confirm border, numbers
+pink             = "#f5c2e7"   # commit author, merging
+lavender         = "#b4befe"   # current commit hash
 ```
 
 Then set it in your config:
@@ -46,29 +47,30 @@ theme = "my-theme"
 
 ### Palette Fields
 
-| Field         | Used For                                                                                                   |
-| ------------- | ---------------------------------------------------------------------------------------------------------- |
-| `bg`          | Base background, commit view header text                                                                   |
-| `bg1`         | Cursor highlight, editor bar bg, float header bg                                                           |
-| `bg2`         | Selection bg, diff header bg                                                                               |
-| `bg3`         | Popup border                                                                                               |
-| `diff_add_bg` | Background for added diff lines                                                                            |
-| `diff_del_bg` | Background for deleted diff lines                                                                          |
-| `fg`          | Bold text, popup title, cursor, graph white                                                                |
-| `fg1`         | Normal text, popup action labels, confirm text                                                             |
-| `fg2`         | Commit date, diff context lines                                                                            |
-| `dim`         | Comments, subtle text, rebase done items, graph gray                                                       |
-| `dim1`        | Commit hash, untracked file label                                                                          |
-| `blue`        | Branch names, modified indicator, popup key, info notifications, file paths, diff header fg                |
-| `green`       | Remote names, staged indicator, added indicator, diff add lines, success notifications, cherry-pick header |
-| `red`         | Deleted indicator, conflict indicator, diff delete lines, error notifications, revert header               |
-| `yellow`      | Tag names, unstaged indicator, popup option labels, confirm key, bisect header                             |
-| `purple`      | Section headers, renamed indicator, popup section headers, stash indicator                                 |
-| `teal`        | Hunk headers, copied indicator, rebase header                                                              |
-| `cyan`        | Popup switch labels, commit view header bg, float header fg, graph cyan                                    |
-| `orange`      | Warning notifications, confirm border, numbers                                                             |
-| `pink`        | Commit author, merge header                                                                                |
-| `lavender`    | Current commit hash (HEAD)                                                                                 |
+| Field             | Used For                                                                                                   |
+| ----------------- | ---------------------------------------------------------------------------------------------------------- |
+| `bg`              | Base background, commit view header text                                                                   |
+| `bg1`             | Cursor highlight, editor bar bg, float header bg                                                           |
+| `bg2`             | Selection bg, diff header bg                                                                               |
+| `bg3`             | Popup border                                                                                               |
+| `diff_add_bg`     | Background for added diff lines                                                                            |
+| `diff_del_bg`     | Background for deleted diff lines                                                                          |
+| `diff_context_bg` | Background for context (unchanged) diff lines                                                              |
+| `fg`              | Bold text, popup title, cursor, graph white                                                                |
+| `fg1`             | Normal text, popup action labels, confirm text                                                             |
+| `fg2`             | Commit date, diff context lines                                                                            |
+| `dim`             | Comments, subtle text, rebase done items, graph gray                                                       |
+| `dim1`            | Commit hash, untracked file label                                                                          |
+| `blue`            | Branch names, modified indicator, popup key, info notifications, file paths, diff header fg                |
+| `green`           | Remote names, staged indicator, added indicator, diff add lines, success notifications, cherry-pick header |
+| `red`             | Deleted indicator, conflict indicator, diff delete lines, error notifications, revert header               |
+| `yellow`          | Tag names, unstaged indicator, popup option labels, confirm key, bisect header                             |
+| `purple`          | Section headers, renamed indicator, popup section headers, stash indicator                                 |
+| `teal`            | Hunk headers, copied indicator, rebase header                                                              |
+| `cyan`            | Popup switch labels, commit view header bg, float header fg, graph cyan                                    |
+| `orange`          | Warning notifications, confirm border, numbers                                                             |
+| `pink`            | Commit author, merge header                                                                                |
+| `lavender`        | Current commit hash (HEAD)                                                                                 |
 
 ### Tips
 
@@ -78,8 +80,10 @@ theme = "my-theme"
 - **Reusing colors**: If your color scheme doesn't distinguish teal from cyan,
   or pink from purple, just set them to the same value. The built-in
   everforest-dark and tokyo-night themes do this.
-- **Diff backgrounds**: These should be very dark, desaturated versions of your
-  green and red. They're used as background colors for added/deleted diff lines.
+- **Diff backgrounds**: `diff_add_bg` and `diff_del_bg` should be very dark (or
+  very light for light themes), desaturated versions of your green and red.
+  `diff_context_bg` is typically set to `bg1` (surface0) to give unchanged diff
+  lines a subtle background that distinguishes them from the rest of the UI.
 
 ## Token-Based Themes (Advanced)
 
@@ -118,6 +122,7 @@ Missing fields are filled from the default theme (catppuccin-mocha).
 | `diff_delete`           | Deleted line foreground               |
 | `diff_delete_bg`        | Deleted line background               |
 | `diff_context`          | Context line text                     |
+| `diff_context_bg`       | Context line background               |
 | `diff_hunk_header`      | Hunk header (@@ lines, bold)          |
 | `change_modified`       | "modified" label (bold)               |
 | `change_added`          | "new file" label (bold)               |
@@ -197,8 +202,31 @@ need specific colors that don't fit the standard mapping.
 
 ## Built-in Themes
 
-termagit ships with three built-in themes:
+termagit ships with 12 built-in themes:
+
+**Catppuccin**
 
 - **catppuccin-mocha** (default) - warm, pastel colors on a dark base
-- **everforest-dark** - muted, earthy tones inspired by nature
+- **catppuccin-macchiato** - deep dark with pastel accents
+- **catppuccin-frappe** - mid-dark with soft pastel tones
+- **catppuccin-latte** - light theme with vivid accents
+
+**Tokyo Night**
+
 - **tokyo-night** - cool blues and purples with vibrant accents
+- **tokyo-night-storm** - slightly lighter variant of tokyo-night
+- **tokyo-night-light** - light theme with deep blue text
+
+**Gruvbox**
+
+- **gruvbox-dark** - retro groove with warm, earthy colors
+- **gruvbox-light** - light variant with muted warm accents
+
+**Solarized**
+
+- **solarized-dark** - Ethan Schoonover's precision dark palette
+- **solarized-light** - light variant of the solarized palette
+
+**Everforest**
+
+- **everforest-dark** - muted, earthy tones inspired by nature

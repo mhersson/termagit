@@ -35,6 +35,60 @@ func TestBuiltinTheme_TokyoNight_NoEmptyFields(t *testing.T) {
 	assertNoEmptyFields(t, raw, "tokyo-night")
 }
 
+func TestBuiltinTheme_CatppuccinLatte_NoEmptyFields(t *testing.T) {
+	theme, ok := Get("catppuccin-latte")
+	require.True(t, ok, "catppuccin-latte should be registered")
+	assertNoEmptyFields(t, theme.Raw(), "catppuccin-latte")
+}
+
+func TestBuiltinTheme_CatppuccinFrappe_NoEmptyFields(t *testing.T) {
+	theme, ok := Get("catppuccin-frappe")
+	require.True(t, ok, "catppuccin-frappe should be registered")
+	assertNoEmptyFields(t, theme.Raw(), "catppuccin-frappe")
+}
+
+func TestBuiltinTheme_CatppuccinMacchiato_NoEmptyFields(t *testing.T) {
+	theme, ok := Get("catppuccin-macchiato")
+	require.True(t, ok, "catppuccin-macchiato should be registered")
+	assertNoEmptyFields(t, theme.Raw(), "catppuccin-macchiato")
+}
+
+func TestBuiltinTheme_TokyoNightStorm_NoEmptyFields(t *testing.T) {
+	theme, ok := Get("tokyo-night-storm")
+	require.True(t, ok, "tokyo-night-storm should be registered")
+	assertNoEmptyFields(t, theme.Raw(), "tokyo-night-storm")
+}
+
+func TestBuiltinTheme_TokyoNightLight_NoEmptyFields(t *testing.T) {
+	theme, ok := Get("tokyo-night-light")
+	require.True(t, ok, "tokyo-night-light should be registered")
+	assertNoEmptyFields(t, theme.Raw(), "tokyo-night-light")
+}
+
+func TestBuiltinTheme_GruvboxDark_NoEmptyFields(t *testing.T) {
+	theme, ok := Get("gruvbox-dark")
+	require.True(t, ok, "gruvbox-dark should be registered")
+	assertNoEmptyFields(t, theme.Raw(), "gruvbox-dark")
+}
+
+func TestBuiltinTheme_GruvboxLight_NoEmptyFields(t *testing.T) {
+	theme, ok := Get("gruvbox-light")
+	require.True(t, ok, "gruvbox-light should be registered")
+	assertNoEmptyFields(t, theme.Raw(), "gruvbox-light")
+}
+
+func TestBuiltinTheme_SolarizedDark_NoEmptyFields(t *testing.T) {
+	theme, ok := Get("solarized-dark")
+	require.True(t, ok, "solarized-dark should be registered")
+	assertNoEmptyFields(t, theme.Raw(), "solarized-dark")
+}
+
+func TestBuiltinTheme_SolarizedLight_NoEmptyFields(t *testing.T) {
+	theme, ok := Get("solarized-light")
+	require.True(t, ok, "solarized-light should be registered")
+	assertNoEmptyFields(t, theme.Raw(), "solarized-light")
+}
+
 func assertNoEmptyFields(t *testing.T, raw RawTokens, themeName string) {
 	t.Helper()
 	v := reflect.ValueOf(raw)
@@ -51,8 +105,17 @@ func TestRegister_AddsToRegistry(t *testing.T) {
 	// Themes are already registered via init()
 	names := Names()
 	assert.Contains(t, names, "catppuccin-mocha")
+	assert.Contains(t, names, "catppuccin-latte")
+	assert.Contains(t, names, "catppuccin-frappe")
+	assert.Contains(t, names, "catppuccin-macchiato")
 	assert.Contains(t, names, "everforest-dark")
 	assert.Contains(t, names, "tokyo-night")
+	assert.Contains(t, names, "tokyo-night-storm")
+	assert.Contains(t, names, "tokyo-night-light")
+	assert.Contains(t, names, "gruvbox-dark")
+	assert.Contains(t, names, "gruvbox-light")
+	assert.Contains(t, names, "solarized-dark")
+	assert.Contains(t, names, "solarized-light")
 }
 
 func TestGet_ReturnsRegisteredTheme(t *testing.T) {
@@ -74,7 +137,7 @@ func TestFallback_ReturnsCatppuccinMocha(t *testing.T) {
 
 func TestNames_ReturnsSorted(t *testing.T) {
 	names := Names()
-	require.Len(t, names, 3) // catppuccin-mocha, everforest-dark, tokyo-night
+	require.Len(t, names, 12)
 
 	// Should be alphabetically sorted
 	for i := 1; i < len(names); i++ {
