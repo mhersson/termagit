@@ -666,3 +666,133 @@ func TestScrollUp_MovesViewport(t *testing.T) {
 
 	assert.LessOrEqual(t, model.viewport.YOffset, 5, "viewport should scroll up")
 }
+
+// testLargeDiffs returns diff data with many lines for scroll testing.
+func testLargeDiffs() []git.FileDiff {
+	var lines []git.DiffLine
+	for i := 0; i < 50; i++ {
+		lines = append(lines, git.DiffLine{Op: git.DiffOpContext, Content: "line content"})
+	}
+	return []git.FileDiff{
+		{
+			Path: "large.go",
+			Hunks: []git.Hunk{
+				{
+					Header:   "@@ -1,50 +1,50 @@",
+					OldStart: 1, OldCount: 50, NewStart: 1, NewCount: 50,
+					Lines: lines,
+				},
+			},
+		},
+	}
+}
+
+func TestCommitView_HalfPageDown_KeepsCursorVisible(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 10) // Small viewport height
+
+	info := &git.LogEntry{
+		Hash: "abc123", Subject: "Test", AuthorName: "A",
+		AuthorEmail: "a@b.com", AuthorDate: "2024-01-01",
+	}
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}, Diffs: testLargeDiffs()}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	// Cursor starts at line 0
+	assert.Equal(t, 0, model.cursorLine)
+
+	// Scroll viewport down - cursor should move into visible range
+	keyMsg := tea.KeyMsg{Type: tea.KeyCtrlD}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+
+	// Cursor should be within the visible viewport
+	assert.GreaterOrEqual(t, model.cursorLine, model.viewport.YOffset,
+		"cursor should be at or below viewport top")
+	assert.Less(t, model.cursorLine, model.viewport.YOffset+model.viewport.Height,
+		"cursor should be above viewport bottom")
+}
+
+func TestCommitView_HalfPageUp_KeepsCursorVisible(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 10)
+
+	info := &git.LogEntry{
+		Hash: "abc123", Subject: "Test", AuthorName: "A",
+		AuthorEmail: "a@b.com", AuthorDate: "2024-01-01",
+	}
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}, Diffs: testLargeDiffs()}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	// Move cursor to bottom of content first
+	model.cursorLine = model.totalLines - 1
+	model.viewport.YOffset = model.totalLines - model.viewport.Height
+
+	// Scroll viewport up - cursor should move into visible range
+	keyMsg := tea.KeyMsg{Type: tea.KeyCtrlU}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+
+	// Cursor should be within the visible viewport
+	assert.GreaterOrEqual(t, model.cursorLine, model.viewport.YOffset,
+		"cursor should be at or below viewport top")
+	assert.Less(t, model.cursorLine, model.viewport.YOffset+model.viewport.Height,
+		"cursor should be above viewport bottom")
+}
+
+func TestCommitView_PageDown_KeepsCursorVisible(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 10)
+
+	info := &git.LogEntry{
+		Hash: "abc123", Subject: "Test", AuthorName: "A",
+		AuthorEmail: "a@b.com", AuthorDate: "2024-01-01",
+	}
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}, Diffs: testLargeDiffs()}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	// Cursor starts at line 0
+	assert.Equal(t, 0, model.cursorLine)
+
+	// Scroll viewport down a full page
+	keyMsg := tea.KeyMsg{Type: tea.KeyCtrlF}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+
+	// Cursor should be within the visible viewport
+	assert.GreaterOrEqual(t, model.cursorLine, model.viewport.YOffset,
+		"cursor should be at or below viewport top")
+	assert.Less(t, model.cursorLine, model.viewport.YOffset+model.viewport.Height,
+		"cursor should be above viewport bottom")
+}
+
+func TestCommitView_PageUp_KeepsCursorVisible(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 10)
+
+	info := &git.LogEntry{
+		Hash: "abc123", Subject: "Test", AuthorName: "A",
+		AuthorEmail: "a@b.com", AuthorDate: "2024-01-01",
+	}
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}, Diffs: testLargeDiffs()}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	// Move cursor to bottom of content first
+	model.cursorLine = model.totalLines - 1
+	model.viewport.YOffset = model.totalLines - model.viewport.Height
+
+	// Scroll viewport up a full page
+	keyMsg := tea.KeyMsg{Type: tea.KeyCtrlB}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+
+	// Cursor should be within the visible viewport
+	assert.GreaterOrEqual(t, model.cursorLine, model.viewport.YOffset,
+		"cursor should be at or below viewport top")
+	assert.Less(t, model.cursorLine, model.viewport.YOffset+model.viewport.Height,
+		"cursor should be above viewport bottom")
+}

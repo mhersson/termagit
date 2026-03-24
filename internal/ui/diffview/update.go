@@ -81,18 +81,22 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 	case key.Matches(msg, m.keys.PageDown):
 		m.viewport.PageDown()
+		m.ensureCursorInViewport()
 		return m, nil
 
 	case key.Matches(msg, m.keys.PageUp):
 		m.viewport.PageUp()
+		m.ensureCursorInViewport()
 		return m, nil
 
 	case key.Matches(msg, m.keys.HalfPageDown):
 		m.viewport.HalfPageDown()
+		m.ensureCursorInViewport()
 		return m, nil
 
 	case key.Matches(msg, m.keys.HalfPageUp):
 		m.viewport.HalfPageUp()
+		m.ensureCursorInViewport()
 		return m, nil
 
 	// Hunk navigation
@@ -179,6 +183,16 @@ func (m *Model) ensureCursorVisible() {
 		m.viewport.YOffset = m.cursorLine
 	} else if m.cursorLine >= m.viewport.YOffset+m.viewport.Height {
 		m.viewport.YOffset = m.cursorLine - m.viewport.Height + 1
+	}
+}
+
+// ensureCursorInViewport clamps cursorLine to stay within the visible viewport.
+// Called after viewport scrolling (ctrl-d/f/u/b) to keep cursor on-screen.
+func (m *Model) ensureCursorInViewport() {
+	if m.cursorLine < m.viewport.YOffset {
+		m.cursorLine = m.viewport.YOffset
+	} else if m.cursorLine >= m.viewport.YOffset+m.viewport.Height {
+		m.cursorLine = m.viewport.YOffset + m.viewport.Height - 1
 	}
 }
 
