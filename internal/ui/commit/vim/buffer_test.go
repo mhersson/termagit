@@ -169,3 +169,44 @@ func TestBuffer_InsertLineAbove(t *testing.T) {
 	assert.Equal(t, "line2", b.Line(1))
 	assert.Equal(t, "line3", b.Line(2))
 }
+
+func TestBuffer_JoinLine_JoinsWithNextLine(t *testing.T) {
+	b := NewBuffer("hello\nworld")
+	b.JoinLine(0)
+
+	assert.Equal(t, 1, b.LineCount())
+	assert.Equal(t, "hello world", b.Line(0))
+}
+
+func TestBuffer_JoinLine_LastLine_NoOp(t *testing.T) {
+	b := NewBuffer("hello")
+	b.JoinLine(0)
+
+	assert.Equal(t, 1, b.LineCount())
+	assert.Equal(t, "hello", b.Line(0))
+}
+
+func TestBuffer_JoinLine_EmptyNextLine(t *testing.T) {
+	b := NewBuffer("hello\n")
+	b.JoinLine(0)
+
+	assert.Equal(t, 1, b.LineCount())
+	assert.Equal(t, "hello", b.Line(0))
+}
+
+func TestBuffer_JoinLine_PreservesRemaining(t *testing.T) {
+	b := NewBuffer("line1\nline2\nline3")
+	b.JoinLine(0)
+
+	assert.Equal(t, 2, b.LineCount())
+	assert.Equal(t, "line1 line2", b.Line(0))
+	assert.Equal(t, "line3", b.Line(1))
+}
+
+func TestBuffer_JoinLine_TrimsLeadingWhitespace(t *testing.T) {
+	b := NewBuffer("hello\n   world")
+	b.JoinLine(0)
+
+	assert.Equal(t, 1, b.LineCount())
+	assert.Equal(t, "hello world", b.Line(0))
+}

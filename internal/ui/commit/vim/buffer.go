@@ -165,6 +165,22 @@ func (b *Buffer) DeleteRange(startLine, startCol, endLine, endCol int) {
 	b.DeleteLines(startLine+1, endLine)
 }
 
+// JoinLine joins the given line with the next line, separated by a space.
+// If the next line is empty (or whitespace-only), no space is added.
+// No-op if lineNum is the last line or out of bounds.
+func (b *Buffer) JoinLine(lineNum int) {
+	if lineNum < 0 || lineNum >= len(b.lines)-1 {
+		return
+	}
+	nextLine := strings.TrimLeft(b.lines[lineNum+1], " \t")
+	if nextLine == "" {
+		// Just remove the empty next line
+	} else {
+		b.lines[lineNum] = b.lines[lineNum] + " " + nextLine
+	}
+	b.lines = append(b.lines[:lineNum+1], b.lines[lineNum+2:]...)
+}
+
 // Content returns the full buffer content as a string.
 func (b *Buffer) Content() string {
 	return strings.Join(b.lines, "\n")

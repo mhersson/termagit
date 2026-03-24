@@ -42,6 +42,11 @@ func (m Model) View() string {
 
 	visibleLines := lines[startLine:endLine]
 
+	// Apply horizontal scroll
+	for i, line := range visibleLines {
+		visibleLines[i] = m.applyHorizontalScroll(line)
+	}
+
 	// Pad with empty lines to fill full height
 	for len(visibleLines) < m.height {
 		visibleLines = append(visibleLines, "")
@@ -321,4 +326,24 @@ func padLeft(s string, width int) string {
 		return s
 	}
 	return strings.Repeat(" ", width-len(s)) + s
+}
+
+// applyHorizontalScroll trims a styled line to the visible horizontal window.
+func (m Model) applyHorizontalScroll(line string) string {
+	if m.xOffset == 0 {
+		return ansi.Truncate(line, m.width, "")
+	}
+	return ansi.Truncate(ansi.TruncateLeft(line, m.xOffset, ""), m.width, "")
+}
+
+// maxVisibleWidth returns the maximum visible width across all lines in content.
+func maxVisibleWidth(content string) int {
+	maxW := 0
+	for _, line := range strings.Split(content, "\n") {
+		w := ansi.StringWidth(line)
+		if w > maxW {
+			maxW = w
+		}
+	}
+	return maxW
 }

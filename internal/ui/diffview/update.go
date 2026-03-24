@@ -26,9 +26,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.stats = msg.Stats
 		m.fileIdx = 0
 		m.hunkIdx = -1
+		m.xOffset = 0
 		// Build viewport content
 		content := m.renderContent()
 		m.totalLines = countLines(content)
+		m.maxLineWidth = maxVisibleWidth(content)
 		m.viewport.SetContent(content)
 		m.cursorLine = 0
 		return m, nil
@@ -116,6 +118,29 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 			m.fileIdx--
 			m.scrollToFile(m.fileIdx)
 		}
+		return m, nil
+
+	// Horizontal scroll
+	case key.Matches(msg, m.keys.ScrollRight):
+		m.xOffset++
+		return m, nil
+
+	case key.Matches(msg, m.keys.ScrollLeft):
+		if m.xOffset > 0 {
+			m.xOffset--
+		}
+		return m, nil
+
+	case key.Matches(msg, m.keys.ScrollStart):
+		m.xOffset = 0
+		return m, nil
+
+	case key.Matches(msg, m.keys.ScrollEnd):
+		end := m.maxLineWidth - m.width
+		if end < 0 {
+			end = 0
+		}
+		m.xOffset = end
 		return m, nil
 
 	// Stage/unstage hunk

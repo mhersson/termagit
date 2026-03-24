@@ -26,6 +26,12 @@ type KeyMap struct {
 	StageHunk   key.Binding
 	UnstageHunk key.Binding
 
+	// Horizontal scroll
+	ScrollLeft  key.Binding
+	ScrollRight key.Binding
+	ScrollStart key.Binding
+	ScrollEnd   key.Binding
+
 	// Toggle fold
 	Toggle key.Binding
 
@@ -95,6 +101,23 @@ func DefaultKeyMap() KeyMap {
 		UnstageHunk: key.NewBinding(
 			key.WithKeys("u"),
 			key.WithHelp("u", "unstage hunk"),
+		),
+
+		ScrollLeft: key.NewBinding(
+			key.WithKeys("h"),
+			key.WithHelp("h", "scroll left"),
+		),
+		ScrollRight: key.NewBinding(
+			key.WithKeys("l"),
+			key.WithHelp("l", "scroll right"),
+		),
+		ScrollStart: key.NewBinding(
+			key.WithKeys("0"),
+			key.WithHelp("0", "scroll to start"),
+		),
+		ScrollEnd: key.NewBinding(
+			key.WithKeys("$"),
+			key.WithHelp("$", "scroll to end"),
 		),
 
 		Toggle: key.NewBinding(

@@ -216,3 +216,112 @@ func TestVimEditor_C_AtLineStart_DeletesAndInserts(t *testing.T) {
 	assert.Equal(t, "", e.Content())
 	assert.Equal(t, ModeInsert, e.Mode())
 }
+
+// Register population tests
+
+func TestVimEditor_Register_InitiallyEmpty(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	assert.Equal(t, "", e.Register())
+	assert.False(t, e.RegisterIsLine())
+}
+
+func TestVimEditor_dd_PopulatesRegister(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("line1\nline2\nline3")
+	e.SetCursor(1, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+
+	assert.Equal(t, "line2", e.Register())
+	assert.True(t, e.RegisterIsLine())
+}
+
+func TestVimEditor_dw_PopulatesRegister(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello world")
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'w'}})
+
+	assert.Equal(t, "hello ", e.Register())
+	assert.False(t, e.RegisterIsLine())
+}
+
+func TestVimEditor_d_dollar_PopulatesRegister(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello world")
+	e.SetCursor(0, 6)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'$'}})
+
+	assert.Equal(t, "world", e.Register())
+	assert.False(t, e.RegisterIsLine())
+}
+
+func TestVimEditor_D_PopulatesRegister(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello world")
+	e.SetCursor(0, 6)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'D'}})
+
+	assert.Equal(t, "world", e.Register())
+	assert.False(t, e.RegisterIsLine())
+}
+
+func TestVimEditor_x_PopulatesRegister(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello")
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+
+	assert.Equal(t, "h", e.Register())
+	assert.False(t, e.RegisterIsLine())
+}
+
+func TestVimEditor_cc_PopulatesRegister(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("line1\nline2")
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+
+	assert.Equal(t, "line1", e.Register())
+	assert.True(t, e.RegisterIsLine())
+}
+
+func TestVimEditor_cw_PopulatesRegister(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello world")
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'w'}})
+
+	assert.Equal(t, "hello ", e.Register())
+	assert.False(t, e.RegisterIsLine())
+}
+
+func TestVimEditor_C_PopulatesRegister(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello world")
+	e.SetCursor(0, 6)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'C'}})
+
+	assert.Equal(t, "world", e.Register())
+	assert.False(t, e.RegisterIsLine())
+}

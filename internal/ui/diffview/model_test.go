@@ -439,6 +439,77 @@ func TestKeyMap_DefaultBindings(t *testing.T) {
 	assert.NotEmpty(t, keys.PrevFile.Keys())
 	assert.NotEmpty(t, keys.StageHunk.Keys())
 	assert.NotEmpty(t, keys.UnstageHunk.Keys())
+	assert.Contains(t, keys.ScrollLeft.Keys(), "h")
+	assert.Contains(t, keys.ScrollRight.Keys(), "l")
+	assert.Contains(t, keys.ScrollStart.Keys(), "0")
+	assert.Contains(t, keys.ScrollEnd.Keys(), "$")
+}
+
+func TestDiffModel_ScrollRight_IncreasesXOffset(t *testing.T) {
+	m := New(nil, testSource(git.DiffStaged), testConfig(), testTokens())
+	m = loadModel(m)
+
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}}
+	newM, _ := m.Update(keyMsg)
+	model := newM.(Model)
+	assert.Equal(t, 1, model.xOffset)
+
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+	assert.Equal(t, 2, model.xOffset)
+}
+
+func TestDiffModel_ScrollLeft_DecreasesXOffset(t *testing.T) {
+	m := New(nil, testSource(git.DiffStaged), testConfig(), testTokens())
+	m = loadModel(m)
+	m.xOffset = 5
+
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}}
+	newM, _ := m.Update(keyMsg)
+	model := newM.(Model)
+	assert.Equal(t, 4, model.xOffset)
+}
+
+func TestDiffModel_ScrollLeft_ClampsAtZero(t *testing.T) {
+	m := New(nil, testSource(git.DiffStaged), testConfig(), testTokens())
+	m = loadModel(m)
+
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}}
+	newM, _ := m.Update(keyMsg)
+	model := newM.(Model)
+	assert.Equal(t, 0, model.xOffset)
+}
+
+func TestDiffModel_ScrollStart_ResetsXOffset(t *testing.T) {
+	m := New(nil, testSource(git.DiffStaged), testConfig(), testTokens())
+	m = loadModel(m)
+	m.xOffset = 10
+
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'0'}}
+	newM, _ := m.Update(keyMsg)
+	model := newM.(Model)
+	assert.Equal(t, 0, model.xOffset)
+}
+
+func TestDiffModel_ScrollEnd_JumpsToEnd(t *testing.T) {
+	m := New(nil, testSource(git.DiffStaged), testConfig(), testTokens())
+	m = loadModel(m)
+
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'$'}}
+	newM, _ := m.Update(keyMsg)
+	model := newM.(Model)
+	assert.GreaterOrEqual(t, model.xOffset, 0, "xOffset should be non-negative")
+}
+
+func TestDiffModel_DataLoad_ResetsXOffset(t *testing.T) {
+	m := New(nil, testSource(git.DiffStaged), testConfig(), testTokens())
+	m = loadModel(m)
+	m.xOffset = 10
+
+	msg := DiffDataLoadedMsg{Files: testDiffs()}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+	assert.Equal(t, 0, model.xOffset)
 }
 
 func TestDiffView_StatBlock_RendersWhenPresent(t *testing.T) {

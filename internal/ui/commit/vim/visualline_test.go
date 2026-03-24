@@ -100,6 +100,50 @@ func TestVimEditor_VisualLine_AllLines_LeavesEmpty(t *testing.T) {
 	assert.Equal(t, "", e.Content())
 }
 
+func TestVimEditor_VisualLine_d_PopulatesRegister(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("line1\nline2\nline3\nline4")
+	e.SetCursor(1, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+
+	assert.Equal(t, "line2\nline3", e.Register())
+	assert.True(t, e.RegisterIsLine())
+}
+
+func TestVimEditor_VisualLine_c_PopulatesRegister(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("line1\nline2\nline3\nline4")
+	e.SetCursor(1, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+
+	assert.Equal(t, "line2\nline3", e.Register())
+	assert.True(t, e.RegisterIsLine())
+}
+
+func TestVimEditor_VisualLine_y_YanksSelection(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("line1\nline2\nline3\nline4")
+	e.SetCursor(1, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+
+	assert.Equal(t, "line2\nline3", e.Register())
+	assert.True(t, e.RegisterIsLine())
+	assert.Equal(t, ModeNormal, e.Mode())
+	assert.Equal(t, "line1\nline2\nline3\nline4", e.Content(), "content should be unchanged")
+}
+
 func TestVimEditor_VisualLine_ESC_ClearsSelection(t *testing.T) {
 	e := NewEditor(testTokens(), ModeNormal)
 	e.SetContent("line1\nline2\nline3")

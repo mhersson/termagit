@@ -357,6 +357,186 @@ func TestVimEditor_Paste_IntoExistingContent(t *testing.T) {
 	assert.Equal(t, "before mid1\nmid2\nafter", e.Content())
 }
 
+// Yank tests
+
+func TestVimEditor_yy_YanksCurrentLine(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("line1\nline2")
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+
+	assert.Equal(t, "line1", e.Register())
+	assert.True(t, e.RegisterIsLine())
+	assert.Equal(t, "line1\nline2", e.Content(), "yank should not modify content")
+}
+
+func TestVimEditor_yw_YanksWord(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello world")
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'w'}})
+
+	assert.Equal(t, "hello ", e.Register())
+	assert.False(t, e.RegisterIsLine())
+	assert.Equal(t, "hello world", e.Content(), "yank should not modify content")
+}
+
+func TestVimEditor_y_dollar_YanksToLineEnd(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello world")
+	e.SetCursor(0, 6)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'$'}})
+
+	assert.Equal(t, "world", e.Register())
+	assert.False(t, e.RegisterIsLine())
+	assert.Equal(t, "hello world", e.Content(), "yank should not modify content")
+}
+
+// Paste tests
+
+func TestVimEditor_p_PastesLineBelow(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("line1\nline3")
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	// Yank line1
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+
+	// Paste below
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+
+	assert.Equal(t, "line1\nline1\nline3", e.Content())
+	assert.Equal(t, 1, e.Line(), "cursor should be on pasted line")
+}
+
+func TestVimEditor_p_PastesTextAfterCursor(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hlo")
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	// Manually set register to inline text
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}}) // deletes 'h', register = "h"
+	// Now content is "lo", cursor at 0
+	// Move to end and paste
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'$'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}}) // paste "h" after 'o'
+
+	assert.Equal(t, "loh", e.Content())
+}
+
+func TestVimEditor_p_EmptyRegister_NoOp(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello")
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+
+	assert.Equal(t, "hello", e.Content())
+}
+
+func TestVimEditor_P_PastesLineAbove(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("line1\nline2")
+	e.SetCursor(1, 0)
+	e.SetMode(ModeNormal)
+
+	// Yank line2
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+
+	// Paste above
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'P'}})
+
+	assert.Equal(t, "line1\nline2\nline2", e.Content())
+	assert.Equal(t, 1, e.Line(), "cursor should be on pasted line")
+}
+
+func TestVimEditor_P_PastesTextBeforeCursor(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hllo")
+	e.SetCursor(0, 1) // on first 'l'
+	e.SetMode(ModeNormal)
+
+	// Delete char 'l' with x, register = "l"
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	// content is "hlo", cursor at 1 ('l')
+
+	// Move to start and paste before
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'0'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'P'}}) // paste "l" before 'h'
+
+	assert.Equal(t, "lhlo", e.Content())
+}
+
+// Integration: dd + p moves line down
+func TestVimEditor_dd_p_MoveLineDown(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("line1\nline2\nline3")
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	// dd (delete line1)
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	// content: "line2\nline3", cursor on line 0, register = "line1"
+
+	// p (paste below)
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+
+	assert.Equal(t, "line2\nline1\nline3", e.Content())
+}
+
+// Integration: yy + p duplicates line
+func TestVimEditor_yy_p_DuplicateLine(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello\nworld")
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	// yy
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+
+	// p
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+
+	assert.Equal(t, "hello\nhello\nworld", e.Content())
+}
+
+func TestVimEditor_J_JoinsLines(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello\nworld")
+	e.SetSize(80, 24)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'J'}})
+
+	assert.Equal(t, "hello world", e.Content())
+	assert.Equal(t, 5, e.Col(), "cursor should be at join point (the space)")
+}
+
+func TestVimEditor_J_OnLastLine_NoOp(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("only")
+	e.SetSize(80, 24)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'J'}})
+
+	assert.Equal(t, "only", e.Content())
+}
+
 // testTokens creates minimal tokens for testing
 func testTokens() Tokens {
 	return Tokens{

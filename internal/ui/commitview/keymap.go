@@ -14,6 +14,12 @@ type KeyMap struct {
 	PrevHunkHeader key.Binding
 	NextHunkHeader key.Binding
 
+	// Horizontal scroll
+	ScrollLeft  key.Binding
+	ScrollRight key.Binding
+	ScrollStart key.Binding
+	ScrollEnd   key.Binding
+
 	// Actions
 	OpenFileInWorktree key.Binding
 	OpenCommitLink     key.Binding
@@ -71,6 +77,23 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("}"),
 			key.WithHelp("}", "next hunk"),
 		),
+		ScrollLeft: key.NewBinding(
+			key.WithKeys("h"),
+			key.WithHelp("h", "scroll left"),
+		),
+		ScrollRight: key.NewBinding(
+			key.WithKeys("l"),
+			key.WithHelp("l", "scroll right"),
+		),
+		ScrollStart: key.NewBinding(
+			key.WithKeys("0"),
+			key.WithHelp("0", "scroll to start"),
+		),
+		ScrollEnd: key.NewBinding(
+			key.WithKeys("$"),
+			key.WithHelp("$", "scroll to end"),
+		),
+
 		OpenFileInWorktree: key.NewBinding(
 			key.WithKeys("a"),
 			key.WithHelp("a", "open file in worktree"),

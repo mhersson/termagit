@@ -75,6 +75,80 @@ func TestKeyMap_DefaultBindings(t *testing.T) {
 	assert.NotEmpty(t, keys.Close.Keys())
 	assert.NotEmpty(t, keys.MoveDown.Keys())
 	assert.NotEmpty(t, keys.MoveUp.Keys())
+	assert.Contains(t, keys.ScrollLeft.Keys(), "h")
+	assert.Contains(t, keys.ScrollRight.Keys(), "l")
+	assert.Contains(t, keys.ScrollStart.Keys(), "0")
+	assert.Contains(t, keys.ScrollEnd.Keys(), "$")
+}
+
+func TestCommitView_ScrollRight_IncreasesXOffset(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 24)
+
+	info := &git.LogEntry{
+		Hash: "abc123", Subject: "Test", AuthorName: "A",
+		AuthorEmail: "a@b.com", AuthorDate: "2024-01-01",
+	}
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+	assert.Equal(t, 1, model.xOffset)
+}
+
+func TestCommitView_ScrollLeft_ClampsAtZero(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 24)
+
+	info := &git.LogEntry{
+		Hash: "abc123", Subject: "Test", AuthorName: "A",
+		AuthorEmail: "a@b.com", AuthorDate: "2024-01-01",
+	}
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+	assert.Equal(t, 0, model.xOffset)
+}
+
+func TestCommitView_ScrollStart_ResetsXOffset(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 24)
+
+	info := &git.LogEntry{
+		Hash: "abc123", Subject: "Test", AuthorName: "A",
+		AuthorEmail: "a@b.com", AuthorDate: "2024-01-01",
+	}
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+	model.xOffset = 10
+
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'0'}}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+	assert.Equal(t, 0, model.xOffset)
+}
+
+func TestCommitView_DataLoad_ResetsXOffset(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 24)
+	m.xOffset = 10
+
+	info := &git.LogEntry{
+		Hash: "abc123", Subject: "Test", AuthorName: "A",
+		AuthorEmail: "a@b.com", AuthorDate: "2024-01-01",
+	}
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+	assert.Equal(t, 0, model.xOffset)
 }
 
 func TestCommitDataLoadedMsg_SetsData(t *testing.T) {

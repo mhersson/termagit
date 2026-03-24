@@ -25,12 +25,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.overview = msg.Overview
 		m.signature = msg.Signature
 		m.diffs = msg.Diffs
+		m.xOffset = 0
 		// Build viewport content and calculate total lines
 		content := m.renderContent()
 		m.totalLines = strings.Count(content, "\n")
 		if m.totalLines > 0 && !strings.HasSuffix(content, "\n") {
 			m.totalLines++ // Count the last line if it doesn't end with newline
 		}
+		m.maxLineWidth = maxVisibleWidth(content)
 		m.viewport.SetContent(content)
 		m.cursorLine = 0
 		return m, nil
@@ -127,6 +129,29 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.PrevHunkHeader):
 		m.cursorLine = m.findPrevHunkHeader(m.cursorLine)
 		m.ensureCursorVisible()
+		return m, nil
+
+	// Horizontal scroll
+	case key.Matches(msg, m.keys.ScrollRight):
+		m.xOffset++
+		return m, nil
+
+	case key.Matches(msg, m.keys.ScrollLeft):
+		if m.xOffset > 0 {
+			m.xOffset--
+		}
+		return m, nil
+
+	case key.Matches(msg, m.keys.ScrollStart):
+		m.xOffset = 0
+		return m, nil
+
+	case key.Matches(msg, m.keys.ScrollEnd):
+		end := m.maxLineWidth - m.width
+		if end < 0 {
+			end = 0
+		}
+		m.xOffset = end
 		return m, nil
 
 	// Two-key scroll sequences: ]c / [c

@@ -32,6 +32,8 @@ type Model struct {
 	// Cursor and overlay mode fields
 	cursorLine     int    // current cursor position (0-indexed line)
 	totalLines     int    // total navigable lines
+	xOffset        int    // horizontal scroll offset
+	maxLineWidth   int    // max visible width of any content line
 	overlayMode    bool   // true when rendered as split overlay
 	done           bool   // true when view should close
 	pendingBracket string // "[" or "]" for [c/]c two-key sequences

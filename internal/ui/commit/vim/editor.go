@@ -2,6 +2,7 @@ package vim
 
 import (
 	"strings"
+	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -37,9 +38,12 @@ type Editor struct {
 	cursor   *Cursor
 	mode     Mode
 	tokens   Tokens
-	pending  rune // For operator-pending mode (d, c)
+	pending  rune // For operator-pending mode (d, c, y, g)
 	selStart int  // Visual line selection start
 	selEnd   int  // Visual line selection end
+
+	register       string // unnamed register contents
+	registerIsLine bool   // true if register holds a full line
 
 	width, height int
 	viewportTop   int // First visible line in the viewport
@@ -136,6 +140,16 @@ func (e *Editor) SelectionStart() int {
 // SelectionEnd returns the end line of visual selection.
 func (e *Editor) SelectionEnd() int {
 	return e.selEnd
+}
+
+// Register returns the unnamed register contents.
+func (e *Editor) Register() string {
+	return e.register
+}
+
+// RegisterIsLine returns true if the register holds a full line.
+func (e *Editor) RegisterIsLine() bool {
+	return e.registerIsLine
 }
 
 // HandleKey processes a key press and returns true if the key was handled.
@@ -395,17 +409,38 @@ func (e *Editor) handleNormalRune(r rune) bool {
 	case 'c':
 		e.pending = 'c'
 		return true
+	case 'y':
+		e.pending = 'y'
+		return true
 	case 'x':
 		e.deleteChar()
 		return true
+	case 'p':
+		e.pasteAfter()
+		return true
+	case 'P':
+		e.pasteBefore()
+		return true
+	case 'J':
+		if e.cursor.Line < e.buffer.LineCount()-1 {
+			joinCol := e.buffer.LineLen(e.cursor.Line)
+			e.buffer.JoinLine(e.cursor.Line)
+			e.cursor.Col = joinCol
+		}
+		return true
+
 	case 'D':
 		// D = delete to end of line (same as d$)
-		e.cursor.DeleteToLineEnd(e.buffer)
+		deleted := e.cursor.DeleteToLineEnd(e.buffer)
+		e.register = deleted
+		e.registerIsLine = false
 		e.cursor.Clamp(e.buffer)
 		return true
 	case 'C':
 		// C = change to end of line (same as c$)
-		e.cursor.DeleteToLineEnd(e.buffer)
+		deleted := e.cursor.DeleteToLineEnd(e.buffer)
+		e.register = deleted
+		e.registerIsLine = false
 		e.mode = ModeInsert
 		return true
 	}
@@ -436,6 +471,8 @@ func (e *Editor) handlePendingOperator(msg tea.KeyMsg) bool {
 		return e.handleDeleteOperator(r)
 	case 'c':
 		return e.handleChangeOperator(r)
+	case 'y':
+		return e.handleYankOperator(r)
 	}
 	return false
 }
@@ -445,17 +482,23 @@ func (e *Editor) handleDeleteOperator(r rune) bool {
 	switch r {
 	case 'd':
 		// dd = delete line
+		e.register = e.buffer.Line(e.cursor.Line)
+		e.registerIsLine = true
 		e.buffer.DeleteLine(e.cursor.Line)
 		e.cursor.Clamp(e.buffer)
 		return true
 	case 'w':
 		// dw = delete word
-		e.cursor.DeleteWord(e.buffer)
+		deleted := e.cursor.DeleteWord(e.buffer)
+		e.register = deleted
+		e.registerIsLine = false
 		e.cursor.Clamp(e.buffer)
 		return true
 	case '$':
 		// d$ = delete to end of line
-		e.cursor.DeleteToLineEnd(e.buffer)
+		deleted := e.cursor.DeleteToLineEnd(e.buffer)
+		e.register = deleted
+		e.registerIsLine = false
 		e.cursor.Clamp(e.buffer)
 		return true
 	}
@@ -468,6 +511,8 @@ func (e *Editor) handleChangeOperator(r rune) bool {
 	case 'c':
 		// cc = change line
 		line := e.cursor.Line
+		e.register = e.buffer.Line(line)
+		e.registerIsLine = true
 		e.buffer.DeleteLine(line)
 		if e.buffer.LineCount() == 1 && e.buffer.Line(0) == "" {
 			// Buffer is empty, stay at line 0
@@ -480,7 +525,9 @@ func (e *Editor) handleChangeOperator(r rune) bool {
 		return true
 	case 'w':
 		// cw = change word
-		e.cursor.DeleteWord(e.buffer)
+		deleted := e.cursor.DeleteWord(e.buffer)
+		e.register = deleted
+		e.registerIsLine = false
 		e.mode = ModeInsert
 		return true
 	}
@@ -526,6 +573,10 @@ func (e *Editor) handleVisualLineRune(r rune) bool {
 		e.deleteVisualSelection()
 		e.mode = ModeInsert
 		return true
+	case 'y':
+		e.yankVisualSelection()
+		e.mode = ModeNormal
+		return true
 	}
 	return false
 }
@@ -534,6 +585,11 @@ func (e *Editor) handleVisualLineRune(r rune) bool {
 func (e *Editor) deleteChar() {
 	line := e.buffer.Line(e.cursor.Line)
 	if e.cursor.Col < len(line) {
+		runes := []rune(line)
+		if e.cursor.Col < len(runes) {
+			e.register = string(runes[e.cursor.Col])
+			e.registerIsLine = false
+		}
 		e.buffer.DeleteRange(e.cursor.Line, e.cursor.Col, e.cursor.Line, e.cursor.Col+1)
 		e.cursor.Clamp(e.buffer)
 	}
@@ -546,9 +602,114 @@ func (e *Editor) deleteVisualSelection() {
 	if start > end {
 		start, end = end, start
 	}
+	// Capture lines into register before deletion
+	var lines []string
+	for i := start; i <= end; i++ {
+		lines = append(lines, e.buffer.Line(i))
+	}
+	e.register = strings.Join(lines, "\n")
+	e.registerIsLine = true
+
 	e.buffer.DeleteLines(start, end)
 	e.cursor.Line = start
 	e.cursor.Clamp(e.buffer)
+}
+
+// yankVisualSelection yanks the visually selected lines without deleting.
+func (e *Editor) yankVisualSelection() {
+	start := e.selStart
+	end := e.selEnd
+	if start > end {
+		start, end = end, start
+	}
+	var lines []string
+	for i := start; i <= end; i++ {
+		lines = append(lines, e.buffer.Line(i))
+	}
+	e.register = strings.Join(lines, "\n")
+	e.registerIsLine = true
+}
+
+// handleYankOperator handles y<motion> operations.
+func (e *Editor) handleYankOperator(r rune) bool {
+	switch r {
+	case 'y':
+		// yy = yank line
+		e.register = e.buffer.Line(e.cursor.Line)
+		e.registerIsLine = true
+		return true
+	case 'w':
+		// yw = yank word (non-destructive)
+		e.register = e.yankWord()
+		e.registerIsLine = false
+		return true
+	case '$':
+		// y$ = yank to end of line
+		line := e.buffer.Line(e.cursor.Line)
+		if e.cursor.Col < len(line) {
+			e.register = line[e.cursor.Col:]
+		}
+		e.registerIsLine = false
+		return true
+	}
+	return false
+}
+
+// yankWord returns the text from cursor to the start of the next word without modifying the buffer.
+func (e *Editor) yankWord() string {
+	line := e.buffer.Line(e.cursor.Line)
+	col := e.cursor.Col
+	endCol := col
+	for endCol < len(line) && !unicode.IsSpace(rune(line[endCol])) {
+		endCol++
+	}
+	for endCol < len(line) && unicode.IsSpace(rune(line[endCol])) {
+		endCol++
+	}
+	return line[col:endCol]
+}
+
+// pasteAfter pastes register contents after/below the cursor.
+func (e *Editor) pasteAfter() {
+	if e.register == "" {
+		return
+	}
+	if e.registerIsLine {
+		e.buffer.InsertLineBelow(e.cursor.Line, e.register)
+		e.cursor.Line++
+		e.cursor.Col = 0
+	} else {
+		insertCol := e.cursor.Col + 1
+		lineLen := e.buffer.LineLen(e.cursor.Line)
+		if insertCol > lineLen {
+			insertCol = lineLen
+		}
+		for _, r := range e.register {
+			e.buffer.InsertRune(e.cursor.Line, insertCol, r)
+			insertCol++
+		}
+		e.cursor.Col = insertCol - 1
+		e.cursor.Clamp(e.buffer)
+	}
+}
+
+// pasteBefore pastes register contents before/above the cursor.
+func (e *Editor) pasteBefore() {
+	if e.register == "" {
+		return
+	}
+	if e.registerIsLine {
+		e.buffer.InsertLineAbove(e.cursor.Line, e.register)
+		e.cursor.Col = 0
+	} else {
+		insertCol := e.cursor.Col
+		for _, r := range e.register {
+			e.buffer.InsertRune(e.cursor.Line, insertCol, r)
+			insertCol++
+		}
+		e.cursor.Col = insertCol - 1
+		e.cursor.Clamp(e.buffer)
+	}
 }
 
 // SetSize sets the editor dimensions.

@@ -36,8 +36,10 @@ type Model struct {
 	header string             // e.g. "Staged changes"
 	stats  *git.CommitOverview // stat block (nil for staged/unstaged)
 
-	cursorLine int
-	totalLines int
+	cursorLine   int
+	totalLines   int
+	xOffset      int
+	maxLineWidth int
 
 	width  int
 	height int
