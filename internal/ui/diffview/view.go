@@ -3,7 +3,6 @@ package diffview
 import (
 	"fmt"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/charmbracelet/x/ansi"
 
@@ -299,17 +298,41 @@ func (m Model) writeLine(b *strings.Builder, line string, lineNum int, styleFn f
 	b.WriteString("\n")
 }
 
-// renderCursorLine renders a line with cursor styling.
+// renderCursorLine renders a line with cursor styling (block cursor at cursorCol).
 func (m Model) renderCursorLine(line string) string {
 	stripped := ansi.Strip(line)
 	if len(stripped) == 0 {
 		return m.tokens.CursorBlock.Render(" ") + "\n"
 	}
 
-	firstRune, size := utf8.DecodeRuneInString(stripped)
-	rest := stripped[size:]
+	runes := []rune(stripped)
+	col := m.cursorCol
 
-	return m.tokens.CursorBlock.Render(string(firstRune)) + m.tokens.Cursor.Render(rest) + "\n"
+	// Clamp col to valid range
+	if col < 0 {
+		col = 0
+	}
+	if col >= len(runes) {
+		col = len(runes) - 1
+	}
+
+	var result strings.Builder
+
+	// Text before cursor
+	if col > 0 {
+		result.WriteString(m.tokens.Cursor.Render(string(runes[:col])))
+	}
+
+	// Block cursor at cursorCol
+	result.WriteString(m.tokens.CursorBlock.Render(string(runes[col])))
+
+	// Text after cursor
+	if col+1 < len(runes) {
+		result.WriteString(m.tokens.Cursor.Render(string(runes[col+1:])))
+	}
+
+	result.WriteString("\n")
+	return result.String()
 }
 
 // padRight pads a string to the given width with spaces.

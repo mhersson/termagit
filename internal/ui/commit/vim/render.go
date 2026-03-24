@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // View renders the editor content.
@@ -28,17 +29,21 @@ func (e *Editor) View() string {
 
 	for i := startLine; i < endLine; i++ {
 		line := e.buffer.Line(i)
+		var rendered string
 
 		if e.mode == ModeVisualLine && e.isLineSelected(i) {
 			// Render selected line with selection highlight
-			b.WriteString(e.renderSelectedLine(line, i))
+			rendered = e.renderSelectedLine(line, i)
 		} else if i == e.cursor.Line {
 			// Render line with cursor
-			b.WriteString(e.renderLineWithCursor(line))
+			rendered = e.renderLineWithCursor(line)
 		} else {
 			// Syntax-highlighted line rendering
-			b.WriteString(e.renderStyledLine(line, i))
+			rendered = e.renderStyledLine(line, i)
 		}
+
+		// Apply horizontal scroll
+		b.WriteString(e.applyHorizontalScroll(rendered))
 
 		if i < endLine-1 {
 			b.WriteString("\n")
@@ -111,14 +116,24 @@ func (e *Editor) ensureCursorVisible() {
 		return
 	}
 
-	// Scroll up if cursor is above viewport
+	// Vertical: scroll up if cursor is above viewport
 	if e.cursor.Line < e.viewportTop {
 		e.viewportTop = e.cursor.Line
 	}
 
-	// Scroll down if cursor is below viewport
+	// Vertical: scroll down if cursor is below viewport
 	if e.cursor.Line >= e.viewportTop+e.height {
 		e.viewportTop = e.cursor.Line - e.height + 1
+	}
+
+	// Horizontal: scroll left if cursor is before viewport
+	if e.cursor.Col < e.xOffset {
+		e.xOffset = e.cursor.Col
+	}
+
+	// Horizontal: scroll right if cursor is past viewport
+	if e.width > 0 && e.cursor.Col >= e.xOffset+e.width {
+		e.xOffset = e.cursor.Col - e.width + 1
 	}
 }
 
@@ -227,6 +242,14 @@ func (e *Editor) renderSelectedLine(line string, lineNum int) string {
 	}
 
 	return result.String()
+}
+
+// applyHorizontalScroll trims a styled line to the visible horizontal window.
+func (e *Editor) applyHorizontalScroll(line string) string {
+	if e.xOffset == 0 {
+		return ansi.Truncate(line, e.width, "")
+	}
+	return ansi.Truncate(ansi.TruncateLeft(line, e.xOffset, ""), e.width, "")
 }
 
 // runeKey creates a tea.KeyMsg for a single rune.

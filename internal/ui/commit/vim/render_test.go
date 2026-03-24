@@ -256,3 +256,78 @@ func TestRender_ViewportScrollsWithCursor(t *testing.T) {
 	// Now should show lines including line5
 	assert.Contains(t, view, "line5")
 }
+
+func TestRender_HorizontalScrollFollowsCursor(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetSize(10, 3) // Narrow viewport: 10 chars wide
+
+	// Line is 20 chars: "01234567890123456789"
+	e.SetContent("01234567890123456789")
+	e.SetCursor(0, 0)
+
+	// Initially xOffset should be 0
+	assert.Equal(t, 0, e.XOffset(), "xOffset should start at 0")
+
+	// Move cursor to column 15 (past viewport width of 10)
+	e.cursor.Col = 15
+	_ = e.View() // View() triggers ensureCursorVisible
+
+	// xOffset should scroll to keep cursor visible
+	assert.GreaterOrEqual(t, e.XOffset(), 6, "xOffset should scroll right when cursor moves past viewport")
+	assert.LessOrEqual(t, e.XOffset(), 15, "xOffset should not over-scroll")
+}
+
+func TestRender_HorizontalScrollLeftWhenCursorMovesBack(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetSize(10, 3)
+	e.SetContent("01234567890123456789")
+
+	// Start with cursor at column 15, which will scroll right
+	e.cursor.Col = 15
+	_ = e.View()
+	scrolledOffset := e.XOffset()
+	assert.Greater(t, scrolledOffset, 0, "should have scrolled right")
+
+	// Move cursor back to column 2
+	e.cursor.Col = 2
+	_ = e.View()
+
+	// xOffset should scroll left to show cursor
+	assert.LessOrEqual(t, e.XOffset(), 2, "xOffset should scroll left when cursor moves before viewport")
+}
+
+func TestRender_XOffsetResetsOnSetContent(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetSize(10, 3)
+	e.SetContent("01234567890123456789")
+
+	// Scroll right
+	e.cursor.Col = 15
+	_ = e.View()
+	assert.Greater(t, e.XOffset(), 0)
+
+	// Set new content should reset xOffset
+	e.SetContent("new content")
+	assert.Equal(t, 0, e.XOffset(), "xOffset should reset to 0 on SetContent")
+}
+
+func TestRender_HorizontalTruncation(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetSize(10, 3) // 10 chars wide
+
+	e.SetContent("ABCDEFGHIJKLMNOPQRST") // 20 chars
+	e.SetCursor(0, 0)
+
+	view := e.View()
+	// With xOffset=0 and width=10, should show first 10 chars
+	assert.Contains(t, view, "A")
+	assert.Contains(t, view, "J") // 10th char (index 9)
+	assert.NotContains(t, view, "K") // 11th char should be truncated
+
+	// Now scroll right by moving cursor
+	e.cursor.Col = 15
+	view = e.View()
+	// xOffset should have scrolled, so "A" should no longer be visible
+	// but cursor position char "P" (index 15) should be visible
+	assert.Contains(t, view, "P")
+}

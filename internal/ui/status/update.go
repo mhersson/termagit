@@ -1384,6 +1384,7 @@ func preserveUIState(oldSections, newSections []Section) {
 // sections after a watcher-triggered reload. It matches by section kind and
 // (when on a file item) by file path, falling back to clamped index, then
 // section header, then findFirstValidCursor.
+// Importantly, it preserves the Hunk and Line indices when inside an expanded diff.
 func preserveCursorAcrossReload(oldSections []Section, oldCursor Cursor, newSections []Section) Cursor {
 	if oldCursor.Section < 0 || oldCursor.Section >= len(oldSections) {
 		return findFirstValidCursor(newSections)
@@ -1416,13 +1417,32 @@ func preserveCursorAcrossReload(oldSections []Section, oldCursor Cursor, newSect
 		if oldItem.Entry != nil {
 			for i, item := range newSection.Items {
 				if item.Entry != nil && item.Entry.Path() == oldItem.Entry.Path() {
-					return Cursor{Section: newSectionIdx, Item: i, Hunk: -1, Line: -1}
+					// Preserve hunk/line position if the file is still expanded with hunks
+					hunk, line := oldCursor.Hunk, oldCursor.Line
+					if hunk >= 0 && item.Expanded && len(item.Hunks) > 0 {
+						// Clamp hunk index to available hunks
+						if hunk >= len(item.Hunks) {
+							hunk = len(item.Hunks) - 1
+							line = -1 // Can't preserve line if hunk changed
+						} else if line >= 0 && line >= len(item.Hunks[hunk].Lines) {
+							// Clamp line index if it exceeds available lines
+							line = len(item.Hunks[hunk].Lines) - 1
+							if line < 0 {
+								line = -1
+							}
+						}
+					} else {
+						// Not on a hunk or item not expanded - stay on file
+						hunk = -1
+						line = -1
+					}
+					return Cursor{Section: newSectionIdx, Item: i, Hunk: hunk, Line: line}
 				}
 			}
 		}
 	}
 
-	// File not found — clamp to same index.
+	// File not found — clamp to same index (cursor position within diff is lost).
 	if len(newSection.Items) > 0 {
 		idx := oldCursor.Item
 		if idx >= len(newSection.Items) {

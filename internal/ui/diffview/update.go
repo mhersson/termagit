@@ -27,6 +27,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.fileIdx = 0
 		m.hunkIdx = -1
 		m.xOffset = 0
+		m.cursorCol = 0
 		// Build viewport content
 		content := m.renderContent()
 		m.totalLines = countLines(content)
@@ -120,27 +121,31 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 		return m, nil
 
-	// Horizontal scroll
+	// Horizontal cursor movement
 	case key.Matches(msg, m.keys.ScrollRight):
-		m.xOffset++
+		m.cursorCol++
+		m = m.ensureHorizontalCursorVisible()
 		return m, nil
 
 	case key.Matches(msg, m.keys.ScrollLeft):
-		if m.xOffset > 0 {
-			m.xOffset--
+		if m.cursorCol > 0 {
+			m.cursorCol--
 		}
+		m = m.ensureHorizontalCursorVisible()
 		return m, nil
 
 	case key.Matches(msg, m.keys.ScrollStart):
+		m.cursorCol = 0
 		m.xOffset = 0
 		return m, nil
 
 	case key.Matches(msg, m.keys.ScrollEnd):
-		end := m.maxLineWidth - m.width
-		if end < 0 {
-			end = 0
+		// Move cursor to end of widest visible content
+		m.cursorCol = m.maxLineWidth
+		if m.cursorCol > 0 {
+			m.cursorCol-- // Position on last char, not past it
 		}
-		m.xOffset = end
+		m = m.ensureHorizontalCursorVisible()
 		return m, nil
 
 	// Stage/unstage hunk
@@ -175,6 +180,19 @@ func (m *Model) ensureCursorVisible() {
 	} else if m.cursorLine >= m.viewport.YOffset+m.viewport.Height {
 		m.viewport.YOffset = m.cursorLine - m.viewport.Height + 1
 	}
+}
+
+// ensureHorizontalCursorVisible adjusts xOffset to keep cursor column in view.
+func (m Model) ensureHorizontalCursorVisible() Model {
+	// Scroll left if cursor is before viewport
+	if m.cursorCol < m.xOffset {
+		m.xOffset = m.cursorCol
+	}
+	// Scroll right if cursor is past viewport
+	if m.width > 0 && m.cursorCol >= m.xOffset+m.width {
+		m.xOffset = m.cursorCol - m.width + 1
+	}
+	return m
 }
 
 // findNextHunkHeader finds the next hunk header line after the current cursor position.

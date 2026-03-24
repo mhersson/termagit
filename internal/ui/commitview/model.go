@@ -31,6 +31,7 @@ type Model struct {
 
 	// Cursor and overlay mode fields
 	cursorLine     int    // current cursor position (0-indexed line)
+	cursorCol      int    // current cursor column position
 	totalLines     int    // total navigable lines
 	xOffset        int    // horizontal scroll offset
 	maxLineWidth   int    // max visible width of any content line
@@ -83,6 +84,8 @@ func (m *Model) UpdateCommit(commitID string, filter []string) tea.Cmd {
 	m.signature = nil
 	m.diffs = nil
 	m.cursorLine = 0
+	m.cursorCol = 0
+	m.xOffset = 0
 	m.totalLines = 0
 	m.done = false
 	return m.loadCommitDataCmd()

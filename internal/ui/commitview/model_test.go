@@ -81,7 +81,7 @@ func TestKeyMap_DefaultBindings(t *testing.T) {
 	assert.Contains(t, keys.ScrollEnd.Keys(), "$")
 }
 
-func TestCommitView_ScrollRight_IncreasesXOffset(t *testing.T) {
+func TestCommitView_ScrollRight_MovesCursorCol(t *testing.T) {
 	m := New(nil, "abc123", testTokens(), nil)
 	m.SetSize(80, 24)
 
@@ -96,7 +96,26 @@ func TestCommitView_ScrollRight_IncreasesXOffset(t *testing.T) {
 	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}}
 	newM, _ = model.Update(keyMsg)
 	model = newM.(Model)
-	assert.Equal(t, 1, model.xOffset)
+	assert.Equal(t, 1, model.cursorCol)
+}
+
+func TestCommitView_ScrollLeft_MovesCursorCol(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 24)
+
+	info := &git.LogEntry{
+		Hash: "abc123", Subject: "Test", AuthorName: "A",
+		AuthorEmail: "a@b.com", AuthorDate: "2024-01-01",
+	}
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+	model.cursorCol = 5
+
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}}
+	newM, _ = model.Update(keyMsg)
+	model = newM.(Model)
+	assert.Equal(t, 4, model.cursorCol)
 }
 
 func TestCommitView_ScrollLeft_ClampsAtZero(t *testing.T) {
@@ -114,10 +133,10 @@ func TestCommitView_ScrollLeft_ClampsAtZero(t *testing.T) {
 	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}}
 	newM, _ = model.Update(keyMsg)
 	model = newM.(Model)
-	assert.Equal(t, 0, model.xOffset)
+	assert.Equal(t, 0, model.cursorCol)
 }
 
-func TestCommitView_ScrollStart_ResetsXOffset(t *testing.T) {
+func TestCommitView_ScrollStart_ResetsCursorCol(t *testing.T) {
 	m := New(nil, "abc123", testTokens(), nil)
 	m.SetSize(80, 24)
 
@@ -128,18 +147,21 @@ func TestCommitView_ScrollStart_ResetsXOffset(t *testing.T) {
 	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
 	newM, _ := m.Update(msg)
 	model := newM.(Model)
-	model.xOffset = 10
+	model.cursorCol = 10
+	model.xOffset = 5
 
 	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'0'}}
 	newM, _ = model.Update(keyMsg)
 	model = newM.(Model)
+	assert.Equal(t, 0, model.cursorCol)
 	assert.Equal(t, 0, model.xOffset)
 }
 
-func TestCommitView_DataLoad_ResetsXOffset(t *testing.T) {
+func TestCommitView_DataLoad_ResetsCursorCol(t *testing.T) {
 	m := New(nil, "abc123", testTokens(), nil)
 	m.SetSize(80, 24)
-	m.xOffset = 10
+	m.cursorCol = 10
+	m.xOffset = 5
 
 	info := &git.LogEntry{
 		Hash: "abc123", Subject: "Test", AuthorName: "A",
@@ -148,7 +170,31 @@ func TestCommitView_DataLoad_ResetsXOffset(t *testing.T) {
 	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
 	newM, _ := m.Update(msg)
 	model := newM.(Model)
+	assert.Equal(t, 0, model.cursorCol)
 	assert.Equal(t, 0, model.xOffset)
+}
+
+func TestCommitView_CursorColScrollsViewport(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(10, 24) // Narrow viewport
+
+	info := &git.LogEntry{
+		Hash: "abc123", Subject: "A very long subject line that exceeds viewport width", AuthorName: "A",
+		AuthorEmail: "a@b.com", AuthorDate: "2024-01-01",
+	}
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	// Move cursor past viewport width
+	for i := 0; i < 15; i++ {
+		keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}}
+		newM, _ = model.Update(keyMsg)
+		model = newM.(Model)
+	}
+
+	assert.Equal(t, 15, model.cursorCol)
+	assert.GreaterOrEqual(t, model.xOffset, 6, "xOffset should scroll to keep cursor visible")
 }
 
 func TestCommitDataLoadedMsg_SetsData(t *testing.T) {

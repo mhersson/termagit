@@ -47,6 +47,7 @@ type Editor struct {
 
 	width, height int
 	viewportTop   int // First visible line in the viewport
+	xOffset       int // First visible column in the viewport (horizontal scroll)
 	diffStartLine int // First line of the diff section (-1 = no diff section)
 }
 
@@ -84,6 +85,7 @@ func (e *Editor) SetContent(content string) {
 	e.buffer.SetContent(content)
 	e.cursor.Clamp(e.buffer)
 	e.viewportTop = 0 // Reset viewport to show from the beginning
+	e.xOffset = 0     // Reset horizontal scroll
 	e.diffStartLine = e.findDiffStart()
 }
 
@@ -107,6 +109,11 @@ func (e *Editor) Line() int {
 // Col returns the current cursor column.
 func (e *Editor) Col() int {
 	return e.cursor.Col
+}
+
+// XOffset returns the horizontal scroll offset.
+func (e *Editor) XOffset() int {
+	return e.xOffset
 }
 
 // SetCursor sets the cursor position.

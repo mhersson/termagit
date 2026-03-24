@@ -2055,6 +2055,63 @@ func TestStatusLoadedMsg_WatcherReload_PreservesSectionFolded(t *testing.T) {
 	}
 }
 
+func TestStatusLoadedMsg_WatcherReload_PreservesCursorOnHunkLine(t *testing.T) {
+	// When viewing expanded diff lines (cursor on Hunk >= 0, Line >= 0) and a
+	// watcher reload arrives, the cursor must stay on the same hunk/line position
+	// instead of snapping back to the file item.
+	hunks := []git.Hunk{{
+		Header:   "@@ -1,3 +1,4 @@",
+		OldStart: 1, OldCount: 3, NewStart: 1, NewCount: 4,
+		Lines: []git.DiffLine{
+			{Op: git.DiffOpContext, Content: "context1"},
+			{Op: git.DiffOpDelete, Content: "deleted"},
+			{Op: git.DiffOpAdd, Content: "added"},
+			{Op: git.DiffOpContext, Content: "context2"},
+		},
+	}}
+
+	sections := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("a.go"), Expanded: true, Hunks: hunks, HunksFolded: []bool{false}},
+		}},
+	}
+
+	// Cursor is on line 2 (the "added" line) within hunk 0
+	m := Model{
+		sections: sections,
+		cursor:   Cursor{Section: 0, Item: 0, Hunk: 0, Line: 2},
+	}
+
+	// Reloaded sections don't have Expanded/Hunks set (fresh from git status)
+	reloaded := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("a.go")},
+		}},
+	}
+
+	result, _ := update(m, statusLoadedMsg{
+		head:     HeadState{Branch: "main"},
+		sections: reloaded,
+	})
+	rm := result.(Model)
+
+	// Expanded state and hunks should be preserved
+	if !rm.sections[0].Items[0].Expanded {
+		t.Error("expected file to remain Expanded after watcher reload")
+	}
+	if len(rm.sections[0].Items[0].Hunks) != 1 {
+		t.Errorf("expected hunks to be preserved, got %d", len(rm.sections[0].Items[0].Hunks))
+	}
+
+	// Cursor should still be on hunk 0, line 2
+	if rm.cursor.Hunk != 0 {
+		t.Errorf("expected cursor.Hunk=0, got %d", rm.cursor.Hunk)
+	}
+	if rm.cursor.Line != 2 {
+		t.Errorf("expected cursor.Line=2, got %d", rm.cursor.Line)
+	}
+}
+
 // --- Hunk-level cursor restore tests ---
 
 func TestStatusLoadedMsg_HunkRestore_ExpandsFileAndTriggersDiffLoad(t *testing.T) {

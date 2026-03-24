@@ -445,29 +445,29 @@ func TestKeyMap_DefaultBindings(t *testing.T) {
 	assert.Contains(t, keys.ScrollEnd.Keys(), "$")
 }
 
-func TestDiffModel_ScrollRight_IncreasesXOffset(t *testing.T) {
+func TestDiffModel_ScrollRight_MovesCursorCol(t *testing.T) {
 	m := New(nil, testSource(git.DiffStaged), testConfig(), testTokens())
 	m = loadModel(m)
 
 	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}}
 	newM, _ := m.Update(keyMsg)
 	model := newM.(Model)
-	assert.Equal(t, 1, model.xOffset)
+	assert.Equal(t, 1, model.cursorCol)
 
 	newM, _ = model.Update(keyMsg)
 	model = newM.(Model)
-	assert.Equal(t, 2, model.xOffset)
+	assert.Equal(t, 2, model.cursorCol)
 }
 
-func TestDiffModel_ScrollLeft_DecreasesXOffset(t *testing.T) {
+func TestDiffModel_ScrollLeft_MovesCursorCol(t *testing.T) {
 	m := New(nil, testSource(git.DiffStaged), testConfig(), testTokens())
 	m = loadModel(m)
-	m.xOffset = 5
+	m.cursorCol = 5
 
 	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}}
 	newM, _ := m.Update(keyMsg)
 	model := newM.(Model)
-	assert.Equal(t, 4, model.xOffset)
+	assert.Equal(t, 4, model.cursorCol)
 }
 
 func TestDiffModel_ScrollLeft_ClampsAtZero(t *testing.T) {
@@ -477,39 +477,59 @@ func TestDiffModel_ScrollLeft_ClampsAtZero(t *testing.T) {
 	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}}
 	newM, _ := m.Update(keyMsg)
 	model := newM.(Model)
-	assert.Equal(t, 0, model.xOffset)
+	assert.Equal(t, 0, model.cursorCol)
 }
 
-func TestDiffModel_ScrollStart_ResetsXOffset(t *testing.T) {
+func TestDiffModel_ScrollStart_ResetsCursorCol(t *testing.T) {
 	m := New(nil, testSource(git.DiffStaged), testConfig(), testTokens())
 	m = loadModel(m)
-	m.xOffset = 10
+	m.cursorCol = 10
+	m.xOffset = 5
 
 	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'0'}}
 	newM, _ := m.Update(keyMsg)
 	model := newM.(Model)
+	assert.Equal(t, 0, model.cursorCol)
 	assert.Equal(t, 0, model.xOffset)
 }
 
-func TestDiffModel_ScrollEnd_JumpsToEnd(t *testing.T) {
+func TestDiffModel_ScrollEnd_MovesCursorColToEnd(t *testing.T) {
 	m := New(nil, testSource(git.DiffStaged), testConfig(), testTokens())
 	m = loadModel(m)
 
 	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'$'}}
 	newM, _ := m.Update(keyMsg)
 	model := newM.(Model)
-	assert.GreaterOrEqual(t, model.xOffset, 0, "xOffset should be non-negative")
+	assert.GreaterOrEqual(t, model.cursorCol, 0, "cursorCol should be non-negative")
 }
 
-func TestDiffModel_DataLoad_ResetsXOffset(t *testing.T) {
+func TestDiffModel_DataLoad_ResetsCursorCol(t *testing.T) {
 	m := New(nil, testSource(git.DiffStaged), testConfig(), testTokens())
 	m = loadModel(m)
-	m.xOffset = 10
+	m.cursorCol = 10
+	m.xOffset = 5
 
 	msg := DiffDataLoadedMsg{Files: testDiffs()}
 	newM, _ := m.Update(msg)
 	model := newM.(Model)
+	assert.Equal(t, 0, model.cursorCol)
 	assert.Equal(t, 0, model.xOffset)
+}
+
+func TestDiffModel_CursorColScrollsViewport(t *testing.T) {
+	m := New(nil, testSource(git.DiffStaged), testConfig(), testTokens())
+	m = loadModel(m)
+	m.SetSize(10, 24) // Narrow viewport - set after loading
+
+	// Move cursor past viewport width
+	for i := 0; i < 15; i++ {
+		keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}}
+		newM, _ := m.Update(keyMsg)
+		m = newM.(Model)
+	}
+
+	assert.Equal(t, 15, m.cursorCol)
+	assert.GreaterOrEqual(t, m.xOffset, 6, "xOffset should scroll to keep cursor visible")
 }
 
 func TestDiffView_StatBlock_RendersWhenPresent(t *testing.T) {

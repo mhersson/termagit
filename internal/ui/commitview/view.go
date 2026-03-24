@@ -3,7 +3,6 @@ package commitview
 import (
 	"fmt"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/charmbracelet/x/ansi"
 
@@ -225,7 +224,7 @@ func (m Model) renderContentWithCursor() string {
 	return b.String()
 }
 
-// renderCursorLine renders a line with cursor styling (block cursor on first char).
+// renderCursorLine renders a line with cursor styling (block cursor at cursorCol).
 // The input may contain ANSI escape codes from prior styling; these are stripped
 // so that only clean cursor styling is applied.
 func (m Model) renderCursorLine(line string) string {
@@ -234,12 +233,34 @@ func (m Model) renderCursorLine(line string) string {
 		return m.tokens.CursorBlock.Render(" ") + "\n"
 	}
 
-	// Get first visible rune (handles multi-byte UTF-8)
-	firstRune, size := utf8.DecodeRuneInString(stripped)
-	rest := stripped[size:]
+	runes := []rune(stripped)
+	col := m.cursorCol
 
-	// First character: reverse video, rest: cursor line background
-	return m.tokens.CursorBlock.Render(string(firstRune)) + m.tokens.Cursor.Render(rest) + "\n"
+	// Clamp col to valid range
+	if col < 0 {
+		col = 0
+	}
+	if col >= len(runes) {
+		col = len(runes) - 1
+	}
+
+	var result strings.Builder
+
+	// Text before cursor
+	if col > 0 {
+		result.WriteString(m.tokens.Cursor.Render(string(runes[:col])))
+	}
+
+	// Block cursor at cursorCol
+	result.WriteString(m.tokens.CursorBlock.Render(string(runes[col])))
+
+	// Text after cursor
+	if col+1 < len(runes) {
+		result.WriteString(m.tokens.Cursor.Render(string(runes[col+1:])))
+	}
+
+	result.WriteString("\n")
+	return result.String()
 }
 
 // renderFileDiffWithCursor renders a single file diff with cursor tracking.
