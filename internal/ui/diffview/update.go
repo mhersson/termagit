@@ -60,6 +60,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	// Handle pending key sequences (e.g., "gg")
+	if m.pendingKey == "g" {
+		m.pendingKey = ""
+		if msg.String() == "g" {
+			m.cursorLine = 0
+			m.viewport.YOffset = 0
+			return m, nil
+		}
+	}
+
 	switch {
 	case key.Matches(msg, m.keys.Close), key.Matches(msg, m.keys.CloseEscape):
 		m.done = true
@@ -170,6 +180,18 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		fileIdx, hunkIdx := m.currentFileHunk()
 		if fileIdx >= 0 && hunkIdx >= 0 && fileIdx < len(m.files) && hunkIdx < len(m.files[fileIdx].Hunks) {
 			return m, unstageHunkCmd(m.repo, m.files[fileIdx].Path, &m.files[fileIdx].Hunks[hunkIdx])
+		}
+		return m, nil
+
+	// Go to top/bottom
+	case key.Matches(msg, m.keys.GoToTop):
+		m.pendingKey = "g"
+		return m, nil
+
+	case key.Matches(msg, m.keys.GoToBottom):
+		if m.totalLines > 0 {
+			m.cursorLine = m.totalLines - 1
+			m.ensureCursorVisible()
 		}
 		return m, nil
 	}

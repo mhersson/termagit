@@ -41,6 +41,7 @@ type Model struct {
 	totalLines   int
 	xOffset      int
 	maxLineWidth int
+	pendingKey   string // for "gg" sequence
 
 	width  int
 	height int

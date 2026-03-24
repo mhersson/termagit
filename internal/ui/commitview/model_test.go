@@ -796,3 +796,56 @@ func TestCommitView_PageUp_KeepsCursorVisible(t *testing.T) {
 	assert.Less(t, model.cursorLine, model.viewport.YOffset+model.viewport.Height,
 		"cursor should be above viewport bottom")
 }
+
+func TestCommitView_GoToTop_MovesToFirstLine(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 10)
+
+	info := &git.LogEntry{
+		Hash: "abc123", Subject: "Test", AuthorName: "A",
+		AuthorEmail: "a@b.com", AuthorDate: "2024-01-01",
+	}
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}, Diffs: testLargeDiffs()}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	// Move cursor down first
+	model.cursorLine = 20
+	model.viewport.YOffset = 15
+
+	// Press g then g (gg sequence)
+	gMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}}
+	newM, _ = model.Update(gMsg)
+	model = newM.(Model)
+	newM, _ = model.Update(gMsg)
+	model = newM.(Model)
+
+	assert.Equal(t, 0, model.cursorLine, "cursor should be at top")
+	assert.Equal(t, 0, model.viewport.YOffset, "viewport should be at top")
+}
+
+func TestCommitView_GoToBottom_MovesToLastLine(t *testing.T) {
+	m := New(nil, "abc123", testTokens(), nil)
+	m.SetSize(80, 10)
+
+	info := &git.LogEntry{
+		Hash: "abc123", Subject: "Test", AuthorName: "A",
+		AuthorEmail: "a@b.com", AuthorDate: "2024-01-01",
+	}
+	msg := CommitDataLoadedMsg{Info: info, Overview: &git.CommitOverview{}, Diffs: testLargeDiffs()}
+	newM, _ := m.Update(msg)
+	model := newM.(Model)
+
+	// Cursor starts at 0
+	assert.Equal(t, 0, model.cursorLine)
+
+	// Press G (shift-g)
+	gMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}}
+	newM, _ = model.Update(gMsg)
+	model = newM.(Model)
+
+	assert.Equal(t, model.totalLines-1, model.cursorLine, "cursor should be at bottom")
+	// Viewport should have scrolled to show cursor
+	assert.GreaterOrEqual(t, model.cursorLine, model.viewport.YOffset)
+	assert.Less(t, model.cursorLine, model.viewport.YOffset+model.viewport.Height)
+}

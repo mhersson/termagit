@@ -57,6 +57,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	// Handle pending key sequences (e.g., "gg")
+	if m.pendingKey == "g" {
+		m.pendingKey = ""
+		if msg.String() == "g" {
+			m.cursorLine = 0
+			m.viewport.YOffset = 0
+			return m, nil
+		}
+	}
+
 	// Handle pending bracket sequences ([c / ]c)
 	if m.pendingBracket != "" {
 		bracket := m.pendingBracket
@@ -123,6 +133,18 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.HalfPageUp):
 		m.viewport.HalfPageUp()
 		m.ensureCursorInViewport()
+		return m, nil
+
+	// Go to top/bottom
+	case key.Matches(msg, m.keys.GoToTop):
+		m.pendingKey = "g"
+		return m, nil
+
+	case key.Matches(msg, m.keys.GoToBottom):
+		if m.totalLines > 0 {
+			m.cursorLine = m.totalLines - 1
+			m.ensureCursorVisible()
+		}
 		return m, nil
 
 	// Hunk navigation

@@ -37,6 +37,7 @@ type Model struct {
 	maxLineWidth   int    // max visible width of any content line
 	overlayMode    bool   // true when rendered as split overlay
 	done           bool   // true when view should close
+	pendingKey     string // "g" for gg sequence
 	pendingBracket string // "[" or "]" for [c/]c two-key sequences
 }
 

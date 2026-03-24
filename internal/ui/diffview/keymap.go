@@ -11,6 +11,8 @@ type KeyMap struct {
 	PageUp       key.Binding
 	HalfPageDown key.Binding
 	HalfPageUp   key.Binding
+	GoToTop      key.Binding
+	GoToBottom   key.Binding
 
 	// Hunk navigation
 	NextHunk       key.Binding
@@ -66,6 +68,14 @@ func DefaultKeyMap() KeyMap {
 		HalfPageUp: key.NewBinding(
 			key.WithKeys("ctrl+u"),
 			key.WithHelp("C-u", "half page up"),
+		),
+		GoToTop: key.NewBinding(
+			key.WithKeys("g"),
+			key.WithHelp("gg", "go to top"),
+		),
+		GoToBottom: key.NewBinding(
+			key.WithKeys("G"),
+			key.WithHelp("G", "go to bottom"),
 		),
 
 		NextHunk: key.NewBinding(

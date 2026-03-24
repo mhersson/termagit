@@ -658,3 +658,40 @@ func TestDiffModel_PageUp_KeepsCursorVisible(t *testing.T) {
 	assert.Less(t, model.cursorLine, model.viewport.YOffset+model.viewport.Height,
 		"cursor should be above viewport bottom")
 }
+
+func TestDiffModel_GoToTop_MovesToFirstLine(t *testing.T) {
+	m := New(nil, testSource(git.DiffStaged), testConfig(), testTokens())
+	m = loadLargeModel(m)
+
+	// Move cursor down first
+	m.cursorLine = 20
+	m.viewport.YOffset = 15
+
+	// Press g then g (gg sequence)
+	gMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}}
+	newM, _ := m.Update(gMsg)
+	m = newM.(Model)
+	newM, _ = m.Update(gMsg)
+	m = newM.(Model)
+
+	assert.Equal(t, 0, m.cursorLine, "cursor should be at top")
+	assert.Equal(t, 0, m.viewport.YOffset, "viewport should be at top")
+}
+
+func TestDiffModel_GoToBottom_MovesToLastLine(t *testing.T) {
+	m := New(nil, testSource(git.DiffStaged), testConfig(), testTokens())
+	m = loadLargeModel(m)
+
+	// Cursor starts at 0
+	assert.Equal(t, 0, m.cursorLine)
+
+	// Press G (shift-g)
+	gMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}}
+	newM, _ := m.Update(gMsg)
+	m = newM.(Model)
+
+	assert.Equal(t, m.totalLines-1, m.cursorLine, "cursor should be at bottom")
+	// Viewport should have scrolled to show cursor
+	assert.GreaterOrEqual(t, m.cursorLine, m.viewport.YOffset)
+	assert.Less(t, m.cursorLine, m.viewport.YOffset+m.viewport.Height)
+}
