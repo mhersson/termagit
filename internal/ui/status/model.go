@@ -467,7 +467,6 @@ func (m Model) InputPromptView(maxWidth int) string {
 	}
 
 	label := m.inputPromptLabel + m.inputPrompt.View()
-	// Pad and style as a dialog box
-	d := notification.ConfirmDialog{Message: label}
+	d := notification.InputDialog{Message: label}
 	return d.View(m.tokens, maxWidth)
 }

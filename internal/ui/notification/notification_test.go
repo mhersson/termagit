@@ -323,6 +323,31 @@ func TestCenterOverlay_PreservesBaseANSICodes(t *testing.T) {
 	assert.Contains(t, lines[1], "\x1b[1m")
 }
 
+// --- InputDialog tests ---
+
+func TestInputDialog_View_ContainsMessage(t *testing.T) {
+	tokens := testTokens()
+	d := InputDialog{Message: "Create and checkout branch: my-branch"}
+	v := d.View(tokens, 60)
+	assert.Contains(t, v, "Create and checkout branch: my-branch")
+}
+
+func TestInputDialog_View_DoesNotContainYN(t *testing.T) {
+	tokens := testTokens()
+	d := InputDialog{Message: "Create branch: "}
+	v := d.View(tokens, 60)
+	// Must NOT have the y/N confirmation hint
+	assert.NotContains(t, v, "y/")
+	assert.NotContains(t, v, "/N")
+}
+
+func TestInputDialog_View_HasBorder(t *testing.T) {
+	tokens := testTokens()
+	d := InputDialog{Message: "Create branch: "}
+	v := d.View(tokens, 60)
+	assert.Contains(t, v, "╭")
+}
+
 func TestNotification_borderColor(t *testing.T) {
 	tokens := testTokens()
 

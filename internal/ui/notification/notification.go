@@ -323,3 +323,21 @@ func (d ConfirmDialog) View(tokens theme.Tokens, maxWidth int) string {
 	return box.Render(content)
 }
 
+// InputDialog represents a text input prompt shown as a centered overlay.
+type InputDialog struct {
+	Message string
+}
+
+// View renders the input dialog as a bordered box without y/N key hints.
+func (d InputDialog) View(tokens theme.Tokens, maxWidth int) string {
+	content := tokens.ConfirmText.Render(d.Message)
+
+	box := tokens.ConfirmBoxBorder
+
+	if maxWidth > 4 {
+		box = box.MaxWidth(maxWidth)
+	}
+
+	return box.Render(content)
+}
+
