@@ -64,8 +64,8 @@ type LogOpts struct {
 // Returns (entries, hasMore, error).
 func (r *Repository) Log(ctx context.Context, opts LogOpts) ([]LogEntry, bool, error) {
 	// Build git log command
-	// Format: %H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d
-	format := "%H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d%x00"
+	// Format: %H%x1E%h%x1E%P%x1E%s%x1E%an%x1E%ae%x1E%aI%x1E%cn%x1E%ce%x1E%cI%x1E%d
+	format := "%H%x1E%h%x1E%P%x1E%s%x1E%an%x1E%ae%x1E%aI%x1E%cn%x1E%ce%x1E%cI%x1E%d%x00"
 
 	args := []string{"log", "--format=" + format}
 
@@ -150,8 +150,8 @@ func (r *Repository) Log(ctx context.Context, opts LogOpts) ([]LogEntry, bool, e
 
 // CommitDetail returns full information about a single commit.
 func (r *Repository) CommitDetail(ctx context.Context, hash string) (*LogEntry, error) {
-	// Format with body: %H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d|%b
-	format := "%H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d%x00%b"
+	// Format with body: %H%x1E%h%x1E%P%x1E%s%x1E%an%x1E%ae%x1E%aI%x1E%cn%x1E%ce%x1E%cI%x1E%d NUL %b
+	format := "%H%x1E%h%x1E%P%x1E%s%x1E%an%x1E%ae%x1E%aI%x1E%cn%x1E%ce%x1E%cI%x1E%d%x00%b"
 
 	out, err := r.runGit(ctx, "log", "-1", "--format="+format, hash)
 	if err != nil {
@@ -175,7 +175,7 @@ func (r *Repository) RecentCommits(ctx context.Context, n int) ([]LogEntry, erro
 
 // LogAhead returns commits in ref..HEAD (commits ahead of ref).
 func (r *Repository) LogAhead(ctx context.Context, ref string, max int) ([]LogEntry, error) {
-	args := []string{"log", "--format=%H|%h|%P|%s|%an|%ae|%aI%x00", ref + "..HEAD"}
+	args := []string{"log", "--format=%H%x1E%h%x1E%P%x1E%s%x1E%an%x1E%ae%x1E%aI%x00", ref + "..HEAD"}
 	if max > 0 {
 		args = append(args, fmt.Sprintf("-n%d", max))
 	}
@@ -190,7 +190,7 @@ func (r *Repository) LogAhead(ctx context.Context, ref string, max int) ([]LogEn
 
 // LogBehind returns commits in HEAD..ref (commits behind HEAD).
 func (r *Repository) LogBehind(ctx context.Context, ref string, max int) ([]LogEntry, error) {
-	args := []string{"log", "--format=%H|%h|%P|%s|%an|%ae|%aI%x00", "HEAD.." + ref}
+	args := []string{"log", "--format=%H%x1E%h%x1E%P%x1E%s%x1E%an%x1E%ae%x1E%aI%x00", "HEAD.." + ref}
 	if max > 0 {
 		args = append(args, fmt.Sprintf("-n%d", max))
 	}
@@ -205,7 +205,7 @@ func (r *Repository) LogBehind(ctx context.Context, ref string, max int) ([]LogE
 
 // RefCommitInfo returns the full OID and subject of the commit at the tip of a ref.
 func (r *Repository) RefCommitInfo(ctx context.Context, ref string) (oid, subject string, err error) {
-	out, err := r.runGit(ctx, "log", "-1", "--format=%H|%s", ref)
+	out, err := r.runGit(ctx, "log", "-1", "--format=%H%x1E%s", ref)
 	if err != nil {
 		return "", "", fmt.Errorf("ref commit info %s: %w", ref, err)
 	}
@@ -215,7 +215,7 @@ func (r *Repository) RefCommitInfo(ctx context.Context, ref string) (oid, subjec
 		return "", "", fmt.Errorf("no commit found for ref %s", ref)
 	}
 
-	parts := strings.SplitN(line, "|", 2)
+	parts := strings.SplitN(line, "\x1e", 2)
 	if len(parts) < 2 {
 		return "", "", fmt.Errorf("unexpected format for ref %s: %s", ref, line)
 	}
@@ -318,9 +318,9 @@ func parseLogOutputWithBody(output string, remotes []string) []LogEntry {
 }
 
 // parseLogRecord parses a single log record.
-// Format: %H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d
+// Format: %H%x1E%h%x1E%P%x1E%s%x1E%an%x1E%ae%x1E%aI%x1E%cn%x1E%ce%x1E%cI%x1E%d
 func parseLogRecord(record string, remotes []string) *LogEntry {
-	parts := strings.Split(record, "|")
+	parts := strings.Split(record, "\x1e")
 	if len(parts) < 7 {
 		return nil
 	}

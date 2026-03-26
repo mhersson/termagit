@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/mhersson/termagit/internal/cmdlog"
@@ -582,6 +583,66 @@ func TestLogOp_NilLogger_DoesNotPanic(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "a", result1)
 	assert.Equal(t, "b", result2)
+}
+
+func TestExitCodeExtraction_WrappedError(t *testing.T) {
+	dir := t.TempDir()
+	logger, err := cmdlog.New(filepath.Join(dir, "test.log"), 1<<20, 1)
+	require.NoError(t, err)
+	defer func() { _ = logger.Close() }()
+
+	r := newMemRepo(t)
+	r.logger = logger
+
+	// Create a real ExitError by running a command that fails
+	cmd := exec.Command("sh", "-c", "exit 42")
+	exitErr := cmd.Run()
+	require.Error(t, exitErr)
+
+	// Wrap it
+	wrapped := fmt.Errorf("context: %w", exitErr)
+
+	r.logGitCmd(time.Now(), []string{"status"}, "", "", wrapped)
+
+	entries := logger.Entries()
+	require.Len(t, entries, 1)
+	assert.Equal(t, 42, entries[0].ExitCode)
+}
+
+func TestExitCodeExtraction_DirectError(t *testing.T) {
+	dir := t.TempDir()
+	logger, err := cmdlog.New(filepath.Join(dir, "test.log"), 1<<20, 1)
+	require.NoError(t, err)
+	defer func() { _ = logger.Close() }()
+
+	r := newMemRepo(t)
+	r.logger = logger
+
+	cmd := exec.Command("sh", "-c", "exit 7")
+	exitErr := cmd.Run()
+	require.Error(t, exitErr)
+
+	r.logGitCmd(time.Now(), []string{"status"}, "", "", exitErr)
+
+	entries := logger.Entries()
+	require.Len(t, entries, 1)
+	assert.Equal(t, 7, entries[0].ExitCode)
+}
+
+func TestExitCodeExtraction_NonExitError(t *testing.T) {
+	dir := t.TempDir()
+	logger, err := cmdlog.New(filepath.Join(dir, "test.log"), 1<<20, 1)
+	require.NoError(t, err)
+	defer func() { _ = logger.Close() }()
+
+	r := newMemRepo(t)
+	r.logger = logger
+
+	r.logGitCmd(time.Now(), []string{"status"}, "", "", fmt.Errorf("not an exit error"))
+
+	entries := logger.Entries()
+	require.Len(t, entries, 1)
+	assert.Equal(t, -1, entries[0].ExitCode)
 }
 
 func TestSequencerOperation_ReturnsEmpty_WhenNone(t *testing.T) {

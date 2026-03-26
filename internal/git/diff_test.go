@@ -447,3 +447,47 @@ index abc..def 100644
 	require.Len(t, diffs, 1)
 	assert.Equal(t, DiffStash, diffs[0].Kind)
 }
+
+func TestDiffStat_DoesNotCorruptCallerSlice(t *testing.T) {
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Create a slice with spare capacity
+	backing := make([]string, 2, 4)
+	backing[0] = "--cached"
+	backing[1] = "--"
+	args := backing[:2]
+
+	// Place a sentinel in the spare capacity
+	backing = backing[:3]
+	backing[2] = "UNTOUCHED"
+
+	// DiffStat will fail (no staged files), but that's fine —
+	// we only care that the backing array wasn't corrupted.
+	_, _ = r.DiffStat(ctx, args...)
+
+	assert.Equal(t, "UNTOUCHED", backing[2],
+		"DiffStat must not overwrite caller's backing array")
+}
+
+func TestApplyPatch_DoesNotCorruptCallerSlice(t *testing.T) {
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Create a slice with spare capacity
+	backing := make([]string, 2, 4)
+	backing[0] = "--cached"
+	backing[1] = "--stat"
+	extraArgs := backing[:2]
+
+	// Place a sentinel in the spare capacity
+	backing = backing[:3]
+	backing[2] = "UNTOUCHED"
+
+	// ApplyPatch will fail (empty patch), but that's fine —
+	// we only care that the backing array wasn't corrupted.
+	_ = r.ApplyPatch(ctx, "", extraArgs...)
+
+	assert.Equal(t, "UNTOUCHED", backing[2],
+		"ApplyPatch must not overwrite caller's backing array")
+}

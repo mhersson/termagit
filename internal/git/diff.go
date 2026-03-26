@@ -132,7 +132,9 @@ func (r *Repository) RangeDiff(ctx context.Context, rangeSpec string) ([]FileDif
 // DiffStat returns file statistics for a diff command.
 // The args are passed directly to git diff (e.g. "--cached", or a range spec).
 func (r *Repository) DiffStat(ctx context.Context, args ...string) (*CommitOverview, error) {
-	cmdArgs := append([]string{"diff"}, args...)
+	cmdArgs := make([]string, 0, 1+len(args)+1)
+	cmdArgs = append(cmdArgs, "diff")
+	cmdArgs = append(cmdArgs, args...)
 	cmdArgs = append(cmdArgs, "--stat")
 
 	out, err := r.runGit(ctx, cmdArgs...)
@@ -397,7 +399,9 @@ func HunkToPatch(path string, hunk *Hunk, reverse bool) string {
 // ApplyPatch applies a unified diff patch via `git apply`.
 // Extra args are passed directly (e.g. "--cached", "-R").
 func (r *Repository) ApplyPatch(ctx context.Context, patch string, extraArgs ...string) error {
-	args := append([]string{"apply"}, extraArgs...)
+	args := make([]string, 0, 1+len(extraArgs))
+	args = append(args, "apply")
+	args = append(args, extraArgs...)
 	_, err := r.runGitWithStdin(ctx, patch, args...)
 	if err != nil {
 		return fmt.Errorf("apply patch: %w", err)
