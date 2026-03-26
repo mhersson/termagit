@@ -114,9 +114,6 @@ func (m Model) renderContent() string {
 		// File header
 		b.WriteString(m.formatFileHeader(&diff, fi))
 		b.WriteString("\n")
-		// Separator
-		b.WriteString(m.cachedSep)
-		b.WriteString("\n")
 		// Hunks
 		for _, hunk := range diff.Hunks {
 			b.WriteString(hunk.Header)
@@ -179,14 +176,9 @@ func (m Model) renderStatBlock(b *strings.Builder, lineNum int) int {
 
 // renderFileDiff renders a single file's diff with cursor tracking.
 func (m Model) renderFileDiff(b *strings.Builder, diff *git.FileDiff, fileIdx int, lineNum int) int {
-	// File header with counters
+	// File header with counters (full-width background)
 	fileHeader := m.formatFileHeader(diff, fileIdx)
-	m.writeLine(b, fileHeader, lineNum, nil)
-	lineNum++
-
-	// Separator line
-	sep := m.cachedSep
-	m.writeLine(b, sep, lineNum, m.tokens.DiffHeader.Render)
+	m.writeLine(b, fileHeader, lineNum, m.tokens.DiffHeader.Render)
 	lineNum++
 
 	// Line number tracking
@@ -194,8 +186,12 @@ func (m Model) renderFileDiff(b *strings.Builder, diff *git.FileDiff, fileIdx in
 
 	// Hunks
 	for _, hunk := range diff.Hunks {
-		// Hunk header
-		m.writeLine(b, hunk.Header, lineNum, m.tokens.DiffHunkHeader.Render)
+		// Hunk header (padded to full width for background)
+		hunkHeader := hunk.Header
+		if pad := m.width - len(hunkHeader); pad > 0 {
+			hunkHeader += strings.Repeat(" ", pad)
+		}
+		m.writeLine(b, hunkHeader, lineNum, m.tokens.DiffHunkHeader.Render)
 		lineNum++
 
 		// Hunk lines
@@ -244,25 +240,20 @@ func (m Model) renderFileDiff(b *strings.Builder, diff *git.FileDiff, fileIdx in
 }
 
 // formatFileHeader formats the file header line with file and hunk counters.
+// Returns plain text (no ANSI styling) padded to full terminal width.
 func (m Model) formatFileHeader(diff *git.FileDiff, fileIdx int) string {
-	filePath := m.tokens.FilePath.Render(diff.Path)
-
 	totalFiles := len(m.files)
 	totalHunks := len(diff.Hunks)
 
-	counter := m.tokens.SubtleText.Render(
-		fmt.Sprintf("file %d/%d  hunk %d", fileIdx+1, totalFiles, totalHunks),
-	)
+	counterText := fmt.Sprintf("file %d/%d  hunk %d", fileIdx+1, totalFiles, totalHunks)
 
 	// Calculate spacing between path and counter
-	pathLen := len(diff.Path)
-	counterLen := len(fmt.Sprintf("file %d/%d  hunk %d", fileIdx+1, totalFiles, totalHunks))
-	spacing := m.width - pathLen - counterLen
+	spacing := m.width - len(diff.Path) - len(counterText)
 	if spacing < 2 {
 		spacing = 2
 	}
 
-	return filePath + strings.Repeat(" ", spacing) + counter
+	return diff.Path + strings.Repeat(" ", spacing) + counterText
 }
 
 // renderLineNumbers renders the old/new line number gutter.

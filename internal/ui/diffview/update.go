@@ -278,7 +278,6 @@ func (m Model) getHunkHeaderLines() []int {
 	// Files
 	for _, diff := range m.files {
 		lineNum++ // file header
-		lineNum++ // separator
 		for _, hunk := range diff.Hunks {
 			lines = append(lines, lineNum) // hunk header line
 			lineNum++                      // hunk header
@@ -308,7 +307,6 @@ func (m Model) getFileHeaderLines() []int {
 	for _, diff := range m.files {
 		lines = append(lines, lineNum) // file header line
 		lineNum++                      // file header
-		lineNum++                      // separator
 		for _, hunk := range diff.Hunks {
 			lineNum++              // hunk header
 			lineNum += len(hunk.Lines) // hunk content
@@ -344,7 +342,6 @@ func (m Model) currentFileHunk() (int, int) {
 	// Walk through files and hunks
 	for fi, diff := range m.files {
 		lineNum++ // file header
-		lineNum++ // separator
 		for hi, hunk := range diff.Hunks {
 			hunkStart := lineNum
 			lineNum++                  // hunk header

@@ -9,6 +9,7 @@ func init() {
 		DiffAddBg:     "#20303b",
 		DiffDelBg:     "#37222c",
 		DiffContextBg: "#292e42",
+		DiffHunkBg:    "#212434",
 		Fg:            "#c0caf5",
 		Fg1:           "#a9b1d6",
 		Fg2:           "#9aa5ce",

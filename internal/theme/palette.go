@@ -10,6 +10,7 @@ type Palette struct {
 	DiffAddBg string `toml:"diff_add_bg"`  // diff added line background
 	DiffDelBg    string `toml:"diff_del_bg"`     // diff deleted line background
 	DiffContextBg string `toml:"diff_context_bg"` // diff context line background
+	DiffHunkBg    string `toml:"diff_hunk_bg"`    // diff hunk header background
 	Fg        string `toml:"fg"`         // bright foreground — bold text, popup title, cursor
 	Fg1       string `toml:"fg1"`        // normal foreground — body text, popup actions
 	Fg2       string `toml:"fg2"`        // secondary foreground — commit date, diff context
@@ -56,7 +57,8 @@ func FromPalette(p Palette) RawTokens {
 		DiffDeleteBg:   p.DiffDelBg,
 		DiffContext:    p.Fg2,
 		DiffContextBg: p.DiffContextBg,
-		DiffHunkHeader: p.Teal,
+		DiffHunkHeader:   p.Blue,
+		DiffHunkHeaderBg: p.DiffHunkBg,
 
 		// Change indicators
 		ChangeModified:  p.Blue,

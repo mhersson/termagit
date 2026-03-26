@@ -305,13 +305,14 @@ func TestDiffView_LineNumbers_ShownWhenConfigured(t *testing.T) {
 	assert.Contains(t, view, "1", "view should contain line numbers")
 }
 
-// 17. TestDiffView_Separator_UsesCorrectStyle
-func TestDiffView_Separator_UsesCorrectStyle(t *testing.T) {
+// 17. TestDiffView_FileHeader_FullWidth
+func TestDiffView_FileHeader_FullWidth(t *testing.T) {
 	m := New(nil, testSource(git.DiffStaged), testConfig(), testTokens())
 	m = loadModel(m)
 
 	view := m.View()
-	assert.Contains(t, view, "─", "view should contain separator line")
+	assert.Contains(t, view, "file1.go", "view should contain file header")
+	assert.Contains(t, view, "file 1/2", "view should contain file counter")
 }
 
 // 18. TestDiffModel_RangeDiff_ShellsOut
