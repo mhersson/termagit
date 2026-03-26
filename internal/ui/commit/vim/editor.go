@@ -32,6 +32,15 @@ type Tokens struct {
 	DiffHeader     lipgloss.Style // diff --git, ---, +++ lines
 }
 
+// undoEntry captures a buffer snapshot for undo.
+type undoEntry struct {
+	content string
+	line    int
+	col     int
+}
+
+const maxUndoStack = 100
+
 // Editor is a vim-like text editor component.
 type Editor struct {
 	buffer   *Buffer
@@ -44,6 +53,8 @@ type Editor struct {
 
 	register       string // unnamed register contents
 	registerIsLine bool   // true if register holds a full line
+
+	undoStack []undoEntry
 
 	width, height int
 	viewportTop   int // First visible line in the viewport
@@ -345,23 +356,28 @@ func (e *Editor) handleNormalRune(r rune) bool {
 	switch r {
 	// Mode switches
 	case 'i':
+		e.saveUndo()
 		e.mode = ModeInsert
 		return true
 	case 'a':
+		e.saveUndo()
 		e.cursor.MoveRightInsert(e.buffer)
 		e.mode = ModeInsert
 		return true
 	case 'A':
+		e.saveUndo()
 		e.cursor.Col = e.buffer.LineLen(e.cursor.Line)
 		e.mode = ModeInsert
 		return true
 	case 'o':
+		e.saveUndo()
 		e.buffer.InsertLineBelow(e.cursor.Line, "")
 		e.cursor.Line++
 		e.cursor.Col = 0
 		e.mode = ModeInsert
 		return true
 	case 'O':
+		e.saveUndo()
 		e.buffer.InsertLineAbove(e.cursor.Line, "")
 		e.cursor.Col = 0
 		e.mode = ModeInsert
@@ -409,6 +425,11 @@ func (e *Editor) handleNormalRune(r rune) bool {
 		e.selEnd = e.cursor.Line
 		return true
 
+	// Undo
+	case 'u':
+		e.undo()
+		return true
+
 	// Operators
 	case 'd':
 		e.pending = 'd'
@@ -423,16 +444,20 @@ func (e *Editor) handleNormalRune(r rune) bool {
 		e.pending = 'r'
 		return true
 	case 'x':
+		e.saveUndo()
 		e.deleteChar()
 		return true
 	case 'p':
+		e.saveUndo()
 		e.pasteAfter()
 		return true
 	case 'P':
+		e.saveUndo()
 		e.pasteBefore()
 		return true
 	case 'J':
 		if e.cursor.Line < e.buffer.LineCount()-1 {
+			e.saveUndo()
 			joinCol := e.buffer.LineLen(e.cursor.Line)
 			e.buffer.JoinLine(e.cursor.Line)
 			e.cursor.Col = joinCol
@@ -441,6 +466,7 @@ func (e *Editor) handleNormalRune(r rune) bool {
 
 	case 'D':
 		// D = delete to end of line (same as d$)
+		e.saveUndo()
 		deleted := e.cursor.DeleteToLineEnd(e.buffer)
 		e.register = deleted
 		e.registerIsLine = false
@@ -448,6 +474,7 @@ func (e *Editor) handleNormalRune(r rune) bool {
 		return true
 	case 'C':
 		// C = change to end of line (same as c$)
+		e.saveUndo()
 		deleted := e.cursor.DeleteToLineEnd(e.buffer)
 		e.register = deleted
 		e.registerIsLine = false
@@ -484,6 +511,7 @@ func (e *Editor) handlePendingOperator(msg tea.KeyMsg) bool {
 	case 'y':
 		return e.handleYankOperator(r)
 	case 'r':
+		e.saveUndo()
 		e.replaceChar(r)
 		return true
 	}
@@ -495,6 +523,7 @@ func (e *Editor) handleDeleteOperator(r rune) bool {
 	switch r {
 	case 'd':
 		// dd = delete line
+		e.saveUndo()
 		e.register = e.buffer.Line(e.cursor.Line)
 		e.registerIsLine = true
 		e.buffer.DeleteLine(e.cursor.Line)
@@ -502,6 +531,7 @@ func (e *Editor) handleDeleteOperator(r rune) bool {
 		return true
 	case 'w':
 		// dw = delete word
+		e.saveUndo()
 		deleted := e.cursor.DeleteWord(e.buffer)
 		e.register = deleted
 		e.registerIsLine = false
@@ -509,6 +539,7 @@ func (e *Editor) handleDeleteOperator(r rune) bool {
 		return true
 	case '$':
 		// d$ = delete to end of line
+		e.saveUndo()
 		deleted := e.cursor.DeleteToLineEnd(e.buffer)
 		e.register = deleted
 		e.registerIsLine = false
@@ -523,6 +554,7 @@ func (e *Editor) handleChangeOperator(r rune) bool {
 	switch r {
 	case 'c':
 		// cc = change line
+		e.saveUndo()
 		line := e.cursor.Line
 		e.register = e.buffer.Line(line)
 		e.registerIsLine = true
@@ -538,6 +570,7 @@ func (e *Editor) handleChangeOperator(r rune) bool {
 		return true
 	case 'w':
 		// cw = change word
+		e.saveUndo()
 		deleted := e.cursor.DeleteWord(e.buffer)
 		e.register = deleted
 		e.registerIsLine = false
@@ -579,10 +612,12 @@ func (e *Editor) handleVisualLineRune(r rune) bool {
 		}
 		return true
 	case 'd':
+		e.saveUndo()
 		e.deleteVisualSelection()
 		e.mode = ModeNormal
 		return true
 	case 'c':
+		e.saveUndo()
 		e.deleteVisualSelection()
 		e.mode = ModeInsert
 		return true
@@ -740,4 +775,30 @@ func (e *Editor) pasteBefore() {
 func (e *Editor) SetSize(width, height int) {
 	e.width = width
 	e.height = height
+}
+
+// saveUndo captures the current buffer content and cursor position onto the undo stack.
+func (e *Editor) saveUndo() {
+	entry := undoEntry{
+		content: e.buffer.Content(),
+		line:    e.cursor.Line,
+		col:     e.cursor.Col,
+	}
+	e.undoStack = append(e.undoStack, entry)
+	if len(e.undoStack) > maxUndoStack {
+		e.undoStack = e.undoStack[len(e.undoStack)-maxUndoStack:]
+	}
+}
+
+// undo restores the most recent undo snapshot.
+func (e *Editor) undo() {
+	if len(e.undoStack) == 0 {
+		return
+	}
+	entry := e.undoStack[len(e.undoStack)-1]
+	e.undoStack = e.undoStack[:len(e.undoStack)-1]
+	e.buffer.SetContent(entry.content)
+	e.cursor.Line = entry.line
+	e.cursor.Col = entry.col
+	e.cursor.Clamp(e.buffer)
 }
