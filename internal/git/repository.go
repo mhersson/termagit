@@ -672,7 +672,9 @@ func (r *Repository) logGitCmd(start time.Time, args []string, stdout, stderr st
 		return
 	}
 	exitCode := 0
+	var errMsg string
 	if cmdErr != nil {
+		errMsg = cmdErr.Error()
 		var exitErr *exec.ExitError
 		if errors.As(cmdErr, &exitErr) {
 			exitCode = exitErr.ExitCode()
@@ -687,6 +689,7 @@ func (r *Repository) logGitCmd(start time.Time, args []string, stdout, stderr st
 		ExitCode:   exitCode,
 		Stdout:     stdout,
 		Stderr:     stderr,
+		Error:      errMsg,
 		DurationMs: time.Since(start).Milliseconds(),
 	})
 }
@@ -700,10 +703,10 @@ func (r *Repository) logOp(ctx context.Context, equiv string, fn func() (string,
 
 	if r.logger != nil {
 		exitCode := 0
-		stderr := ""
+		var errMsg string
 		if err != nil {
 			exitCode = 1
-			stderr = err.Error()
+			errMsg = err.Error()
 		}
 		_ = r.logger.Append(cmdlog.Entry{
 			Timestamp:  start,
@@ -711,7 +714,7 @@ func (r *Repository) logOp(ctx context.Context, equiv string, fn func() (string,
 			Dir:        r.path,
 			ExitCode:   exitCode,
 			Stdout:     result1,
-			Stderr:     stderr,
+			Error:      errMsg,
 			DurationMs: duration.Milliseconds(),
 		})
 	}

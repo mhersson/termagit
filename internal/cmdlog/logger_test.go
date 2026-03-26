@@ -301,6 +301,64 @@ func TestLogger_FilePermissions_0600(t *testing.T) {
 	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm(), "log file should be 0600")
 }
 
+func TestAppend_ErrorField_OmittedWhenEmpty(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.log")
+
+	logger, err := New(path, 1024*1024, 3)
+	require.NoError(t, err)
+
+	err = logger.Append(Entry{
+		Timestamp: time.Now(),
+		Command:   "git status",
+		ExitCode:  0,
+		Error:     "",
+	})
+	require.NoError(t, err)
+	_ = logger.Close()
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), `"error"`, "empty Error should be omitted from JSON")
+}
+
+func TestAppend_ErrorField_IncludedWhenSet(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.log")
+
+	logger, err := New(path, 1024*1024, 3)
+	require.NoError(t, err)
+
+	err = logger.Append(Entry{
+		Timestamp: time.Now(),
+		Command:   "git push",
+		ExitCode:  128,
+		Error:     "exit status 128",
+	})
+	require.NoError(t, err)
+	_ = logger.Close()
+
+	entries, err := ReadRecent(path, 10)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	assert.Equal(t, "exit status 128", entries[0].Error)
+}
+
+func TestReadRecent_BackwardCompat_MissingErrorField(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.log")
+
+	// Write raw JSON without the "error" key (simulating old log format)
+	raw := `{"ts":"2024-01-15T10:30:00Z","cmd":"git status","cwd":"/repo","exit":1,"stdout":"","stderr":"fatal: bad","ms":42}` + "\n"
+	err := os.WriteFile(path, []byte(raw), 0o600)
+	require.NoError(t, err)
+
+	entries, err := ReadRecent(path, 10)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	assert.Equal(t, "", entries[0].Error, "missing error field should unmarshal as empty string")
+}
+
 func TestLogger_RotatedFilePermissions_0600(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.log")

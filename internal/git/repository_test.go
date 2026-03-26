@@ -567,7 +567,8 @@ func TestLogOp_LogsFailure(t *testing.T) {
 	require.NotEmpty(t, entries)
 	assert.Equal(t, "failing-op", entries[0].Command)
 	assert.Equal(t, 1, entries[0].ExitCode)
-	assert.Contains(t, entries[0].Stderr, "something went wrong")
+	assert.Contains(t, entries[0].Error, "something went wrong")
+	assert.Empty(t, entries[0].Stderr)
 }
 
 func TestLogOp_NilLogger_DoesNotPanic(t *testing.T) {
@@ -643,6 +644,81 @@ func TestExitCodeExtraction_NonExitError(t *testing.T) {
 	entries := logger.Entries()
 	require.Len(t, entries, 1)
 	assert.Equal(t, -1, entries[0].ExitCode)
+}
+
+func TestLogGitCmd_PopulatesErrorField_ExitError(t *testing.T) {
+	dir := t.TempDir()
+	logger, err := cmdlog.New(filepath.Join(dir, "test.log"), 1<<20, 1)
+	require.NoError(t, err)
+	defer func() { _ = logger.Close() }()
+
+	r := newMemRepo(t)
+	r.logger = logger
+
+	cmd := exec.Command("sh", "-c", "exit 42")
+	exitErr := cmd.Run()
+	require.Error(t, exitErr)
+
+	r.logGitCmd(time.Now(), []string{"push"}, "", "fatal: remote error", exitErr)
+
+	entries := logger.Entries()
+	require.Len(t, entries, 1)
+	assert.Contains(t, entries[0].Error, "exit status 42")
+}
+
+func TestLogGitCmd_PopulatesErrorField_NonExitError(t *testing.T) {
+	dir := t.TempDir()
+	logger, err := cmdlog.New(filepath.Join(dir, "test.log"), 1<<20, 1)
+	require.NoError(t, err)
+	defer func() { _ = logger.Close() }()
+
+	r := newMemRepo(t)
+	r.logger = logger
+
+	r.logGitCmd(time.Now(), []string{"status"}, "", "", fmt.Errorf("connection refused"))
+
+	entries := logger.Entries()
+	require.Len(t, entries, 1)
+	assert.Equal(t, "connection refused", entries[0].Error)
+	assert.Equal(t, -1, entries[0].ExitCode)
+}
+
+func TestLogGitCmd_ErrorFieldEmpty_OnSuccess(t *testing.T) {
+	dir := t.TempDir()
+	logger, err := cmdlog.New(filepath.Join(dir, "test.log"), 1<<20, 1)
+	require.NoError(t, err)
+	defer func() { _ = logger.Close() }()
+
+	r := newMemRepo(t)
+	r.logger = logger
+
+	r.logGitCmd(time.Now(), []string{"status"}, "output", "", nil)
+
+	entries := logger.Entries()
+	require.Len(t, entries, 1)
+	assert.Empty(t, entries[0].Error)
+}
+
+func TestLogOp_ErrorField_PopulatedOnFailure(t *testing.T) {
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	logPath := filepath.Join(t.TempDir(), "test.log")
+	logger, err := cmdlog.New(logPath, 1<<20, 2)
+	require.NoError(t, err)
+	defer func() { _ = logger.Close() }()
+
+	r.logger = logger
+
+	_, _, err = r.logOp(ctx, "failing-op", func() (string, string, error) {
+		return "", "", fmt.Errorf("something went wrong")
+	})
+	require.Error(t, err)
+
+	entries := logger.Entries()
+	require.Len(t, entries, 1)
+	assert.Equal(t, "something went wrong", entries[0].Error)
+	assert.Empty(t, entries[0].Stderr, "go-git errors should not go in Stderr")
 }
 
 func TestSequencerOperation_ReturnsEmpty_WhenNone(t *testing.T) {

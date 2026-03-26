@@ -86,6 +86,12 @@ func (m Model) View() string {
 					b.WriteString("\n")
 				}
 			}
+			if entry.Error != "" {
+				for _, line := range strings.Split(strings.TrimRight(entry.Error, "\n"), "\n") {
+					b.WriteString(m.tokens.NotificationError.Render("  ERR " + line))
+					b.WriteString("\n")
+				}
+			}
 			b.WriteString("\n")
 		}
 	}

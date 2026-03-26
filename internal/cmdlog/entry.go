@@ -10,5 +10,6 @@ type Entry struct {
 	ExitCode   int       `json:"exit"`
 	Stdout     string    `json:"stdout"`
 	Stderr     string    `json:"stderr"`
+	Error      string    `json:"error,omitempty"`
 	DurationMs int64     `json:"ms"`
 }

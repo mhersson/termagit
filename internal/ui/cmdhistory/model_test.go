@@ -150,6 +150,43 @@ func TestCmdHistory_Update_J_MovesDown(t *testing.T) {
 	assert.Equal(t, 1, m.cursor)
 }
 
+func TestCmdHistory_View_ExpandedShowsError(t *testing.T) {
+	entries := []cmdlog.Entry{
+		{
+			Command:    "git push origin main",
+			ExitCode:   128,
+			Stderr:     "",
+			Error:      "exit status 128",
+			DurationMs: 500,
+		},
+	}
+	m := New(entries, testTokens(), 80, 24)
+	// Expand
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = newModel.(Model)
+	v := m.View()
+	assert.Contains(t, v, "exit status 128")
+}
+
+func TestCmdHistory_View_ExpandedShowsErrorAndStderr(t *testing.T) {
+	entries := []cmdlog.Entry{
+		{
+			Command:    "git push origin main",
+			ExitCode:   128,
+			Stderr:     "fatal: remote rejected\n",
+			Error:      "exit status 128",
+			DurationMs: 500,
+		},
+	}
+	m := New(entries, testTokens(), 80, 24)
+	// Expand
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = newModel.(Model)
+	v := m.View()
+	assert.Contains(t, v, "fatal: remote rejected")
+	assert.Contains(t, v, "exit status 128")
+}
+
 func TestCmdHistory_Update_K_MovesUp(t *testing.T) {
 	m := New(testEntries(), testTokens(), 80, 24)
 	// Move to entry 1 first
