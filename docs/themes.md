@@ -95,7 +95,7 @@ normal         = "#d4d4d4"
 branch         = "#569cd6"
 section_header = "#c586c0"
 diff_add       = "#4ec9b0"
-# ... any of the 67 token fields
+# ... any of the 66 token fields
 ```
 
 Missing fields are filled from the default theme (catppuccin-mocha).
@@ -136,7 +136,6 @@ Missing fields are filled from the default theme (catppuccin-mocha).
 | `popup_border`          | Popup frame                           |
 | `popup_title`           | Popup title (bold)                    |
 | `popup_key`             | Popup keybinding (bold)               |
-| `popup_key_bg`          | Unused (reserved)                     |
 | `popup_switch`          | Popup toggle switch                   |
 | `popup_option`          | Popup option label                    |
 | `popup_action`          | Popup action label                    |

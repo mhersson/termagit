@@ -309,8 +309,6 @@ func testConfig() *config.Config {
 	return &config.Config{
 		CommitEditor: config.CommitEditorConfig{
 			ShowStagedDiff:        true,
-			StagedDiffSplitKind:   "split",
-			SpellCheck:            false,
 			DisableInsertOnCommit: false,
 		},
 	}
@@ -325,7 +323,6 @@ func testTokens() theme.Tokens {
 		PopupBorder:  "#888888",
 		PopupTitle:   "#ffffff",
 		PopupKey:     "#ff00ff",
-		PopupKeyBg:   "#333333",
 		PopupSwitch:  "#00ff00",
 		PopupOption:  "#ffff00",
 		PopupAction:  "#00ffff",

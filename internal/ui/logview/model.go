@@ -35,8 +35,7 @@ type Model struct {
 	popKeys nav.PopupKeys
 	keys    KeyMap
 	opts    git.LogOpts
-	remotes []string
-	header  string
+	header string
 
 	commits  []git.LogEntry
 	cursor   nav.Cursor
@@ -437,7 +436,3 @@ func (m *Model) SetSize(width, height int) {
 	m.cursor.SetSize(width, height)
 }
 
-// SetRemotes sets the remote names for ref parsing.
-func (m *Model) SetRemotes(remotes []string) {
-	m.remotes = remotes
-}

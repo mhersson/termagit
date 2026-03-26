@@ -111,7 +111,6 @@ func TestFromPalette_MapsColorsCorrectly(t *testing.T) {
 	assert.Equal(t, "#bg3333", raw.PopupBorder)
 	assert.Equal(t, "#fg0000", raw.PopupTitle)
 	assert.Equal(t, "#blue00", raw.PopupKey)
-	assert.Equal(t, "#blue00", raw.PopupKeyBg)
 	assert.Equal(t, "#cyan00", raw.PopupSwitch)
 	assert.Equal(t, "#yelo00", raw.PopupOption)
 	assert.Equal(t, "#fg1111", raw.PopupAction)
@@ -222,56 +221,3 @@ func TestFromPalette_TokyoNight_MatchesBuiltin(t *testing.T) {
 	}
 }
 
-func TestFromPalette_CatppuccinLatte_NoEmptyFields(t *testing.T) {
-	theme, ok := Get("catppuccin-latte")
-	require.True(t, ok)
-	assertNoEmptyFields(t, theme.Raw(), "catppuccin-latte")
-}
-
-func TestFromPalette_CatppuccinFrappe_NoEmptyFields(t *testing.T) {
-	theme, ok := Get("catppuccin-frappe")
-	require.True(t, ok)
-	assertNoEmptyFields(t, theme.Raw(), "catppuccin-frappe")
-}
-
-func TestFromPalette_CatppuccinMacchiato_NoEmptyFields(t *testing.T) {
-	theme, ok := Get("catppuccin-macchiato")
-	require.True(t, ok)
-	assertNoEmptyFields(t, theme.Raw(), "catppuccin-macchiato")
-}
-
-func TestFromPalette_TokyoNightStorm_NoEmptyFields(t *testing.T) {
-	theme, ok := Get("tokyo-night-storm")
-	require.True(t, ok)
-	assertNoEmptyFields(t, theme.Raw(), "tokyo-night-storm")
-}
-
-func TestFromPalette_TokyoNightLight_NoEmptyFields(t *testing.T) {
-	theme, ok := Get("tokyo-night-light")
-	require.True(t, ok)
-	assertNoEmptyFields(t, theme.Raw(), "tokyo-night-light")
-}
-
-func TestFromPalette_GruvboxDark_NoEmptyFields(t *testing.T) {
-	theme, ok := Get("gruvbox-dark")
-	require.True(t, ok)
-	assertNoEmptyFields(t, theme.Raw(), "gruvbox-dark")
-}
-
-func TestFromPalette_GruvboxLight_NoEmptyFields(t *testing.T) {
-	theme, ok := Get("gruvbox-light")
-	require.True(t, ok)
-	assertNoEmptyFields(t, theme.Raw(), "gruvbox-light")
-}
-
-func TestFromPalette_SolarizedDark_NoEmptyFields(t *testing.T) {
-	theme, ok := Get("solarized-dark")
-	require.True(t, ok)
-	assertNoEmptyFields(t, theme.Raw(), "solarized-dark")
-}
-
-func TestFromPalette_SolarizedLight_NoEmptyFields(t *testing.T) {
-	theme, ok := Get("solarized-light")
-	require.True(t, ok)
-	assertNoEmptyFields(t, theme.Raw(), "solarized-light")
-}

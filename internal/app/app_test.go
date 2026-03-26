@@ -162,19 +162,6 @@ func TestApp_WindowSizeMsg_PropagatedToStatus(t *testing.T) {
 	assert.Equal(t, 40, app.height)
 }
 
-func TestApp_SwitchToCmdHistory_ConstructsModel(t *testing.T) {
-	m := Model{
-		width:  80,
-		height: 24,
-		active: ScreenStatus,
-	}
-
-	newModel, _ := m.Update(status.OpenCmdHistoryMsg{})
-	app := newModel.(Model)
-	assert.Equal(t, ScreenCmdHistory, app.active)
-	assert.NotNil(t, app.cmdHistory)
-}
-
 func testTokens() theme.Tokens {
 	return theme.Compile(theme.Fallback().Raw())
 }

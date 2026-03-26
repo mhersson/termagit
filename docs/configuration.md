@@ -46,21 +46,12 @@ Settings related to git operations.
 
 General user interface settings.
 
-| Key                               | Type   | Default | Description                                                                              |
-| --------------------------------- | ------ | ------- | ---------------------------------------------------------------------------------------- |
-| `ui.disable_hint`                 | bool   | `false` | Hide the hint bar at the bottom of the status buffer.                                    |
-| `ui.disable_context_highlighting` | bool   | `false` | Disable highlighting of the item under the cursor. Not yet implemented.                  |
-| `ui.disable_signs`                | bool   | `false` | Hide the sign column (the `+`/`-` markers in diffs). Not yet implemented.                |
-| `ui.disable_line_numbers`         | bool   | `false` | Hide line numbers in diff views.                                                         |
-| `ui.show_head_commit_hash`        | bool   | `false` | Show the abbreviated commit hash next to HEAD in the status header. Not yet implemented. |
-| `ui.recent_commit_count`          | int    | `10`    | Number of commits shown in the "Recent commits" section.                                 |
-| `ui.HEAD_padding`                 | int    | `10`    | Padding width for HEAD info labels (Head, Merge, Push, Tag).                             |
-| `ui.HEAD_folded`                  | bool   | `false` | Start with the HEAD info section folded. Not yet implemented.                            |
-| `ui.mode_padding`                 | int    | `3`     | Padding width for file mode labels (e.g., `modified`, `new file`). Not yet implemented.  |
-| `ui.notification_icon`            | string | `"󰐗"`   | Icon shown in notification toasts. Not yet implemented.                                  |
-| `ui.console_timeout`              | int    | `5000`  | How long console notifications stay visible, in milliseconds. Not yet implemented.       |
-| `ui.auto_show_console`            | bool   | `true`  | Automatically show the console when a git command runs. Not yet implemented.             |
-| `ui.auto_close_console`           | bool   | `true`  | Automatically hide the console when a git command finishes. Not yet implemented.         |
+| Key                       | Type | Default | Description                                                  |
+| ------------------------- | ---- | ------- | ------------------------------------------------------------ |
+| `ui.disable_hint`         | bool | `false` | Hide the hint bar at the bottom of the status buffer.        |
+| `ui.disable_line_numbers` | bool | `false` | Hide line numbers in diff views.                             |
+| `ui.recent_commit_count`  | int  | `10`    | Number of commits shown in the "Recent commits" section.     |
+| `ui.HEAD_padding`         | int  | `10`    | Padding width for HEAD info labels (Head, Merge, Push, Tag). |
 
 ```toml
 [ui]
@@ -72,31 +63,16 @@ disable_hint = true
 
 Settings for the built-in commit message editor.
 
-| Key                                             | Type   | Default   | Description                                                           |
-| ----------------------------------------------- | ------ | --------- | --------------------------------------------------------------------- |
-| `commit_editor.show_staged_diff`                | bool   | `true`    | Show the staged diff alongside the commit message editor.             |
-| `commit_editor.staged_diff_split_kind`          | string | `"split"` | Reserved for future use. Not yet implemented.                         |
-| `commit_editor.spell_check`                     | bool   | `false`   | Reserved for future use. Not yet implemented.                         |
-| `commit_editor.disable_insert_on_commit`        | bool   | `false`   | Don't enter insert mode automatically when opening the commit editor. |
-| `commit_editor.generate_commit_message_command` | string | `""`      | External command to generate commit messages. Empty means disabled.   |
+| Key                                             | Type   | Default | Description                                                           |
+| ----------------------------------------------- | ------ | ------- | --------------------------------------------------------------------- |
+| `commit_editor.show_staged_diff`                | bool   | `true`  | Show the staged diff alongside the commit message editor.             |
+| `commit_editor.disable_insert_on_commit`        | bool   | `false` | Don't enter insert mode automatically when opening the commit editor. |
+| `commit_editor.generate_commit_message_command` | string | `""`    | External command to generate commit messages. Empty means disabled.   |
 
 ```toml
 [commit_editor]
 show_staged_diff = true
 disable_insert_on_commit = true
-```
-
-## Commit View
-
-Settings for the commit detail view.
-
-| Key                         | Type | Default | Description                                                      |
-| --------------------------- | ---- | ------- | ---------------------------------------------------------------- |
-| `commit_view.verify_commit` | bool | `true`  | Verify GPG signatures when viewing commits. Not yet implemented. |
-
-```toml
-[commit_view]
-# verify_commit is not yet implemented
 ```
 
 ## File Watcher
@@ -169,28 +145,14 @@ graph_style = "unicode"
 
 [ui]
 disable_hint = false
-disable_context_highlighting = false
-disable_signs = false
 disable_line_numbers = false
-show_head_commit_hash = false
 recent_commit_count = 10
 HEAD_padding = 10
-HEAD_folded = false
-mode_padding = 3
-notification_icon = "󰐗"
-console_timeout = 5000
-auto_show_console = true
-auto_close_console = true
 
 [commit_editor]
 show_staged_diff = true
-staged_diff_split_kind = "split"
-spell_check = false
 disable_insert_on_commit = false
 generate_commit_message_command = ""
-
-[commit_view]
-verify_commit = true
 
 [filewatcher]
 enabled = true

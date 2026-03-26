@@ -54,41 +54,33 @@ func LoadDir(dir string) error {
 			// Generate base tokens from palette
 			raw = FromPalette(f.Pal)
 			// Overlay any explicit token-level overrides
-			overlayTokens(&raw, &f.RawTokens)
+			mergeRawTokens(&raw, &f.RawTokens, true)
 		} else {
 			raw = f.RawTokens
 		}
 
 		// Fill remaining empty fields from fallback
-		mergeTokens(&raw, &fallbackRaw)
+		mergeRawTokens(&raw, &fallbackRaw, false)
 		Register(NewTheme(name, raw))
 	}
 
 	return nil
 }
 
-// overlayTokens copies non-empty fields from src to dst.
-func overlayTokens(dst, src *RawTokens) {
+// mergeRawTokens copies string fields from src into dst.
+// When overwrite is true, non-empty src fields replace dst fields (overlay).
+// When overwrite is false, src fields only fill empty dst fields (fallback).
+func mergeRawTokens(dst, src *RawTokens, overwrite bool) {
 	dv := reflect.ValueOf(dst).Elem()
 	sv := reflect.ValueOf(src).Elem()
 
-	for i := 0; i < dv.NumField(); i++ {
-		sf := sv.Field(i)
-		if sf.Kind() == reflect.String && sf.String() != "" {
-			dv.Field(i).SetString(sf.String())
-		}
-	}
-}
-
-// mergeTokens fills empty fields in dst from src.
-func mergeTokens(dst, src *RawTokens) {
-	dv := reflect.ValueOf(dst).Elem()
-	sv := reflect.ValueOf(src).Elem()
-
-	for i := 0; i < dv.NumField(); i++ {
+	for i := range dv.NumField() {
 		df := dv.Field(i)
 		sf := sv.Field(i)
-		if df.Kind() == reflect.String && df.String() == "" {
+		if sf.Kind() != reflect.String || sf.String() == "" {
+			continue
+		}
+		if overwrite || df.String() == "" {
 			df.SetString(sf.String())
 		}
 	}

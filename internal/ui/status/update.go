@@ -172,10 +172,6 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Batch(cmds...)
 
-	case notificationExpiredMsg:
-		m.notification = ""
-		return m, nil
-
 	case repoChangedMsg:
 		return m, loadStatusCmd(m.repo, m.cfg)
 
@@ -877,7 +873,6 @@ func handleYank(m Model) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.notification = ""
 	return m, tea.Batch(
 		yankToClipboardCmd(text),
 		notifyAppCmd("Yanked: "+text, notification.Info),

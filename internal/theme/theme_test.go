@@ -309,7 +309,7 @@ func TestMergeTokens_FillsEmptyFields(t *testing.T) {
 		Remote: "#a6e3a1", // Should fill
 	}
 
-	mergeTokens(&dst, &src)
+	mergeRawTokens(&dst, &src, false)
 
 	assert.Equal(t, "#ffffff", dst.Normal) // Preserved
 	assert.Equal(t, "#89b4fa", dst.Branch) // Filled
@@ -320,7 +320,7 @@ func TestMergeTokens_DoesNotOverwriteNonEmpty(t *testing.T) {
 	dst := RawTokens{Normal: "#ffffff", Branch: "#111111"}
 	src := RawTokens{Normal: "#000000", Branch: "#222222"}
 
-	mergeTokens(&dst, &src)
+	mergeRawTokens(&dst, &src, false)
 
 	assert.Equal(t, "#ffffff", dst.Normal)
 	assert.Equal(t, "#111111", dst.Branch)

@@ -47,9 +47,6 @@ func (m Model) loadCommitDataCmd() tea.Cmd {
 			diffs = filterDiffs(diffs, m.filter)
 		}
 
-		// Optionally verify signature (skip for now, can be controlled by config)
-		// signature, _ := m.repo.VerifyCommit(ctx, m.commitID)
-
 		return CommitDataLoadedMsg{
 			Info:     info,
 			Overview: overview,

@@ -48,7 +48,7 @@ func TestSectionKind_AllTwelveValues(t *testing.T) {
 }
 
 func TestNew_InitializesWithDefaultCursor(t *testing.T) {
-	m := New(nil, nil, Tokens{}, KeyMap{})
+	m := New(nil, nil, theme.Tokens{}, KeyMap{})
 
 	// Default cursor should be on first section header
 	if m.cursor.Section != 0 {
@@ -156,7 +156,7 @@ func TestCursor_Fields(t *testing.T) {
 }
 
 func TestNew_InitializesLineField(t *testing.T) {
-	m := New(nil, nil, Tokens{}, KeyMap{})
+	m := New(nil, nil, theme.Tokens{}, KeyMap{})
 
 	// Line should be -1 (on hunk header, not within lines)
 	if m.cursor.Line != -1 {
@@ -1144,7 +1144,7 @@ func TestRenderContent_CursorLineOnSectionHeader(t *testing.T) {
 
 func TestModel_ViewportInitialized(t *testing.T) {
 	// Viewport should be initialized with dimensions after WindowSizeMsg
-	m := New(nil, nil, Tokens{}, DefaultKeyMap())
+	m := New(nil, nil, theme.Tokens{}, DefaultKeyMap())
 	m.loading = false
 	m.sections = []Section{{Kind: SectionUntracked, Title: "Test"}}
 
@@ -1451,7 +1451,7 @@ func TestGGSequence_GoesToTop(t *testing.T) {
 // === Block Cursor Tests ===
 
 func TestRenderWithBlockCursor_EmptyLine(t *testing.T) {
-	tokens := Tokens{
+	tokens := theme.Tokens{
 		CursorBlock: lipgloss.NewStyle().Reverse(true),
 		Cursor:      lipgloss.NewStyle().Background(lipgloss.Color("#333333")),
 	}
@@ -1471,7 +1471,7 @@ func TestRenderWithBlockCursor_EmptyLine(t *testing.T) {
 }
 
 func TestRenderWithBlockCursor_SingleChar(t *testing.T) {
-	tokens := Tokens{
+	tokens := theme.Tokens{
 		CursorBlock: lipgloss.NewStyle().Reverse(true),
 		Cursor:      lipgloss.NewStyle().Background(lipgloss.Color("#333333")),
 	}
@@ -1489,7 +1489,7 @@ func TestRenderWithBlockCursor_SingleChar(t *testing.T) {
 }
 
 func TestRenderWithBlockCursor_MultiCharLine(t *testing.T) {
-	tokens := Tokens{
+	tokens := theme.Tokens{
 		CursorBlock: lipgloss.NewStyle().Reverse(true),
 		Cursor:      lipgloss.NewStyle().Background(lipgloss.Color("#333333")),
 	}
@@ -1511,7 +1511,7 @@ func TestRenderWithBlockCursor_MultiCharLine(t *testing.T) {
 }
 
 func TestRenderWithBlockCursor_UTF8Rune(t *testing.T) {
-	tokens := Tokens{
+	tokens := theme.Tokens{
 		CursorBlock: lipgloss.NewStyle().Reverse(true),
 		Cursor:      lipgloss.NewStyle().Background(lipgloss.Color("#333333")),
 	}
@@ -2878,7 +2878,7 @@ func TestHandleUntrackStart_ConfirmViewShowsPrompt(t *testing.T) {
 // === Commit View Overlay Tests ===
 
 func TestModel_CommitViewOverlay_InitiallyNil(t *testing.T) {
-	m := New(nil, nil, Tokens{}, KeyMap{})
+	m := New(nil, nil, theme.Tokens{}, KeyMap{})
 	if m.commitView != nil {
 		t.Error("expected commitView to be nil initially")
 	}

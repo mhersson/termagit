@@ -184,25 +184,14 @@ func TestDefaults_GitConfigHasDefaults(t *testing.T) {
 func TestDefaults_UIConfigHasDefaults(t *testing.T) {
 	cfg := defaults()
 	assert.False(t, cfg.UI.DisableHint)
-	assert.False(t, cfg.UI.DisableContextHighlighting)
-	assert.False(t, cfg.UI.DisableSigns)
 	assert.False(t, cfg.UI.DisableLineNumbers)
-	assert.False(t, cfg.UI.ShowHeadCommitHash)
 	assert.Equal(t, 10, cfg.UI.RecentCommitCount)
 	assert.Equal(t, 10, cfg.UI.HEADPadding)
-	assert.False(t, cfg.UI.HEADFolded)
-	assert.Equal(t, 3, cfg.UI.ModePadding)
-	assert.Equal(t, "󰐗", cfg.UI.NotificationIcon)
-	assert.Equal(t, 5000, cfg.UI.ConsoleTimeout)
-	assert.True(t, cfg.UI.AutoShowConsole)
-	assert.True(t, cfg.UI.AutoCloseConsole)
 }
 
 func TestDefaults_CommitEditorConfigHasDefaults(t *testing.T) {
 	cfg := defaults()
 	assert.True(t, cfg.CommitEditor.ShowStagedDiff)
-	assert.Equal(t, "split", cfg.CommitEditor.StagedDiffSplitKind)
-	assert.False(t, cfg.CommitEditor.SpellCheck)
 	assert.False(t, cfg.CommitEditor.DisableInsertOnCommit)
 	assert.Empty(t, cfg.CommitEditor.GenerateCommitMessageCommand)
 }
@@ -227,9 +216,9 @@ generate_commit_message_command = "/usr/local/bin/ai-commit"
 	assert.True(t, cfg.CommitEditor.ShowStagedDiff)
 }
 
-func TestDefaults_CommitViewConfigHasDefaults(t *testing.T) {
+func TestDefaults_CommitViewConfigExists(t *testing.T) {
 	cfg := defaults()
-	assert.True(t, cfg.CommitView.VerifyCommit)
+	_ = cfg.CommitView
 }
 
 func TestDefaults_FilewatcherConfigHasDefaults(t *testing.T) {
@@ -258,8 +247,8 @@ recent_commit_count = 10
 	assert.Equal(t, 10, cfg.UI.RecentCommitCount)
 
 	// Unset values should be defaults
-	assert.False(t, cfg.UI.DisableContextHighlighting)
-	assert.True(t, cfg.UI.AutoShowConsole)
+	assert.False(t, cfg.UI.DisableLineNumbers)
+	assert.Equal(t, 10, cfg.UI.HEADPadding)
 }
 
 func TestLoad_PartialGit_UnsetFieldsAreDefaults(t *testing.T) {

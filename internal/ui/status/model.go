@@ -12,9 +12,6 @@ import (
 	"github.com/mhersson/termagit/internal/ui/popup"
 )
 
-// Tokens is an alias for theme.Tokens used in this package.
-type Tokens = theme.Tokens
-
 // ConfirmMode indicates what type of confirmation is pending.
 type ConfirmMode int
 
@@ -316,7 +313,7 @@ type hunkRestore struct {
 type Model struct {
 	repo   *git.Repository
 	cfg    *config.Config
-	tokens Tokens
+	tokens theme.Tokens
 	keys   KeyMap
 	width  int
 	height int
@@ -349,9 +346,6 @@ type Model struct {
 	peekPath     string
 	peekContent  string
 	peekViewport viewport.Model
-
-	// Notification bar
-	notification string
 
 	// Pending key for multi-key sequences (e.g., "gg", "[c", "]c")
 	pendingKey     string
@@ -405,7 +399,7 @@ type Model struct {
 }
 
 // New creates a new status buffer model.
-func New(repo *git.Repository, cfg *config.Config, tokens Tokens, keys KeyMap) Model {
+func New(repo *git.Repository, cfg *config.Config, tokens theme.Tokens, keys KeyMap) Model {
 	return Model{
 		repo:   repo,
 		cfg:    cfg,

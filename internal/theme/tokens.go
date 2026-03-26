@@ -51,9 +51,8 @@ type RawTokens struct {
 	// Popup
 	PopupBorder  string `toml:"popup_border"`
 	PopupTitle   string `toml:"popup_title"`
-	PopupKey     string `toml:"popup_key"`
-	PopupKeyBg   string `toml:"popup_key_bg"`
-	PopupSwitch  string `toml:"popup_switch"`
+	PopupKey    string `toml:"popup_key"`
+	PopupSwitch string `toml:"popup_switch"`
 	PopupOption  string `toml:"popup_option"`
 	PopupAction  string `toml:"popup_action"`
 	PopupSection string `toml:"popup_section"`

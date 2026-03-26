@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/mhersson/termagit/internal/git"
+	"github.com/mhersson/termagit/internal/theme"
 	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
@@ -204,7 +205,7 @@ func renderHintBar(m Model) string {
 
 // renderWithBlockCursor renders a line with a block cursor at position 0.
 // The first character is shown with reverse video, rest has cursor line background.
-func renderWithBlockCursor(tokens Tokens, line string) string {
+func renderWithBlockCursor(tokens theme.Tokens, line string) string {
 	stripped := ansi.Strip(line)
 	if len(stripped) == 0 {
 		return tokens.CursorBlock.Render(" ") + "\n"
@@ -314,7 +315,7 @@ func renderHeadBar(m Model) string {
 }
 
 // getSectionHeaderStyle returns the appropriate style for a section header.
-func getSectionHeaderStyle(tokens Tokens, kind SectionKind) lipgloss.Style {
+func getSectionHeaderStyle(tokens theme.Tokens, kind SectionKind) lipgloss.Style {
 	switch kind {
 	case SectionSequencer:
 		return tokens.Picking // Will be overridden by actual operation type
@@ -579,7 +580,7 @@ func getModeText(entry *git.StatusEntry, sectionKind SectionKind) string {
 }
 
 // styleForMode returns the appropriate style for a file's change type.
-func styleForMode(tokens Tokens, entry *git.StatusEntry, sectionKind SectionKind) lipgloss.Style {
+func styleForMode(tokens theme.Tokens, entry *git.StatusEntry, sectionKind SectionKind) lipgloss.Style {
 	var status git.FileStatus
 	switch sectionKind {
 	case SectionStaged:

@@ -25,9 +25,6 @@ type operationDoneMsg struct {
 	op  string // e.g., "Push", "Pull", "Fetch"
 }
 
-// notificationExpiredMsg is sent when a notification should be cleared.
-type notificationExpiredMsg struct{}
-
 // repoChangedMsg is sent by the file watcher when the repo changes.
 type repoChangedMsg struct{}
 

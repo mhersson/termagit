@@ -206,15 +206,6 @@ func (s *Stack) View(tokens theme.Tokens, maxWidth int) string {
 	return strings.Join(parts, "\n")
 }
 
-// ExpireCmds returns tea.Cmds for all active notifications.
-func (s *Stack) ExpireCmds() []tea.Cmd {
-	var cmds []tea.Cmd
-	for _, n := range s.items {
-		cmds = append(cmds, n.ExpireCmd())
-	}
-	return cmds
-}
-
 // Overlay composites a notification block onto the upper-right corner
 // of the base screen output.
 func Overlay(base, overlay string, width int) string {

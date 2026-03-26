@@ -50,12 +50,6 @@ const (
 	ScreenBranchSelect
 )
 
-// SwitchScreenMsg is sent to switch to a different screen.
-type SwitchScreenMsg struct {
-	Screen     Screen
-	CommitHash string // for ScreenCommitView
-}
-
 // Model is the main application model.
 type Model struct {
 	repo    *git.Repository
@@ -204,10 +198,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case notification.ExpiredMsg:
 		m.notifications.RemoveByID(msg.ID)
-		return m, nil
-
-	case SwitchScreenMsg:
-		m.active = msg.Screen
 		return m, nil
 
 	// Command history

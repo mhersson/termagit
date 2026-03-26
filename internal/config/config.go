@@ -32,43 +32,25 @@ type GitConfig struct {
 
 // UIConfig holds UI-related settings.
 type UIConfig struct {
-	DisableHint                bool   `toml:"disable_hint"`
-	DisableContextHighlighting bool   `toml:"disable_context_highlighting"`
-	DisableSigns               bool   `toml:"disable_signs"`
-	DisableLineNumbers         bool   `toml:"disable_line_numbers"`
-	ShowHeadCommitHash         bool   `toml:"show_head_commit_hash"`
-	RecentCommitCount          int    `toml:"recent_commit_count"`
-	HEADPadding                int    `toml:"HEAD_padding"`
-	HEADFolded                 bool   `toml:"HEAD_folded"`
-	ModePadding                int    `toml:"mode_padding"`
-	NotificationIcon           string `toml:"notification_icon"`
-	ConsoleTimeout             int    `toml:"console_timeout"`
-	AutoShowConsole            bool   `toml:"auto_show_console"`
-	AutoCloseConsole           bool   `toml:"auto_close_console"`
+	DisableHint        bool `toml:"disable_hint"`
+	DisableLineNumbers bool `toml:"disable_line_numbers"`
+	RecentCommitCount  int  `toml:"recent_commit_count"`
+	HEADPadding        int  `toml:"HEAD_padding"`
 }
 
 // CommitEditorConfig holds commit editor settings.
 type CommitEditorConfig struct {
-	ShowStagedDiff              bool   `toml:"show_staged_diff"`
-	StagedDiffSplitKind         string `toml:"staged_diff_split_kind"`
-	SpellCheck                  bool   `toml:"spell_check"`
-	DisableInsertOnCommit       bool   `toml:"disable_insert_on_commit"`
+	ShowStagedDiff               bool   `toml:"show_staged_diff"`
+	DisableInsertOnCommit        bool   `toml:"disable_insert_on_commit"`
 	GenerateCommitMessageCommand string `toml:"generate_commit_message_command"`
 }
 
 // CommitViewConfig holds commit view settings.
-type CommitViewConfig struct {
-	VerifyCommit bool `toml:"verify_commit"`
-}
+type CommitViewConfig struct{}
 
 // FilewatcherConfig holds file watcher settings.
 type FilewatcherConfig struct {
 	Enabled bool `toml:"enabled"`
-}
-
-// KeybindConfig holds keybind overrides.
-type KeybindConfig struct {
-	// Placeholder for future keybind overrides
 }
 
 // Config holds the application configuration.
@@ -80,7 +62,6 @@ type Config struct {
 	CommitView   CommitViewConfig   `toml:"commit_view"`
 	Filewatcher  FilewatcherConfig  `toml:"filewatcher"`
 	Sections     SectionsConfig     `toml:"sections"`
-	Keybinds     KeybindConfig      `toml:"keybinds"`
 	Log          LogConfig          `toml:"log"`
 }
 
@@ -101,33 +82,19 @@ func defaults() *Config {
 			GraphStyle:   "unicode",
 		},
 		UI: UIConfig{
-			DisableHint:                false,
-			DisableContextHighlighting: false,
-			DisableSigns:               false,
-			DisableLineNumbers:         false,
-			ShowHeadCommitHash:         false,
-			RecentCommitCount:          10,
-			HEADPadding:                10,
-			HEADFolded:                 false,
-			ModePadding:                3,
-			NotificationIcon:           "󰐗",
-			ConsoleTimeout:             5000,
-			AutoShowConsole:            true,
-			AutoCloseConsole:           true,
+			DisableHint:        false,
+			DisableLineNumbers: false,
+			RecentCommitCount:  10,
+			HEADPadding:        10,
 		},
 		CommitEditor: CommitEditorConfig{
 			ShowStagedDiff:        true,
-			StagedDiffSplitKind:   "split",
-			SpellCheck:            false,
 			DisableInsertOnCommit: false,
 		},
-		CommitView: CommitViewConfig{
-			VerifyCommit: true,
-		},
+		CommitView: CommitViewConfig{},
 		Filewatcher: FilewatcherConfig{
 			Enabled: true,
 		},
-		Keybinds: KeybindConfig{},
 		Sections: SectionsConfig{
 			Sequencer:          SectionConfig{Folded: false, Hidden: false},
 			Untracked:          SectionConfig{Folded: false, Hidden: false},
