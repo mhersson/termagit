@@ -33,7 +33,7 @@ func NewLogPopup(tokens theme.Tokens, state *State) Popup {
 	p.AddSwitchWithPrefix("=", "R", "reflog", "List reflog", false)
 
 	// Formatting
-	p.AddSwitch("g", "graph", "Show graph", false)
+	p.AddSwitch("g", "graph", "Show graph", true)
 	p.AddSwitch("c", "color", "Show graph in color", false)
 	p.AddSwitch("d", "decorate", "Show refnames", true) // enabled by default
 	p.AddSwitchWithPrefix("=", "S", "show-signature", "Show signatures", false)

@@ -14,17 +14,12 @@ any project. termagit is that.
 
 ![status buffer](docs/screenshots/status-view.png)
 
-(Almost) every line of code is written by
-[Claude Code](https://docs.anthropic.com/en/docs/claude-code). This aims to be a
-port of Neogit - same look and feel, minus the editor integration. My role was
-specs, prompts, review, and testing - Claude (Opus 4.6) did the coding.
-
-> [!WARNING]
+> [!NOTE]
 >
-> This project is in its early stages - expect bugs and missing features. I'm
-> using termagit as my daily driver, so I'll be fixing issues and adding
-> features as they come up. If you want to contribute, please open an issue or a
-> PR
+> This project aims to be a port of Neogit - same look and feel, minus the
+> editor integration. The code is written by
+> [Claude Code Opus 4.6](https://docs.anthropic.com/en/docs/claude-code). My
+> role is specs, prompts, review, and testing.
 
 ## Features
 
@@ -46,6 +41,12 @@ specs, prompts, review, and testing - Claude (Opus 4.6) did the coding.
   supports custom themes via TOML. _See the [docs](docs/themes.md) for details
   and tips on creating your own!_
 - **All Neogit key bindings** - if you know Neogit, you know termagit
+
+> [!WARNING]
+>
+> This project is in its early stages - expect bugs and missing features. I'm
+> using termagit as my daily driver, so I'll be fixing issues and adding
+> features as they come up.
 
 ## Installation
 
