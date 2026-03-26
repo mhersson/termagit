@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -148,7 +149,7 @@ func (r *Repository) HeadInfo(ctx context.Context) (branch, subject string, err 
 
 // HeadOID returns the full 40-character hash of HEAD.
 func (r *Repository) HeadOID(ctx context.Context) (string, error) {
-	oid, _, err := r.logOpSingle(ctx, "git rev-parse HEAD", func() (string, error) {
+	oid, err := r.logOpSingle(ctx, "git rev-parse HEAD", func() (string, error) {
 		head, err := r.raw.Head()
 		if err != nil {
 			return "", fmt.Errorf("get HEAD: %w", err)
@@ -295,7 +296,7 @@ func (r *Repository) ReadMergeState() (head, subject, branch string, err error) 
 	mergeHeadPath := filepath.Join(r.gitDir, "MERGE_HEAD")
 	data, err := readGitFile(mergeHeadPath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return "", "", "", nil // No merge in progress
 		}
 		return "", "", "", fmt.Errorf("read MERGE_HEAD: %w", err)
@@ -306,7 +307,7 @@ func (r *Repository) ReadMergeState() (head, subject, branch string, err error) 
 	mergeMsgPath := filepath.Join(r.gitDir, "MERGE_MSG")
 	msgData, err := readGitFile(mergeMsgPath)
 	if err != nil {
-		if !os.IsNotExist(err) {
+		if !errors.Is(err, fs.ErrNotExist) {
 			return head, "", "", fmt.Errorf("read MERGE_MSG: %w", err)
 		}
 		// MERGE_MSG doesn't exist, just return head
@@ -337,7 +338,7 @@ func (r *Repository) BisectState(ctx context.Context) (BisectState, error) {
 	bisectLogPath := filepath.Join(r.gitDir, "BISECT_LOG")
 	data, err := readGitFile(bisectLogPath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return BisectState{}, nil // No bisect in progress
 		}
 		return BisectState{}, fmt.Errorf("read BISECT_LOG: %w", err)
@@ -719,12 +720,12 @@ func (r *Repository) logOp(ctx context.Context, equiv string, fn func() (string,
 }
 
 // logOpSingle wraps a go-git operation that returns a single value with logging.
-func (r *Repository) logOpSingle(ctx context.Context, equiv string, fn func() (string, error)) (string, string, error) {
+func (r *Repository) logOpSingle(ctx context.Context, equiv string, fn func() (string, error)) (string, error) {
 	result, _, err := r.logOp(ctx, equiv, func() (string, string, error) {
-		r, e := fn()
-		return r, "", e
+		s, e := fn()
+		return s, "", e
 	})
-	return result, "", err
+	return result, err
 }
 
 // GetConfigValue reads a git config value by key.

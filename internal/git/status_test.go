@@ -42,13 +42,13 @@ func TestModeText_MatchesNeogit(t *testing.T) {
 // StatusEntry tests
 
 func TestStatusEntry_Path_ReturnsPath(t *testing.T) {
-	e := StatusEntry{path: "foo.txt"}
-	assert.Equal(t, "foo.txt", e.Path())
+	e := StatusEntry{Path: "foo.txt"}
+	assert.Equal(t, "foo.txt", e.Path)
 }
 
 func TestStatusEntry_OrigPath_ReturnsOrigPath(t *testing.T) {
-	e := StatusEntry{path: "new.txt", origPath: "old.txt"}
-	assert.Equal(t, "old.txt", e.OrigPath())
+	e := StatusEntry{Path: "new.txt", OrigPath: "old.txt"}
+	assert.Equal(t, "old.txt", e.OrigPath)
 }
 
 // Status parsing tests
@@ -64,7 +64,7 @@ func TestStatus_ReturnsUntracked(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, result.Untracked, 1)
-	assert.Equal(t, "untracked.txt", result.Untracked[0].Path())
+	assert.Equal(t, "untracked.txt", result.Untracked[0].Path)
 	assert.Equal(t, FileStatusUntracked, result.Untracked[0].Unstaged)
 }
 
@@ -80,7 +80,7 @@ func TestStatus_ReturnsStagedFile(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, result.Staged, 1)
-	assert.Equal(t, "staged.txt", result.Staged[0].Path())
+	assert.Equal(t, "staged.txt", result.Staged[0].Path)
 	assert.Equal(t, FileStatusNew, result.Staged[0].Staged)
 }
 
@@ -95,7 +95,7 @@ func TestStatus_ReturnsUnstagedModification(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, result.Unstaged, 1)
-	assert.Equal(t, "README.md", result.Unstaged[0].Path())
+	assert.Equal(t, "README.md", result.Unstaged[0].Path)
 	assert.Equal(t, FileStatusModified, result.Unstaged[0].Unstaged)
 }
 
@@ -111,7 +111,7 @@ func TestStatus_ReturnsStagedModification(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, result.Staged, 1)
-	assert.Equal(t, "README.md", result.Staged[0].Path())
+	assert.Equal(t, "README.md", result.Staged[0].Path)
 	assert.Equal(t, FileStatusModified, result.Staged[0].Staged)
 }
 
@@ -132,7 +132,7 @@ func TestStatus_ReturnsDeletedFile(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, result.Staged, 1)
-	assert.Equal(t, "todelete.txt", result.Staged[0].Path())
+	assert.Equal(t, "todelete.txt", result.Staged[0].Path)
 	assert.Equal(t, FileStatusDeleted, result.Staged[0].Staged)
 }
 
@@ -167,9 +167,9 @@ func TestStatus_RenamedFile_HasOrigPath(t *testing.T) {
 	// The renamed file should appear in staged with OrigPath set
 	var found bool
 	for _, e := range result.Staged {
-		if e.Path() == "renamed.txt" {
+		if e.Path == "renamed.txt" {
 			found = true
-			assert.Equal(t, "original.txt", e.OrigPath(), "OrigPath should be the old filename")
+			assert.Equal(t, "original.txt", e.OrigPath, "OrigPath should be the old filename")
 			assert.Equal(t, FileStatusRenamed, e.Staged)
 			break
 		}
@@ -251,7 +251,7 @@ func TestParsePorcelainV2_Kind1_Ordinary(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, entry)
 
-	assert.Equal(t, "modified.txt", entry.Path())
+	assert.Equal(t, "modified.txt", entry.Path)
 	assert.Equal(t, FileStatusModified, entry.Staged)
 	assert.Equal(t, FileStatusNone, entry.Unstaged)
 }
@@ -263,7 +263,7 @@ func TestParsePorcelainV2_Kind1_StagedAndUnstaged(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, entry)
 
-	assert.Equal(t, "both.txt", entry.Path())
+	assert.Equal(t, "both.txt", entry.Path)
 	assert.Equal(t, FileStatusModified, entry.Staged)
 	assert.Equal(t, FileStatusModified, entry.Unstaged)
 }
@@ -276,8 +276,8 @@ func TestParsePorcelainV2_Kind2_Renamed(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, entry)
 
-	assert.Equal(t, "new.txt", entry.Path())
-	assert.Equal(t, "old.txt", entry.OrigPath())
+	assert.Equal(t, "new.txt", entry.Path)
+	assert.Equal(t, "old.txt", entry.OrigPath)
 	assert.Equal(t, FileStatusRenamed, entry.Staged)
 }
 
@@ -288,7 +288,7 @@ func TestParsePorcelainV2_KindUntracked(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, entry)
 
-	assert.Equal(t, "untracked.txt", entry.Path())
+	assert.Equal(t, "untracked.txt", entry.Path)
 	assert.Equal(t, FileStatusUntracked, entry.Unstaged)
 }
 
@@ -300,7 +300,7 @@ func TestParsePorcelainV2_KindU_Unmerged(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, entry)
 
-	assert.Equal(t, "conflicted.txt", entry.Path())
+	assert.Equal(t, "conflicted.txt", entry.Path)
 	assert.Equal(t, "UU", entry.UnmergedMode)
 }
 

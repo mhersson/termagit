@@ -565,7 +565,7 @@ func (m Model) buildInitialContent() string {
 				if modeText == "" {
 					modeText = "modified"
 				}
-				fmt.Fprintf(&b, "%s    %s:   %s\n", c, modeText, entry.Path())
+				fmt.Fprintf(&b, "%s    %s:   %s\n", c, modeText, entry.Path)
 			}
 			fmt.Fprintf(&b, "%s\n", c)
 		}
@@ -578,7 +578,7 @@ func (m Model) buildInitialContent() string {
 				if modeText == "" {
 					modeText = "modified"
 				}
-				fmt.Fprintf(&b, "%s    %s:   %s\n", c, modeText, entry.Path())
+				fmt.Fprintf(&b, "%s    %s:   %s\n", c, modeText, entry.Path)
 			}
 			fmt.Fprintf(&b, "%s\n", c)
 		}
@@ -587,7 +587,7 @@ func (m Model) buildInitialContent() string {
 		if len(m.status.Untracked) > 0 {
 			fmt.Fprintf(&b, "%s Untracked files:\n", c)
 			for _, entry := range m.status.Untracked {
-				fmt.Fprintf(&b, "%s    %s\n", c, entry.Path())
+				fmt.Fprintf(&b, "%s    %s\n", c, entry.Path)
 			}
 			fmt.Fprintf(&b, "%s\n", c)
 		}
@@ -645,7 +645,7 @@ func (m Model) buildCommentContent() string {
 				if modeText == "" {
 					modeText = "modified"
 				}
-				fmt.Fprintf(&b, "%s    %s:   %s\n", c, modeText, entry.Path())
+				fmt.Fprintf(&b, "%s    %s:   %s\n", c, modeText, entry.Path)
 			}
 			fmt.Fprintf(&b, "%s\n", c)
 		}
@@ -657,7 +657,7 @@ func (m Model) buildCommentContent() string {
 				if modeText == "" {
 					modeText = "modified"
 				}
-				fmt.Fprintf(&b, "%s    %s:   %s\n", c, modeText, entry.Path())
+				fmt.Fprintf(&b, "%s    %s:   %s\n", c, modeText, entry.Path)
 			}
 			fmt.Fprintf(&b, "%s\n", c)
 		}
@@ -665,7 +665,7 @@ func (m Model) buildCommentContent() string {
 		if len(m.status.Untracked) > 0 {
 			fmt.Fprintf(&b, "%s Untracked files:\n", c)
 			for _, entry := range m.status.Untracked {
-				fmt.Fprintf(&b, "%s    %s\n", c, entry.Path())
+				fmt.Fprintf(&b, "%s    %s\n", c, entry.Path)
 			}
 			fmt.Fprintf(&b, "%s\n", c)
 		}

@@ -1,15 +1,7 @@
 package theme
 
 func init() {
-	Register(&solarizedLight{})
-}
-
-type solarizedLight struct{}
-
-func (t *solarizedLight) Name() string { return "solarized-light" }
-
-func (t *solarizedLight) Raw() RawTokens {
-	return FromPalette(Palette{
+	Register(NewTheme("solarized-light", FromPalette(Palette{
 		Bg:            "#fdf6e3", // base3
 		Bg1:           "#eee8d5", // base2
 		Bg2:           "#93a1a1", // base1
@@ -32,5 +24,5 @@ func (t *solarizedLight) Raw() RawTokens {
 		Orange:        "#cb4b16",
 		Pink:          "#d33682", // magenta
 		Lavender:      "#6c71c4", // violet
-	})
+	})))
 }

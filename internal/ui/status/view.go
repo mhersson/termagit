@@ -746,7 +746,7 @@ func renderItemWithLineTracking(m Model, sectionIdx, itemIdx int, item *Item, se
 	// File entry
 	if item.Entry != nil {
 		modeText := getModeText(item.Entry, sectionKind)
-		path := item.Entry.Path()
+		path := item.Entry.Path
 
 		sign := ">"
 		if item.Expanded {

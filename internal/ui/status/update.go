@@ -71,7 +71,7 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 				s := &m.sections[m.cursor.Section]
 				if m.cursor.Item < len(s.Items) {
 					item := &s.Items[m.cursor.Item]
-					if item.Entry != nil && item.Entry.Path() == restore.path {
+					if item.Entry != nil && item.Entry.Path == restore.path {
 						item.Expanded = true
 						item.HunksLoading = true
 						m.pendingHunkRestore = hunkRestore{
@@ -655,11 +655,11 @@ func handleStage(m Model) (tea.Model, tea.Cmd) {
 
 	// If on a hunk, stage just the hunk
 	if m.cursor.Hunk >= 0 && len(item.Hunks) > m.cursor.Hunk {
-		return m, stageHunkCmd(m.repo, item.Entry.Path(), item.Hunks[m.cursor.Hunk])
+		return m, stageHunkCmd(m.repo, item.Entry.Path, item.Hunks[m.cursor.Hunk])
 	}
 
 	// Stage the whole file
-	return m, stageFileCmd(m.repo, item.Entry.Path())
+	return m, stageFileCmd(m.repo, item.Entry.Path)
 }
 
 // handleStageUnstaged stages all unstaged files.
@@ -689,11 +689,11 @@ func handleUnstage(m Model) (tea.Model, tea.Cmd) {
 
 	// If on a hunk, unstage just the hunk
 	if m.cursor.Hunk >= 0 && len(item.Hunks) > m.cursor.Hunk {
-		return m, unstageHunkCmd(m.repo, item.Entry.Path(), item.Hunks[m.cursor.Hunk])
+		return m, unstageHunkCmd(m.repo, item.Entry.Path, item.Hunks[m.cursor.Hunk])
 	}
 
 	// Unstage the whole file
-	return m, unstageFileCmd(m.repo, item.Entry.Path())
+	return m, unstageFileCmd(m.repo, item.Entry.Path)
 }
 
 // handleUnstageStaged unstages all staged files.
@@ -713,7 +713,7 @@ func handleDiscardStart(m Model) (tea.Model, tea.Cmd) {
 		return m, notifyAppCmd("Can only discard unstaged changes", notification.Warning)
 	}
 
-	path := item.Entry.Path()
+	path := item.Entry.Path
 
 	// Check if on a hunk
 	if m.cursor.Hunk >= 0 && len(item.Hunks) > m.cursor.Hunk {
@@ -747,7 +747,7 @@ func handleUntrackStart(m Model) (tea.Model, tea.Cmd) {
 		return m, notifyAppCmd("Can only untrack staged files", notification.Warning)
 	}
 
-	path := item.Entry.Path()
+	path := item.Entry.Path
 	m.confirmMode = ConfirmUntrack
 	m.confirmPath = path
 
@@ -864,7 +864,7 @@ func handleYank(m Model) (tea.Model, tea.Cmd) {
 
 	var text string
 	if item.Entry != nil {
-		text = item.Entry.Path()
+		text = item.Entry.Path
 	} else if item.Commit != nil {
 		text = item.Commit.AbbreviatedHash
 	} else if item.Stash != nil {
@@ -891,7 +891,7 @@ func handleOpenTree(m Model) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, openTreeCmd(m.repo.Path(), item.Entry.Path())
+	return m, openTreeCmd(m.repo.Path(), item.Entry.Path)
 }
 
 // handleGoToFile opens the commit view for commits, or the file for files.
@@ -916,7 +916,7 @@ func handleGoToFile(m Model) (tea.Model, tea.Cmd) {
 		if m.repo != nil {
 			repoPath = m.repo.Path()
 		}
-		return m, openInEditorCmd(repoPath, item.Entry.Path())
+		return m, openInEditorCmd(repoPath, item.Entry.Path)
 	}
 
 	return m, nil
@@ -941,7 +941,7 @@ func getCurrentItem(m Model) (*Item, SectionKind) {
 func findHunkByPathAndIndex(m Model, path string, hunkIdx int) *git.Hunk {
 	for _, s := range m.sections {
 		for _, item := range s.Items {
-			if item.Entry != nil && item.Entry.Path() == path {
+			if item.Entry != nil && item.Entry.Path == path {
 				if hunkIdx >= 0 && hunkIdx < len(item.Hunks) {
 					return &item.Hunks[hunkIdx]
 				}
@@ -1313,7 +1313,7 @@ func restoreCursor(sections []Section, restore cursorRestore) Cursor {
 	if sectionIdx >= 0 {
 		s := sections[sectionIdx]
 		for itemIdx, item := range s.Items {
-			if item.Entry != nil && item.Entry.Path() == restore.path {
+			if item.Entry != nil && item.Entry.Path == restore.path {
 				return Cursor{Section: sectionIdx, Item: itemIdx, Hunk: -1, Line: -1}
 			}
 		}
@@ -1342,7 +1342,7 @@ func restoreCursor(sections []Section, restore cursorRestore) Cursor {
 
 // preserveUIState transfers user-driven UI state (fold/expand, loaded hunks)
 // from old sections to new sections after a watcher-triggered reload. Sections
-// are matched by Kind; items are matched by Entry.Path().
+// are matched by Kind; items are matched by Entry.Path.
 func preserveUIState(oldSections, newSections []Section) {
 	for _, oldS := range oldSections {
 		var newS *Section
@@ -1363,7 +1363,7 @@ func preserveUIState(oldSections, newSections []Section) {
 				continue
 			}
 			for j := range newS.Items {
-				if newS.Items[j].Entry != nil && newS.Items[j].Entry.Path() == oldItem.Entry.Path() {
+				if newS.Items[j].Entry != nil && newS.Items[j].Entry.Path == oldItem.Entry.Path {
 					newS.Items[j].Expanded = oldItem.Expanded
 					newS.Items[j].Hunks = oldItem.Hunks
 					newS.Items[j].HunksFolded = oldItem.HunksFolded
@@ -1411,7 +1411,7 @@ func preserveCursorAcrossReload(oldSections []Section, oldCursor Cursor, newSect
 		oldItem := oldSections[oldCursor.Section].Items[oldCursor.Item]
 		if oldItem.Entry != nil {
 			for i, item := range newSection.Items {
-				if item.Entry != nil && item.Entry.Path() == oldItem.Entry.Path() {
+				if item.Entry != nil && item.Entry.Path == oldItem.Entry.Path {
 					// Preserve hunk/line position if the file is still expanded with hunks
 					hunk, line := oldCursor.Hunk, oldCursor.Line
 					if hunk >= 0 && item.Expanded && len(item.Hunks) > 0 {
@@ -1458,7 +1458,7 @@ func saveCursorContext(m Model) cursorRestore {
 	}
 	return cursorRestore{
 		active:      true,
-		path:        item.Entry.Path(),
+		path:        item.Entry.Path,
 		sectionKind: sectionKind,
 		itemIndex:   m.cursor.Item,
 		hunk:        m.cursor.Hunk,
@@ -2891,8 +2891,8 @@ func handleRenameFile(m Model) (tea.Model, tea.Cmd) {
 		return m, notifyAppCmd("No file selected", notification.Warning)
 	}
 
-	m.confirmPath = item.Entry.Path()
-	return openBranchInput(m, inputPromptRenameFile, "Rename "+item.Entry.Path()+" to: ")
+	m.confirmPath = item.Entry.Path
+	return openBranchInput(m, inputPromptRenameFile, "Rename "+item.Entry.Path+" to: ")
 }
 
 // handlePeekFile loads file content for a read-only overlay.
@@ -2901,7 +2901,7 @@ func handlePeekFile(m Model) (tea.Model, tea.Cmd) {
 	if item == nil || item.Entry == nil {
 		return m, nil
 	}
-	return m, loadPeekFileCmd(m.repo.Path(), item.Entry.Path())
+	return m, loadPeekFileCmd(m.repo.Path(), item.Entry.Path)
 }
 
 // handleOpenOrScrollDown scrolls the commit view overlay down, or opens one for the current commit.
@@ -3277,7 +3277,7 @@ func handleRevertHunk(m Model) (tea.Model, tea.Cmd) {
 	}
 	hunk := item.Hunks[m.cursor.Hunk]
 	// Apply the hunk in reverse to the worktree
-	return m, discardHunkCmd(m.repo, item.Entry.Path(), hunk)
+	return m, discardHunkCmd(m.repo, item.Entry.Path, hunk)
 }
 
 // --- Stash popup action handling ---
@@ -3792,7 +3792,7 @@ func getCursorFilePath(m Model) (string, bool) {
 	if item == nil || item.Entry == nil {
 		return "", false
 	}
-	return item.Entry.Path(), true
+	return item.Entry.Path, true
 }
 
 // getCommitHashAtCursor returns the commit hash at the cursor, or "" if not on a commit.

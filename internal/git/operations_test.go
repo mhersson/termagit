@@ -24,7 +24,7 @@ func TestStageFile_StagesUntracked(t *testing.T) {
 
 	assert.Empty(t, status.Untracked)
 	require.Len(t, status.Staged, 1)
-	assert.Equal(t, "new.txt", status.Staged[0].Path())
+	assert.Equal(t, "new.txt", status.Staged[0].Path)
 }
 
 func TestStageFile_StagesModified(t *testing.T) {
@@ -42,7 +42,7 @@ func TestStageFile_StagesModified(t *testing.T) {
 
 	assert.Empty(t, status.Unstaged)
 	require.Len(t, status.Staged, 1)
-	assert.Equal(t, "README.md", status.Staged[0].Path())
+	assert.Equal(t, "README.md", status.Staged[0].Path)
 }
 
 func TestUnstageFile_UnstagesFile(t *testing.T) {
@@ -67,7 +67,7 @@ func TestUnstageFile_UnstagesFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, status.Staged)
 	require.Len(t, status.Untracked, 1)
-	assert.Equal(t, "staged.txt", status.Untracked[0].Path())
+	assert.Equal(t, "staged.txt", status.Untracked[0].Path)
 }
 
 func TestStageAll_StagesAllChanges(t *testing.T) {
@@ -168,7 +168,7 @@ func TestUntrackFile_RemovesFromIndex(t *testing.T) {
 	// Find the staged deletion entry
 	var foundStagedDelete bool
 	for _, entry := range status.Staged {
-		if entry.Path() == "tracked.txt" && entry.Staged == FileStatusDeleted {
+		if entry.Path == "tracked.txt" && entry.Staged == FileStatusDeleted {
 			foundStagedDelete = true
 			break
 		}
@@ -178,7 +178,7 @@ func TestUntrackFile_RemovesFromIndex(t *testing.T) {
 	// File should also appear as untracked (it still exists on disk)
 	var foundUntracked bool
 	for _, entry := range status.Untracked {
-		if entry.Path() == "tracked.txt" {
+		if entry.Path == "tracked.txt" {
 			foundUntracked = true
 			break
 		}

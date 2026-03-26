@@ -1,6 +1,8 @@
 package theme
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -21,14 +23,14 @@ type themeFile struct {
 func LoadDir(dir string) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil
 		}
 		return err
 	}
 
 	fb := Fallback()
-	if fb == nil {
+	if fb.Name() == "" {
 		return nil
 	}
 	fallbackRaw := fb.Raw()
@@ -59,7 +61,7 @@ func LoadDir(dir string) error {
 
 		// Fill remaining empty fields from fallback
 		mergeTokens(&raw, &fallbackRaw)
-		Register(&externalTheme{name: name, raw: raw})
+		Register(NewTheme(name, raw))
 	}
 
 	return nil
@@ -91,12 +93,3 @@ func mergeTokens(dst, src *RawTokens) {
 		}
 	}
 }
-
-// externalTheme wraps a loaded theme file.
-type externalTheme struct {
-	name string
-	raw  RawTokens
-}
-
-func (t *externalTheme) Name() string   { return t.name }
-func (t *externalTheme) Raw() RawTokens { return t.raw }

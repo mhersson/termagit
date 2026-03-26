@@ -137,6 +137,6 @@ func FromPalette(p Palette) RawTokens {
 }
 
 // hasPalette returns true if the palette has enough fields to generate tokens.
-func (p Palette) hasPalette() bool {
+func (p *Palette) hasPalette() bool {
 	return p.Bg != "" && p.Fg != "" && p.Blue != "" && p.Green != "" && p.Red != ""
 }

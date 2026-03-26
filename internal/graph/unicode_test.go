@@ -19,7 +19,8 @@ func TestBuild_SingleCommitNoParents(t *testing.T) {
 	commits := []CommitInput{
 		{OID: "aaa", Parents: nil},
 	}
-	rows := Build(commits)
+	rows, err := Build(commits)
+	require.NoError(t, err)
 
 	// Root commit gets a commit row + a trailing merge line (nparents==0 && nbranches==0)
 	require.GreaterOrEqual(t, len(rows), 1)
@@ -34,7 +35,8 @@ func TestBuild_LinearChain(t *testing.T) {
 		{OID: "bbb", Parents: []string{"ccc"}},
 		{OID: "ccc", Parents: nil},
 	}
-	rows := Build(commits)
+	rows, err := Build(commits)
+	require.NoError(t, err)
 
 	// Linear chain: each commit gets "• ", no merge lines
 	commitRows := 0
@@ -56,7 +58,8 @@ func TestBuild_SimpleMerge(t *testing.T) {
 		{OID: "bbb", Parents: []string{"ccc"}},
 		{OID: "ccc", Parents: nil},
 	}
-	rows := Build(commits)
+	rows, err := Build(commits)
+	require.NoError(t, err)
 
 	// Should have commit rows and merge connector rows
 	require.Greater(t, len(rows), 4, "merge should produce connector rows")
@@ -89,7 +92,8 @@ func TestBuild_BranchAndMerge(t *testing.T) {
 		{OID: "B", Parents: []string{"C"}},
 		{OID: "C", Parents: nil},
 	}
-	rows := Build(commits)
+	rows, err := Build(commits)
+	require.NoError(t, err)
 
 	// Verify commit rows have correct OIDs in order
 	var commitOIDs []string
@@ -109,7 +113,8 @@ func TestBuild_OctopusMerge(t *testing.T) {
 		{OID: "B", Parents: nil},
 		{OID: "C", Parents: nil},
 	}
-	rows := Build(commits)
+	rows, err := Build(commits)
+	require.NoError(t, err)
 	require.Greater(t, len(rows), 4, "octopus merge should produce extra rows")
 
 	// All commit rows should be present
@@ -127,7 +132,8 @@ func TestBuild_MissingParent(t *testing.T) {
 	commits := []CommitInput{
 		{OID: "aaa", Parents: []string{"missing"}},
 	}
-	rows := Build(commits)
+	rows, err := Build(commits)
+	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(rows), 1)
 	assert.Equal(t, "aaa", rows[0][0].OID)
 
@@ -155,7 +161,8 @@ func TestBuild_AllCellsHavePurpleColor(t *testing.T) {
 		{OID: "B", Parents: []string{"C"}},
 		{OID: "C", Parents: nil},
 	}
-	rows := Build(commits)
+	rows, err := Build(commits)
+	require.NoError(t, err)
 
 	for _, row := range rows {
 		for _, cell := range row {
@@ -171,7 +178,8 @@ func TestBuild_CommitRowsHaveOID_ConnectorRowsDont(t *testing.T) {
 		{OID: "B", Parents: []string{"C"}},
 		{OID: "C", Parents: nil},
 	}
-	rows := Build(commits)
+	rows, err := Build(commits)
+	require.NoError(t, err)
 
 	for _, row := range rows {
 		if len(row) == 0 {
@@ -200,7 +208,8 @@ func TestBuild_LinearChain_NoConnectorRows(t *testing.T) {
 		{OID: "C", Parents: []string{"D"}},
 		{OID: "D", Parents: nil},
 	}
-	rows := Build(commits)
+	rows, err := Build(commits)
+	require.NoError(t, err)
 
 	// Count commit rows vs connector rows
 	commitCount := 0
@@ -214,11 +223,29 @@ func TestBuild_LinearChain_NoConnectorRows(t *testing.T) {
 }
 
 func TestBuild_EmptyInput(t *testing.T) {
-	rows := Build(nil)
+	rows, err := Build(nil)
+	assert.NoError(t, err)
 	assert.Empty(t, rows)
 
-	rows = Build([]CommitInput{})
+	rows, err = Build([]CommitInput{})
+	assert.NoError(t, err)
 	assert.Empty(t, rows)
+}
+
+func TestBuild_ReturnsErrorNotPanic(t *testing.T) {
+	// Build should never panic — any internal error should be returned as an error.
+	// Normal inputs should return no error.
+	commits := []CommitInput{
+		{OID: "M", Parents: []string{"A", "B"}},
+		{OID: "A", Parents: []string{"C"}},
+		{OID: "B", Parents: []string{"C"}},
+		{OID: "C", Parents: nil},
+	}
+	assert.NotPanics(t, func() {
+		rows, err := Build(commits)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, rows)
+	})
 }
 
 func TestBuild_RootCommitInChain(t *testing.T) {
@@ -227,7 +254,8 @@ func TestBuild_RootCommitInChain(t *testing.T) {
 		{OID: "A", Parents: []string{"B"}},
 		{OID: "B", Parents: nil},
 	}
-	rows := Build(commits)
+	rows, err := Build(commits)
+	require.NoError(t, err)
 
 	var commitOIDs []string
 	for _, row := range rows {

@@ -37,5 +37,9 @@ func Open(target string) error {
 	default:
 		return fmt.Errorf("open not supported on %s", runtime.GOOS)
 	}
-	return cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go func() { _ = cmd.Wait() }()
+	return nil
 }

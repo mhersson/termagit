@@ -6,10 +6,21 @@ import (
 )
 
 // Theme represents a color theme.
-type Theme interface {
-	Name() string
-	Raw() RawTokens
+type Theme struct {
+	name string
+	raw  RawTokens
 }
+
+// NewTheme creates a new theme with the given name and raw tokens.
+func NewTheme(name string, raw RawTokens) Theme {
+	return Theme{name: name, raw: raw}
+}
+
+// Name returns the theme name.
+func (t Theme) Name() string { return t.name }
+
+// Raw returns the raw token values.
+func (t Theme) Raw() RawTokens { return t.raw }
 
 var (
 	mu       sync.RWMutex
@@ -51,7 +62,7 @@ func Fallback() Theme {
 	return fallback
 }
 
-// setFallback is called by the catppuccin_mocha init() function.
+// setFallback sets the default theme.
 func setFallback(t Theme) {
 	mu.Lock()
 	defer mu.Unlock()

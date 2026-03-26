@@ -52,25 +52,37 @@ func (r *Repository) CherryPick(ctx context.Context, hashes []string, opts Cherr
 	args = append(args, hashes...)
 
 	_, err := r.runGit(ctx, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("cherry-pick: %w", err)
+	}
+	return nil
 }
 
 // CherryPickContinue continues an in-progress cherry-pick after conflict resolution.
 func (r *Repository) CherryPickContinue(ctx context.Context) error {
 	_, err := r.runGit(ctx, "cherry-pick", "--continue")
-	return err
+	if err != nil {
+		return fmt.Errorf("cherry-pick continue: %w", err)
+	}
+	return nil
 }
 
 // CherryPickSkip skips the current commit in an in-progress cherry-pick.
 func (r *Repository) CherryPickSkip(ctx context.Context) error {
 	_, err := r.runGit(ctx, "cherry-pick", "--skip")
-	return err
+	if err != nil {
+		return fmt.Errorf("cherry-pick skip: %w", err)
+	}
+	return nil
 }
 
 // CherryPickAbort aborts an in-progress cherry-pick.
 func (r *Repository) CherryPickAbort(ctx context.Context) error {
 	_, err := r.runGit(ctx, "cherry-pick", "--abort")
-	return err
+	if err != nil {
+		return fmt.Errorf("cherry-pick abort: %w", err)
+	}
+	return nil
 }
 
 // CherryPickApply applies the changes from the given commits without committing.
@@ -80,7 +92,10 @@ func (r *Repository) CherryPickApply(ctx context.Context, hashes []string, opts 
 	args = append(args, hashes...)
 
 	_, err := r.runGit(ctx, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("cherry-pick apply: %w", err)
+	}
+	return nil
 }
 
 // CherryPickDonate cherry-picks commits onto the destination branch, then removes them

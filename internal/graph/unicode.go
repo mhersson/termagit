@@ -3,7 +3,10 @@
 // of the vim-flog algorithm (https://github.com/rbong/vim-flog).
 package graph
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // Cell represents a single character in the graph with its color.
 type Cell struct {
@@ -57,9 +60,9 @@ type rawLine struct {
 // Build computes the unicode graph for a list of commits.
 // Returns one or more Rows per commit: the first row has OID set (commit row
 // with "•"), subsequent rows are connector rows with empty OID.
-func Build(commits []CommitInput) []Row {
+func Build(commits []CommitInput) ([]Row, error) {
 	if len(commits) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	// Build set of all commit hashes for missing parent detection
@@ -349,8 +352,7 @@ func Build(commits []CommitInput) []Row {
 							if mergeRight {
 								mergeLine[nmergeStrings] = mergeDownRightStr
 							} else {
-								// Not possible — panic like Neogit
-								panic("flog: internal error drawing graph")
+								return nil, fmt.Errorf("graph: internal error drawing graph: branch hash with no merge direction")
 							}
 						}
 					} else {
@@ -358,11 +360,11 @@ func Build(commits []CommitInput) []Row {
 							if mergeRight {
 								mergeLine[nmergeStrings] = mergeLeftRightStr
 							} else {
-								panic("flog: internal error drawing graph")
+								return nil, fmt.Errorf("graph: internal error drawing graph: merge left without right")
 							}
 						} else {
 							if mergeRight {
-								panic("flog: internal error drawing graph")
+								return nil, fmt.Errorf("graph: internal error drawing graph: merge right without left")
 							}
 							mergeLine[nmergeStrings] = mergeEmptyStr
 						}
@@ -472,7 +474,7 @@ func Build(commits []CommitInput) []Row {
 		rows = append(rows, row)
 	}
 
-	return rows
+	return rows, nil
 }
 
 // concatSparse concatenates a sparse map of strings indexed 1..max in order.

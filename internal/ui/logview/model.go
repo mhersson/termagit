@@ -344,7 +344,15 @@ func (m *Model) computeDisplayRows() {
 		inputs[i] = graph.CommitInput{OID: c.Hash, Parents: parents}
 	}
 
-	graphRows := graph.Build(inputs)
+	graphRows, err := graph.Build(inputs)
+	if err != nil {
+		// Render a placeholder row instead of crashing
+		m.displayRows = []displayRow{{
+			commitIdx:  -1,
+			graphCells: []graph.Cell{{Text: "[graph error: " + err.Error() + "]"}},
+		}}
+		return
+	}
 
 	oidToIdx := make(map[string]int, len(m.commits))
 	for i, c := range m.commits {

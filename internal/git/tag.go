@@ -66,23 +66,35 @@ func (r *Repository) CreateTag(ctx context.Context, name, hash string, opts TagO
 	args = append(args, name, hash)
 
 	_, err := r.runGit(ctx, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("create tag %s: %w", name, err)
+	}
+	return nil
 }
 
 // DeleteTag deletes a tag by name.
 func (r *Repository) DeleteTag(ctx context.Context, name string) error {
 	_, err := r.runGit(ctx, "tag", "-d", name)
-	return err
+	if err != nil {
+		return fmt.Errorf("delete tag %s: %w", name, err)
+	}
+	return nil
 }
 
 // PushTag pushes a single tag to a remote.
 func (r *Repository) PushTag(ctx context.Context, remote, name string) error {
 	_, err := r.runGit(ctx, "push", remote, "refs/tags/"+name)
-	return err
+	if err != nil {
+		return fmt.Errorf("push tag %s: %w", name, err)
+	}
+	return nil
 }
 
 // PruneRemoteTags removes remote tags that no longer exist on the remote.
 func (r *Repository) PruneRemoteTags(ctx context.Context, remote string) error {
 	_, err := r.runGit(ctx, "fetch", "--prune", remote, "+refs/tags/*:refs/tags/*")
-	return err
+	if err != nil {
+		return fmt.Errorf("prune remote tags: %w", err)
+	}
+	return nil
 }

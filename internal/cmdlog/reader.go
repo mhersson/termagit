@@ -3,7 +3,9 @@ package cmdlog
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"sort"
 )
@@ -50,7 +52,7 @@ func ReadRecent(path string, n int) ([]Entry, error) {
 func readFile(path string) ([]Entry, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("open %s: %w", path, err)

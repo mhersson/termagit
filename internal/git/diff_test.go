@@ -319,7 +319,7 @@ func TestApplyPatch_StagesHunk(t *testing.T) {
 
 	found := false
 	for _, e := range status.Staged {
-		if e.Path() == "multi.txt" {
+		if e.Path == "multi.txt" {
 			found = true
 		}
 	}
@@ -354,13 +354,13 @@ func TestApplyPatch_UnstagesHunk(t *testing.T) {
 	status, err := r.Status(ctx)
 	require.NoError(t, err)
 	for _, e := range status.Staged {
-		if e.Path() == "unstage.txt" {
+		if e.Path == "unstage.txt" {
 			t.Fatal("unstage.txt should not be in staged entries after unstaging hunk")
 		}
 	}
 	foundUnstaged := false
 	for _, e := range status.Unstaged {
-		if e.Path() == "unstage.txt" {
+		if e.Path == "unstage.txt" {
 			foundUnstaged = true
 		}
 	}
@@ -393,7 +393,7 @@ func TestApplyPatch_DiscardsHunk(t *testing.T) {
 	status, err := r.Status(ctx)
 	require.NoError(t, err)
 	for _, e := range status.Unstaged {
-		if e.Path() == "discard.txt" {
+		if e.Path == "discard.txt" {
 			t.Fatal("discard.txt should not appear in unstaged after discarding all changes")
 		}
 	}

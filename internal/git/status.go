@@ -62,8 +62,8 @@ type FileModeChange struct {
 
 // StatusEntry represents a single file in git status output.
 type StatusEntry struct {
-	path         string
-	origPath     string // for renames/copies
+	Path         string
+	OrigPath     string // for renames/copies
 	Staged       FileStatus
 	Unstaged     FileStatus
 	UnmergedMode string           // e.g. "UU", "AA" for unmerged files
@@ -71,21 +71,11 @@ type StatusEntry struct {
 	Submodule    *SubmoduleStatus // may be nil for non-submodules
 }
 
-// Path returns the file path.
-func (e *StatusEntry) Path() string {
-	return e.path
-}
-
-// OrigPath returns the original path for renames/copies.
-func (e *StatusEntry) OrigPath() string {
-	return e.origPath
-}
-
 // NewStatusEntry creates a StatusEntry with the given path and statuses.
 // This is primarily useful for testing.
 func NewStatusEntry(path string, staged, unstaged FileStatus) StatusEntry {
 	return StatusEntry{
-		path:     path,
+		Path:     path,
 		Staged:   staged,
 		Unstaged: unstaged,
 	}
@@ -127,7 +117,7 @@ func (r *Repository) statusFromGoGit(wt *gogit.Worktree) (*StatusResult, error) 
 	result := &StatusResult{}
 
 	for path, fileStatus := range status {
-		entry := StatusEntry{path: path}
+		entry := StatusEntry{Path: path}
 
 		// Parse staging status
 		switch fileStatus.Staging {
@@ -244,7 +234,7 @@ func parsePorcelainLine(line string) (*StatusEntry, error) {
 		return parseKindU(rest)
 	case '?': // Untracked
 		return &StatusEntry{
-			path:     rest,
+			Path:     rest,
 			Staged:   FileStatusNone,
 			Unstaged: FileStatusUntracked,
 		}, nil
@@ -275,7 +265,7 @@ func parseKind1(rest string) (*StatusEntry, error) {
 	path := parts[7]
 
 	entry := &StatusEntry{
-		path: path,
+		Path: path,
 		FileMode: &FileModeChange{
 			Head:     mH,
 			Index:    mI,
@@ -325,8 +315,8 @@ func parseKind2(rest string) (*StatusEntry, error) {
 	path := parts[8]
 
 	entry := &StatusEntry{
-		path:     path,
-		origPath: origPath,
+		Path:     path,
+		OrigPath: origPath,
 		FileMode: &FileModeChange{
 			Head:     mH,
 			Index:    mI,
@@ -360,7 +350,7 @@ func parseKindU(rest string) (*StatusEntry, error) {
 	path := parts[9]
 
 	return &StatusEntry{
-		path:         path,
+		Path:         path,
 		Staged:       FileStatusNone,
 		UnmergedMode: xy,
 		Unstaged:     FileStatusUpdated,

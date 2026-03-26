@@ -2,7 +2,6 @@ package notification
 
 import (
 	"strings"
-	"sync/atomic"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -72,15 +71,16 @@ type NotifyMsg struct {
 	Kind    Kind
 }
 
-var nextID atomic.Int64
+var nextID int64
 
 // New creates a notification that expires after the given duration.
 func New(msg string, kind Kind, d time.Duration) Notification {
+	nextID++
 	return Notification{
 		Message: msg,
 		Kind:    kind,
 		Expiry:  time.Now().Add(d),
-		id:      nextID.Add(1),
+		id:      nextID,
 	}
 }
 

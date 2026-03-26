@@ -453,7 +453,7 @@ func loadHunksCmd(repo *git.Repository, sIdx, iIdx int, entry *git.StatusEntry, 
 
 		switch kind {
 		case git.DiffStaged:
-			diffs, err := repo.StagedDiff(ctx, entry.Path())
+			diffs, err := repo.StagedDiff(ctx, entry.Path)
 			if err != nil {
 				return hunksLoadedMsg{sectionIdx: sIdx, itemIdx: iIdx, err: err}
 			}
@@ -464,7 +464,7 @@ func loadHunksCmd(repo *git.Repository, sIdx, iIdx int, entry *git.StatusEntry, 
 		case git.DiffUnstaged:
 			// Check if untracked
 			if entry.Unstaged == git.FileStatusUntracked {
-				diff, err := repo.UntrackedDiff(ctx, entry.Path())
+				diff, err := repo.UntrackedDiff(ctx, entry.Path)
 				if err != nil {
 					return hunksLoadedMsg{sectionIdx: sIdx, itemIdx: iIdx, err: err}
 				}
@@ -472,7 +472,7 @@ func loadHunksCmd(repo *git.Repository, sIdx, iIdx int, entry *git.StatusEntry, 
 					hunks = diff.Hunks
 				}
 			} else {
-				diffs, err := repo.UnstagedDiff(ctx, entry.Path())
+				diffs, err := repo.UnstagedDiff(ctx, entry.Path)
 				if err != nil {
 					return hunksLoadedMsg{sectionIdx: sIdx, itemIdx: iIdx, err: err}
 				}

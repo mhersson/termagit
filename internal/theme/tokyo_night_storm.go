@@ -1,15 +1,7 @@
 package theme
 
 func init() {
-	Register(&tokyoNightStorm{})
-}
-
-type tokyoNightStorm struct{}
-
-func (t *tokyoNightStorm) Name() string { return "tokyo-night-storm" }
-
-func (t *tokyoNightStorm) Raw() RawTokens {
-	return FromPalette(Palette{
+	Register(NewTheme("tokyo-night-storm", FromPalette(Palette{
 		Bg:            "#24283b",
 		Bg1:           "#292e42", // bg_highlight
 		Bg2:           "#33467c",
@@ -32,5 +24,5 @@ func (t *tokyoNightStorm) Raw() RawTokens {
 		Orange:        "#ff9e64",
 		Pink:          "#bb9af7",
 		Lavender:      "#7dcfff",
-	})
+	})))
 }

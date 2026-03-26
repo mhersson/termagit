@@ -1,14 +1,6 @@
 package theme
 
 func init() {
-	Register(&catppuccinMacchiato{})
-}
-
-type catppuccinMacchiato struct{}
-
-func (t *catppuccinMacchiato) Name() string { return "catppuccin-macchiato" }
-
-func (t *catppuccinMacchiato) Raw() RawTokens {
 	r := FromPalette(Palette{
 		Bg:            "#24273a", // base
 		Bg1:           "#363a4f", // surface0
@@ -38,5 +30,5 @@ func (t *catppuccinMacchiato) Raw() RawTokens {
 	r.ChangeUntracked = "#939ab7" // overlay2
 	r.GraphGray = "#5b6078"       // surface2
 
-	return r
+	Register(NewTheme("catppuccin-macchiato", r))
 }

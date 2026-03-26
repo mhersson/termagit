@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 )
 
@@ -47,7 +48,10 @@ func (r *Repository) Revert(ctx context.Context, hashes []string, opts RevertOpt
 	args = append(args, hashes...)
 
 	_, err := r.runGit(ctx, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("revert: %w", err)
+	}
+	return nil
 }
 
 // RevertChanges applies the reverse of the given commits without committing.
@@ -57,23 +61,35 @@ func (r *Repository) RevertChanges(ctx context.Context, hashes []string, opts Re
 	args = append(args, hashes...)
 
 	_, err := r.runGit(ctx, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("revert changes: %w", err)
+	}
+	return nil
 }
 
 // RevertContinue continues an in-progress revert after conflict resolution.
 func (r *Repository) RevertContinue(ctx context.Context) error {
 	_, err := r.runGit(ctx, "revert", "--continue")
-	return err
+	if err != nil {
+		return fmt.Errorf("revert continue: %w", err)
+	}
+	return nil
 }
 
 // RevertSkip skips the current commit in an in-progress revert.
 func (r *Repository) RevertSkip(ctx context.Context) error {
 	_, err := r.runGit(ctx, "revert", "--skip")
-	return err
+	if err != nil {
+		return fmt.Errorf("revert skip: %w", err)
+	}
+	return nil
 }
 
 // RevertAbort aborts an in-progress revert.
 func (r *Repository) RevertAbort(ctx context.Context) error {
 	_, err := r.runGit(ctx, "revert", "--abort")
-	return err
+	if err != nil {
+		return fmt.Errorf("revert abort: %w", err)
+	}
+	return nil
 }

@@ -1,6 +1,8 @@
 package popup
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -48,7 +50,7 @@ func (s *State) Load() error {
 		return err
 	}
 
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
 		// File doesn't exist, that's fine
 		return nil
 	}

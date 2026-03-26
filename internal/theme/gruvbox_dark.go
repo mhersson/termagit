@@ -1,15 +1,7 @@
 package theme
 
 func init() {
-	Register(&gruvboxDark{})
-}
-
-type gruvboxDark struct{}
-
-func (t *gruvboxDark) Name() string { return "gruvbox-dark" }
-
-func (t *gruvboxDark) Raw() RawTokens {
-	return FromPalette(Palette{
+	Register(NewTheme("gruvbox-dark", FromPalette(Palette{
 		Bg:            "#282828", // bg0
 		Bg1:           "#3c3836", // bg1
 		Bg2:           "#504945", // bg2
@@ -32,5 +24,5 @@ func (t *gruvboxDark) Raw() RawTokens {
 		Orange:        "#fe8019", // bright_orange
 		Pink:          "#d3869b", // same as purple
 		Lavender:      "#83a598", // same as blue
-	})
+	})))
 }
