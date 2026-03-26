@@ -12,10 +12,19 @@ Emacs, [Neogit](https://github.com/NeogitOrg/neogit) filled the gap in Neovim -
 but I wanted something editor-agnostic that I could launch from any terminal, in
 any project. termagit is that.
 
-Every line of code was written by
+![status buffer](docs/screenshots/status-view.png)
+
+(Almost) every line of code is written by
 [Claude Code](https://docs.anthropic.com/en/docs/claude-code). This aims to be a
 port of Neogit - same look and feel, minus the editor integration. My role was
-specs, prompts, review, and testing - Claude did the coding.
+specs, prompts, review, and testing - Claude (Opus 4.6) did the coding.
+
+> [!WARNING]
+>
+> This project is in its early stages - expect bugs and missing features. I'm
+> using termagit as my daily driver, so I'll be fixing issues and adding
+> features as they come up. If you want to contribute, please open an issue or a
+> PR
 
 ## Features
 
@@ -34,7 +43,8 @@ specs, prompts, review, and testing - Claude did the coding.
 - **Interactive rebase editor**
 - **File watcher** - auto-refreshes when the working tree changes
 - **Themeable** - ships with catppuccin-mocha, everforest-dark, and tokyo-night;
-  supports custom themes via TOML
+  supports custom themes via TOML. _See the [docs](docs/themes.md) for details
+  and tips on creating your own!_
 - **All Neogit key bindings** - if you know Neogit, you know termagit
 
 ## Installation
@@ -88,10 +98,15 @@ folded = false
 
 ## Themes
 
-Three built-in themes are available:
+12 built-in themes are available:
 
-- `catppuccin-mocha` (default)
+Different variants of the following themes are supported (e.g.
+`catppuccin-latte`, `catppuccin-frappe`, etc.):
+
+- `catppuccin` (catppuccin-mocha is default)
 - `everforest-dark`
+- `gruvbox`
+- `solarized`
 - `tokyo-night`
 
 Custom themes can be placed in `~/.config/termagit/themes/` as TOML files. The
