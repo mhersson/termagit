@@ -419,6 +419,9 @@ func (e *Editor) handleNormalRune(r rune) bool {
 	case 'y':
 		e.pending = 'y'
 		return true
+	case 'r':
+		e.pending = 'r'
+		return true
 	case 'x':
 		e.deleteChar()
 		return true
@@ -480,6 +483,9 @@ func (e *Editor) handlePendingOperator(msg tea.KeyMsg) bool {
 		return e.handleChangeOperator(r)
 	case 'y':
 		return e.handleYankOperator(r)
+	case 'r':
+		e.replaceChar(r)
+		return true
 	}
 	return false
 }
@@ -600,6 +606,17 @@ func (e *Editor) deleteChar() {
 		e.buffer.DeleteRange(e.cursor.Line, e.cursor.Col, e.cursor.Line, e.cursor.Col+1)
 		e.cursor.Clamp(e.buffer)
 	}
+}
+
+// replaceChar replaces the character under the cursor with the given rune (r command).
+func (e *Editor) replaceChar(replacement rune) {
+	line := e.buffer.Line(e.cursor.Line)
+	runes := []rune(line)
+	if e.cursor.Col >= len(runes) {
+		return
+	}
+	e.buffer.DeleteRange(e.cursor.Line, e.cursor.Col, e.cursor.Line, e.cursor.Col+1)
+	e.buffer.InsertRune(e.cursor.Line, e.cursor.Col, replacement)
 }
 
 // deleteVisualSelection deletes the visually selected lines.

@@ -325,3 +325,78 @@ func TestVimEditor_C_PopulatesRegister(t *testing.T) {
 	assert.Equal(t, "world", e.Register())
 	assert.False(t, e.RegisterIsLine())
 }
+
+// Replace (r) tests
+
+func TestVimEditor_r_ReplacesCharUnderCursor(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello")
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+
+	assert.Equal(t, "Xello", e.Content())
+}
+
+func TestVimEditor_r_MiddleOfLine(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello")
+	e.SetCursor(0, 2)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+
+	assert.Equal(t, "heXlo", e.Content())
+}
+
+func TestVimEditor_r_StaysInNormalMode(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello")
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+
+	assert.Equal(t, ModeNormal, e.Mode())
+}
+
+func TestVimEditor_r_CursorStaysInPlace(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello")
+	e.SetCursor(0, 2)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+
+	assert.Equal(t, 2, e.Col(), "cursor should stay at same position")
+}
+
+func TestVimEditor_r_OnEmptyLine_NoOp(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("")
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+
+	assert.Equal(t, "", e.Content())
+}
+
+func TestVimEditor_r_ESC_CancelsPending(t *testing.T) {
+	e := NewEditor(testTokens(), ModeNormal)
+	e.SetContent("hello")
+	e.SetCursor(0, 0)
+	e.SetMode(ModeNormal)
+
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	e.HandleKey(tea.KeyMsg{Type: tea.KeyEscape})
+
+	assert.Equal(t, "hello", e.Content(), "escape should cancel replace")
+	assert.Equal(t, ModeNormal, e.Mode())
+}
