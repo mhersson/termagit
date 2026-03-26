@@ -333,7 +333,7 @@ func (r *Repository) RebaseWithTodo(ctx context.Context, base string, entries []
 	_ = tmpFile.Close()
 
 	// Build the sequence editor command that copies our prepared todo over git's
-	seqEditor := fmt.Sprintf("cp %s", tmpPath)
+	seqEditor := fmt.Sprintf("cp '%s'", strings.ReplaceAll(tmpPath, "'", "'\\''"))
 
 	args := append([]string{"rebase"}, rebaseArgs(opts)...)
 	args = append(args, "-i", base)

@@ -639,7 +639,8 @@ func (r *Repository) logGitCmd(start time.Time, args []string, stdout, stderr st
 	}
 	exitCode := 0
 	if cmdErr != nil {
-		if exitErr, ok := cmdErr.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(cmdErr, &exitErr) {
 			exitCode = exitErr.ExitCode()
 		} else {
 			exitCode = -1

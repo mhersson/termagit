@@ -3,8 +3,18 @@ package git
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 )
+
+var hexRe = regexp.MustCompile(`^[0-9a-fA-F]+$`)
+
+func validateHex(s string) error {
+	if !hexRe.MatchString(s) {
+		return fmt.Errorf("invalid hex string: %q", s)
+	}
+	return nil
+}
 
 // RebaseOpts configures a rebase operation.
 type RebaseOpts struct {
@@ -147,6 +157,9 @@ func (r *Repository) DropCommit(ctx context.Context, hash string) error {
 // RewordCommit rewrites the commit message of the given commit using
 // interactive rebase with a custom sequence editor that changes "pick" to "reword".
 func (r *Repository) RewordCommit(ctx context.Context, hash, message string) error {
+	if err := validateHex(hash); err != nil {
+		return err
+	}
 	// Use GIT_SEQUENCE_EDITOR to change "pick <hash>" to "reword <hash>"
 	sedCmd := fmt.Sprintf("sed -i.bak '0,/^pick %s/s//reword %s/' \"$1\"", hash[:7], hash[:7])
 	env := []string{
@@ -167,6 +180,9 @@ func (r *Repository) RewordCommit(ctx context.Context, hash, message string) err
 // ModifyCommit stops the rebase at the given commit for amending.
 // Uses interactive rebase with a sequence editor that changes "pick" to "edit".
 func (r *Repository) ModifyCommit(ctx context.Context, hash string) error {
+	if err := validateHex(hash); err != nil {
+		return err
+	}
 	// Use GIT_SEQUENCE_EDITOR to change "pick <hash>" to "edit <hash>"
 	sedCmd := fmt.Sprintf("sed -i.bak '0,/^pick %s/s//edit %s/' \"$1\"", hash[:7], hash[:7])
 	env := []string{

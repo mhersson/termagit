@@ -61,8 +61,7 @@ func TestParseRefs_EmptyString_ReturnsEmpty(t *testing.T) {
 // parseLogRecord tests
 
 func TestParseLogRecord_ParsesParentHashes(t *testing.T) {
-	// Format: %H|%h|%P|%s|%an|%ae|%aI|%cn|%ce|%cI|%d
-	record := "abc123|abc123d|parent1 parent2|Test commit|Test User|test@example.com|2024-01-15T10:30:00Z|Test User|test@example.com|2024-01-15T10:30:00Z|"
+	record := "abc123\x1eabc123d\x1eparent1 parent2\x1eTest commit\x1eTest User\x1etest@example.com\x1e2024-01-15T10:30:00Z\x1eTest User\x1etest@example.com\x1e2024-01-15T10:30:00Z\x1e"
 	entry := parseLogRecord(record, nil)
 	require.NotNil(t, entry)
 	assert.Equal(t, "parent1 parent2", entry.ParentHashes)
@@ -72,11 +71,43 @@ func TestParseLogRecord_ParsesParentHashes(t *testing.T) {
 
 func TestParseLogRecord_EmptyParentHashes(t *testing.T) {
 	// Root commit has no parents — %P is empty
-	record := "abc123|abc123d||Initial commit|Test User|test@example.com|2024-01-15T10:30:00Z|||"
+	record := "abc123\x1eabc123d\x1e\x1eInitial commit\x1eTest User\x1etest@example.com\x1e2024-01-15T10:30:00Z\x1e\x1e\x1e"
 	entry := parseLogRecord(record, nil)
 	require.NotNil(t, entry)
 	assert.Equal(t, "", entry.ParentHashes)
 	assert.Equal(t, "Initial commit", entry.Subject)
+}
+
+func TestParseLogRecord_SubjectContainsPipe(t *testing.T) {
+	// Subject with | must not break field parsing
+	record := "abc123\x1eabc123d\x1eparent1\x1eFix|pipe bug\x1eTest User\x1etest@example.com\x1e2024-01-15T10:30:00Z\x1eTest User\x1etest@example.com\x1e2024-01-15T10:30:00Z\x1e"
+	entry := parseLogRecord(record, nil)
+	require.NotNil(t, entry)
+	assert.Equal(t, "Fix|pipe bug", entry.Subject)
+	assert.Equal(t, "Test User", entry.AuthorName)
+	assert.Equal(t, "test@example.com", entry.AuthorEmail)
+}
+
+func TestParseLogRecord_AuthorNameContainsPipe(t *testing.T) {
+	record := "abc123\x1eabc123d\x1eparent1\x1eTest commit\x1eFirst|Last\x1etest@example.com\x1e2024-01-15T10:30:00Z\x1eFirst|Last\x1etest@example.com\x1e2024-01-15T10:30:00Z\x1e"
+	entry := parseLogRecord(record, nil)
+	require.NotNil(t, entry)
+	assert.Equal(t, "Test commit", entry.Subject)
+	assert.Equal(t, "First|Last", entry.AuthorName)
+}
+
+func TestParseLogRecord_NormalCommit(t *testing.T) {
+	record := "abc123\x1eabc123d\x1eparent1\x1eNormal commit\x1eTest User\x1etest@example.com\x1e2024-01-15T10:30:00Z\x1eTest User\x1etest@example.com\x1e2024-01-15T10:30:00Z\x1e(HEAD -> main)"
+	entry := parseLogRecord(record, nil)
+	require.NotNil(t, entry)
+	assert.Equal(t, "abc123", entry.Hash)
+	assert.Equal(t, "abc123d", entry.AbbreviatedHash)
+	assert.Equal(t, "parent1", entry.ParentHashes)
+	assert.Equal(t, "Normal commit", entry.Subject)
+	assert.Equal(t, "Test User", entry.AuthorName)
+	assert.Equal(t, "test@example.com", entry.AuthorEmail)
+	assert.Equal(t, "Test User", entry.CommitterName)
+	assert.Equal(t, "test@example.com", entry.CommitterEmail)
 }
 
 // LogEntry tests

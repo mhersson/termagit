@@ -39,6 +39,51 @@ func trimOutput(s string) string {
 	return string([]byte(s[:len(s)-1])) // strip trailing newline
 }
 
+// validateHex tests
+
+func TestValidateHex_ValidShortHash(t *testing.T) {
+	err := validateHex("abc1234")
+	assert.NoError(t, err)
+}
+
+func TestValidateHex_ValidFullHash(t *testing.T) {
+	err := validateHex("abc1234def5678901234567890abcdef12345678")
+	assert.NoError(t, err)
+}
+
+func TestValidateHex_RejectsQuote(t *testing.T) {
+	err := validateHex("abc'def")
+	assert.Error(t, err)
+}
+
+func TestValidateHex_RejectsSpace(t *testing.T) {
+	err := validateHex("abc def")
+	assert.Error(t, err)
+}
+
+func TestValidateHex_RejectsEmpty(t *testing.T) {
+	err := validateHex("")
+	assert.Error(t, err)
+}
+
+func TestRewordCommit_RejectsInvalidHash(t *testing.T) {
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	err := r.RewordCommit(ctx, "abc'def0", "msg")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid hex")
+}
+
+func TestModifyCommit_RejectsInvalidHash(t *testing.T) {
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	err := r.ModifyCommit(ctx, "abc'def0")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid hex")
+}
+
 func TestRebase_NonInteractive_RebasesOnto(t *testing.T) {
 	skipInShort(t)
 	r := newTempRepo(t)
