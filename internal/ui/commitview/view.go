@@ -30,8 +30,7 @@ func (m Model) View() string {
 
 	// Add top border in overlay mode
 	if m.overlayMode {
-		border := strings.Repeat("─", m.width)
-		content = m.tokens.PopupBorder.Render(border) + "\n" + content
+		content = m.tokens.PopupBorder.Render(m.cachedSep) + "\n" + content
 	}
 
 	// Apply viewport scrolling

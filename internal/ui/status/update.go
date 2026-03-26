@@ -33,9 +33,10 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Re-render content and update viewport
 		if !m.loading {
-			content, cursorLine := renderContent(m)
-			m.viewport.SetContent(content)
-			ensureCursorVisible(&m, cursorLine)
+			m.invalidateContent()
+			if m.viewport.Width > 0 {
+				m.applyViewportWithCursor()
+			}
 		}
 		return m, nil
 
@@ -95,11 +96,11 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Update viewport content
+		m.invalidateContent()
 		if m.viewport.Width > 0 {
-			content, cursorLine := renderContent(m)
-			m.viewport.SetContent(content)
+			m.applyViewportWithCursor()
 			m.viewport.YOffset = 0
-			ensureCursorVisible(&m, cursorLine)
+			ensureCursorVisible(&m, computeCursorLine(m))
 		}
 		return m, cmd
 
@@ -110,7 +111,8 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Save current screen position before updating
-		_, oldCursorLine := renderContent(m)
+		m.ensureContent()
+		oldCursorLine := computeCursorLine(m)
 		screenRow := oldCursorLine - m.viewport.YOffset
 
 		if msg.sectionIdx < len(m.sections) {
@@ -145,9 +147,10 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Update viewport content
+		m.invalidateContent()
 		if m.viewport.Width > 0 {
-			content, newCursorLine := renderContent(m)
-			m.viewport.SetContent(content)
+			m.applyViewportWithCursor()
+			newCursorLine := computeCursorLine(m)
 			if wasRestore {
 				// After a stage/unstage hunk restore, reset scroll to top
 				// so the hint bar stays visible.
@@ -364,9 +367,7 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cursor = moveCursor(m.sections, m.cursor, 1)
 		// Update viewport to keep cursor visible
 		if m.viewport.Width > 0 {
-			content, cursorLine := renderContent(m)
-			m.viewport.SetContent(content)
-			ensureCursorVisible(&m, cursorLine)
+			m.applyViewportWithCursor()
 		}
 		return m, nil
 
@@ -374,9 +375,7 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cursor = moveCursor(m.sections, m.cursor, -1)
 		// Update viewport to keep cursor visible
 		if m.viewport.Width > 0 {
-			content, cursorLine := renderContent(m)
-			m.viewport.SetContent(content)
-			ensureCursorVisible(&m, cursorLine)
+			m.applyViewportWithCursor()
 		}
 		return m, nil
 
@@ -723,9 +722,7 @@ func handleDiscardStart(m Model) (tea.Model, tea.Cmd) {
 
 	// Refresh viewport so confirmation prompt is visible
 	if m.viewport.Width > 0 {
-		content, cursorLine := renderContent(m)
-		m.viewport.SetContent(content)
-		ensureCursorVisible(&m, cursorLine)
+		m.applyViewportWithCursor()
 	}
 
 	return m, nil
@@ -749,9 +746,7 @@ func handleUntrackStart(m Model) (tea.Model, tea.Cmd) {
 
 	// Refresh viewport so confirmation prompt is visible
 	if m.viewport.Width > 0 {
-		content, cursorLine := renderContent(m)
-		m.viewport.SetContent(content)
-		ensureCursorVisible(&m, cursorLine)
+		m.applyViewportWithCursor()
 	}
 
 	return m, nil
@@ -953,7 +948,8 @@ func handleToggle(m Model) (tea.Model, tea.Cmd) {
 	}
 
 	// Save current screen position before toggling
-	_, oldCursorLine := renderContent(m)
+	m.ensureContent()
+	oldCursorLine := computeCursorLine(m)
 	screenRow := oldCursorLine - m.viewport.YOffset
 
 	s := &m.sections[m.cursor.Section]
@@ -978,10 +974,10 @@ func handleToggle(m Model) (tea.Model, tea.Cmd) {
 			}
 
 			// Update viewport with preserved screen position
+			m.invalidateContent()
 			if m.viewport.Width > 0 {
-				content, newCursorLine := renderContent(m)
-				m.viewport.SetContent(content)
-				preserveScreenPosition(&m, newCursorLine, screenRow)
+				m.applyViewportWithCursor()
+				preserveScreenPosition(&m, computeCursorLine(m), screenRow)
 			}
 			return m, nil
 		}
@@ -995,20 +991,20 @@ func handleToggle(m Model) (tea.Model, tea.Cmd) {
 			kind := diffKindForSection(s.Kind)
 
 			// Update viewport with preserved screen position
+			m.invalidateContent()
 			if m.viewport.Width > 0 {
-				content, newCursorLine := renderContent(m)
-				m.viewport.SetContent(content)
-				preserveScreenPosition(&m, newCursorLine, screenRow)
+				m.applyViewportWithCursor()
+				preserveScreenPosition(&m, computeCursorLine(m), screenRow)
 			}
 			return m, loadHunksCmd(m.repo, m.cursor.Section, m.cursor.Item, item.Entry, kind)
 		}
 	}
 
 	// Update viewport with preserved screen position
+	m.invalidateContent()
 	if m.viewport.Width > 0 {
-		content, newCursorLine := renderContent(m)
-		m.viewport.SetContent(content)
-		preserveScreenPosition(&m, newCursorLine, screenRow)
+		m.applyViewportWithCursor()
+		preserveScreenPosition(&m, computeCursorLine(m), screenRow)
 	}
 
 	return m, nil
@@ -1031,11 +1027,19 @@ func handleOpenFold(m Model) (tea.Model, tea.Cmd) {
 			if item.Hunks == nil && item.Entry != nil && !item.HunksLoading {
 				item.HunksLoading = true
 				kind := diffKindForSection(s.Kind)
+				m.invalidateContent()
+				if m.viewport.Width > 0 {
+					m.applyViewportWithCursor()
+				}
 				return m, loadHunksCmd(m.repo, m.cursor.Section, m.cursor.Item, item.Entry, kind)
 			}
 		}
 	}
 
+	m.invalidateContent()
+	if m.viewport.Width > 0 {
+		m.applyViewportWithCursor()
+	}
 	return m, nil
 }
 
@@ -1053,6 +1057,10 @@ func handleCloseFold(m Model) (tea.Model, tea.Cmd) {
 		s.Items[m.cursor.Item].Expanded = false
 	}
 
+	m.invalidateContent()
+	if m.viewport.Width > 0 {
+		m.applyViewportWithCursor()
+	}
 	return m, nil
 }
 
@@ -1077,6 +1085,10 @@ func handleDepth(m Model, depth int) (tea.Model, tea.Cmd) {
 				s.Items[j].Expanded = true
 			}
 		}
+	}
+	m.invalidateContent()
+	if m.viewport.Width > 0 {
+		m.applyViewportWithCursor()
 	}
 	return m, nil
 }
@@ -1483,9 +1495,7 @@ func handlePageUp(m Model) (tea.Model, tea.Cmd) {
 		for i := 0; i < m.viewport.Height; i++ {
 			m.cursor = moveCursor(m.sections, m.cursor, -1)
 		}
-		content, cursorLine := renderContent(m)
-		m.viewport.SetContent(content)
-		ensureCursorVisible(&m, cursorLine)
+		m.applyViewportWithCursor()
 	}
 
 	return m, nil
@@ -1509,9 +1519,7 @@ func handlePageDown(m Model) (tea.Model, tea.Cmd) {
 		for i := 0; i < m.viewport.Height; i++ {
 			m.cursor = moveCursor(m.sections, m.cursor, 1)
 		}
-		content, cursorLine := renderContent(m)
-		m.viewport.SetContent(content)
-		ensureCursorVisible(&m, cursorLine)
+		m.applyViewportWithCursor()
 	}
 
 	return m, nil
@@ -1530,9 +1538,7 @@ func handleHalfPageUp(m Model) (tea.Model, tea.Cmd) {
 		for i := 0; i < m.viewport.Height/2; i++ {
 			m.cursor = moveCursor(m.sections, m.cursor, -1)
 		}
-		content, cursorLine := renderContent(m)
-		m.viewport.SetContent(content)
-		ensureCursorVisible(&m, cursorLine)
+		m.applyViewportWithCursor()
 	}
 
 	return m, nil
@@ -1556,9 +1562,7 @@ func handleHalfPageDown(m Model) (tea.Model, tea.Cmd) {
 		for i := 0; i < m.viewport.Height/2; i++ {
 			m.cursor = moveCursor(m.sections, m.cursor, 1)
 		}
-		content, cursorLine := renderContent(m)
-		m.viewport.SetContent(content)
-		ensureCursorVisible(&m, cursorLine)
+		m.applyViewportWithCursor()
 	}
 
 	return m, nil
@@ -1574,8 +1578,7 @@ func handleGoToTop(m Model) (tea.Model, tea.Cmd) {
 
 	// Re-render content to update cursor highlighting
 	if m.viewport.Width > 0 {
-		content, _ := renderContent(m)
-		m.viewport.SetContent(content)
+		m.applyViewportWithCursor()
 	}
 
 	return m, nil
@@ -1613,9 +1616,7 @@ func handleGoToBottom(m Model) (tea.Model, tea.Cmd) {
 	}
 
 	// Re-render to get cursor line, then scroll to show it
-	content, cursorLine := renderContent(m)
-	m.viewport.SetContent(content)
-	ensureCursorVisible(&m, cursorLine)
+	m.applyViewportWithCursor()
 
 	return m, nil
 }

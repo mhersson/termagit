@@ -115,7 +115,7 @@ func (m Model) renderContent() string {
 		b.WriteString(m.formatFileHeader(&diff, fi))
 		b.WriteString("\n")
 		// Separator
-		b.WriteString(strings.Repeat("─", m.width))
+		b.WriteString(m.cachedSep)
 		b.WriteString("\n")
 		// Hunks
 		for _, hunk := range diff.Hunks {
@@ -185,7 +185,7 @@ func (m Model) renderFileDiff(b *strings.Builder, diff *git.FileDiff, fileIdx in
 	lineNum++
 
 	// Separator line
-	sep := strings.Repeat("─", m.width)
+	sep := m.cachedSep
 	m.writeLine(b, sep, lineNum, m.tokens.DiffHeader.Render)
 	lineNum++
 

@@ -2,6 +2,7 @@ package logview
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -12,6 +13,9 @@ import (
 	"github.com/mhersson/termagit/internal/graph"
 	"github.com/mhersson/termagit/internal/ui/shared"
 )
+
+// graphPadding is the 8-space left padding used to align graph-only rows with commit rows.
+const graphPadding = "        " // hashWidth = 8
 
 // View renders the log view.
 func (m Model) View() string {
@@ -242,28 +246,26 @@ func (m Model) renderCommitRow(c git.LogEntry, isCursor bool, graphCells graph.R
 	var row string
 	if m.cursor.Width > 60 {
 		// Wide terminal: show full format
-		graphPart := ""
+		var rb strings.Builder
+		rb.WriteString(m.tokens.Hash.Render(hash))
+		rb.WriteByte(' ')
 		if graphStr != "" {
-			graphPart = graphStr + " "
+			rb.WriteString(graphStr)
+			rb.WriteByte(' ')
 		}
-		refsStr := ""
 		if refs != "" {
-			refsStr = refs + " "
+			rb.WriteString(refs)
+			rb.WriteByte(' ')
 		}
-		row = fmt.Sprintf("%s %s%s%s %s %s",
-			m.tokens.Hash.Render(hash),
-			graphPart,
-			refsStr,
-			shared.PadRight(subject, subjectWidth),
-			m.tokens.CommitAuthor.Render(shared.PadRight(author, authorColWidth)),
-			m.tokens.CommitDate.Render(shared.PadRight(relTime, timeColWidth)),
-		)
+		rb.WriteString(shared.PadRight(subject, subjectWidth))
+		rb.WriteByte(' ')
+		rb.WriteString(m.tokens.CommitAuthor.Render(shared.PadRight(author, authorColWidth)))
+		rb.WriteByte(' ')
+		rb.WriteString(m.tokens.CommitDate.Render(shared.PadRight(relTime, timeColWidth)))
+		row = rb.String()
 	} else {
 		// Narrow terminal: simplified format
-		row = fmt.Sprintf("%s %s",
-			m.tokens.Hash.Render(hash),
-			subject,
-		)
+		row = m.tokens.Hash.Render(hash) + " " + subject
 	}
 
 	if isCursor {
@@ -285,8 +287,7 @@ func (m Model) renderGraphCells(cells graph.Row) string {
 // renderGraphOnlyRow renders a graph-only connector row (no commit data).
 func (m Model) renderGraphOnlyRow(cells graph.Row) string {
 	// Left-pad with hashWidth spaces to align with commit rows
-	padding := strings.Repeat(" ", 8) // hashWidth = 8
-	return padding + m.renderGraphCells(cells)
+	return graphPadding + m.renderGraphCells(cells)
 }
 
 // graphCellWidth returns the visual width of graph cells.
@@ -326,7 +327,7 @@ func (m Model) graphColorStyle(color string) lipgloss.Style {
 
 // renderRefsFlat renders refs without parentheses, space-separated.
 func (m Model) renderRefsFlat(refs []git.Ref) string {
-	var parts []string
+	parts := make([]string, 0, len(refs))
 
 	for _, ref := range refs {
 		switch ref.Kind {
@@ -346,6 +347,15 @@ func (m Model) renderRefsFlat(refs []git.Ref) string {
 }
 
 
+// pluralizeTime formats a count and unit as "N unit" or "N units".
+func pluralizeTime(n int, unit string) string {
+	s := strconv.Itoa(n) + " " + unit
+	if n != 1 {
+		s += "s"
+	}
+	return s
+}
+
 // formatRelativeTimeFull formats a time as a full relative duration (e.g., "10 hours", "2 days").
 func formatRelativeTimeFull(t time.Time) string {
 	if t.IsZero() {
@@ -355,35 +365,21 @@ func formatRelativeTimeFull(t time.Time) string {
 	now := time.Now()
 	diff := now.Sub(t)
 
-	pluralize := func(n int, unit string) string {
-		if n == 1 {
-			return fmt.Sprintf("%d %s", n, unit)
-		}
-		return fmt.Sprintf("%d %ss", n, unit)
-	}
-
 	switch {
 	case diff < time.Minute:
-		secs := int(diff.Seconds())
-		return pluralize(secs, "second")
+		return pluralizeTime(int(diff.Seconds()), "second")
 	case diff < time.Hour:
-		mins := int(diff.Minutes())
-		return pluralize(mins, "minute")
+		return pluralizeTime(int(diff.Minutes()), "minute")
 	case diff < 24*time.Hour:
-		hours := int(diff.Hours())
-		return pluralize(hours, "hour")
+		return pluralizeTime(int(diff.Hours()), "hour")
 	case diff < 7*24*time.Hour:
-		days := int(diff.Hours() / 24)
-		return pluralize(days, "day")
+		return pluralizeTime(int(diff.Hours()/24), "day")
 	case diff < 30*24*time.Hour:
-		weeks := int(diff.Hours() / 24 / 7)
-		return pluralize(weeks, "week")
+		return pluralizeTime(int(diff.Hours()/24/7), "week")
 	case diff < 365*24*time.Hour:
-		months := int(diff.Hours() / 24 / 30)
-		return pluralize(months, "month")
+		return pluralizeTime(int(diff.Hours()/24/30), "month")
 	default:
-		years := int(diff.Hours() / 24 / 365)
-		return pluralize(years, "year")
+		return pluralizeTime(int(diff.Hours()/24/365), "year")
 	}
 }
 

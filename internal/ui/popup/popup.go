@@ -97,6 +97,8 @@ type Popup struct {
 
 	done   bool
 	result Result
+
+	cachedSep string // cached border separator string
 }
 
 // New creates a new popup with the given title.
@@ -244,6 +246,7 @@ func (p *Popup) AddActionGroup(title string, actions []Action) {
 func (p *Popup) SetSize(width, height int) {
 	p.width = width
 	p.height = height
+	p.cachedSep = strings.Repeat("─", width)
 }
 
 // Done returns true if the popup should close.
@@ -495,8 +498,7 @@ func (p Popup) View() string {
 	var b strings.Builder
 
 	// Top border (separates popup from main window)
-	border := strings.Repeat("─", p.width)
-	b.WriteString(p.tokens.PopupBorder.Render(border))
+	b.WriteString(p.tokens.PopupBorder.Render(p.cachedSep))
 	b.WriteString("\n")
 
 	// Config items (if any), with optional section headings

@@ -1,6 +1,8 @@
 package diffview
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -47,6 +49,8 @@ type Model struct {
 	height int
 	err    error
 	done   bool
+
+	cachedSep string // cached border separator string
 }
 
 // New creates a new diff view model.
@@ -83,7 +87,9 @@ func (m Model) Done() bool {
 func (m *Model) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	m.viewport = viewport.New(width, height)
+	m.viewport.Width = width
+	m.viewport.Height = height
+	m.cachedSep = strings.Repeat("─", width)
 }
 
 // headerForSource derives the header text from a DiffSource.

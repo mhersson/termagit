@@ -23,12 +23,27 @@ func view(m Model) string {
 		return fmt.Sprintf("Error: %v", m.err)
 	}
 
-	// Overlay commit view if active (before popup check)
-	if m.commitView != nil {
-		content, cursorLine := renderContent(m)
+	// Overlay commit view or popup if active — use cached lines when available
+	if m.commitView != nil || m.popup != nil {
+		// Use cached content if warm, otherwise fall back to renderContent
+		var lines []string
+		var cursorLine int
+		if !m.contentDirty && len(m.cachedBaseLines) > 0 {
+			lines = m.cachedBaseLines
+			cursorLine = computeCursorLine(m)
+		} else {
+			content, cl := renderContent(m)
+			lines = strings.Split(content, "\n")
+			cursorLine = cl
+		}
+
+		// Apply cursor styling to the cursor line (popup = no block cursor)
+		if cursorLine >= 0 && cursorLine < len(lines) {
+			stripped := ansi.Strip(lines[cursorLine])
+			lines[cursorLine] = m.tokens.Cursor.Render(stripped)
+		}
 
 		// Apply viewport-like scrolling
-		lines := strings.Split(content, "\n")
 		startLine := m.viewport.YOffset
 		endLine := startLine + m.viewport.Height
 		if endLine > len(lines) {
@@ -50,40 +65,19 @@ func view(m Model) string {
 			}
 		}
 
-		visibleContent := strings.Join(lines[startLine:endLine], "\n")
-		return renderCommitViewOverlay(m, visibleContent)
-	}
-
-	// Overlay popup if active
-	if m.popup != nil {
-		// Re-render content when popup is active to suppress block cursor
-		// (renderCursorLine checks m.popup and shows only cursor line, not block cursor)
-		content, cursorLine := renderContent(m)
-
-		// Apply viewport-like scrolling
-		lines := strings.Split(content, "\n")
-		startLine := m.viewport.YOffset
-		endLine := startLine + m.viewport.Height
-		if endLine > len(lines) {
-			endLine = len(lines)
-		}
-		if startLine > len(lines) {
-			startLine = len(lines)
-		}
-
-		// Ensure cursor is visible
-		if cursorLine < startLine {
-			startLine = cursorLine
-			endLine = startLine + m.viewport.Height
-		} else if cursorLine >= endLine {
-			endLine = cursorLine + 1
-			startLine = endLine - m.viewport.Height
-			if startLine < 0 {
-				startLine = 0
+		// Build visible content with strings.Builder instead of Join
+		var b strings.Builder
+		for i := startLine; i < endLine; i++ {
+			if i > startLine {
+				b.WriteByte('\n')
 			}
+			b.WriteString(lines[i])
 		}
+		visibleContent := b.String()
 
-		visibleContent := strings.Join(lines[startLine:endLine], "\n")
+		if m.commitView != nil {
+			return renderCommitViewOverlay(m, visibleContent)
+		}
 		return renderPopupOverlay(m, visibleContent)
 	}
 
@@ -171,6 +165,19 @@ func renderCommitViewOverlay(m Model, statusContent string) string {
 	return b.String()
 }
 
+// statusHints is the static set of hint bar key-action pairs.
+var statusHints = []struct {
+	key    string
+	action string
+}{
+	{"<tab>", "toggle"},
+	{"s", "stage"},
+	{"u", "unstage"},
+	{"x", "discard"},
+	{"c", "commit"},
+	{"?", "help"},
+}
+
 // renderHintBar renders the hint bar at the top of the status buffer.
 // Format: "Hint: <tab> toggle | s stage | u unstage | x discard | c commit | ? help"
 func renderHintBar(m Model) string {
@@ -179,20 +186,7 @@ func renderHintBar(m Model) string {
 	// "Hint:" in subtle style
 	b.WriteString(m.tokens.SubtleText.Render("Hint: "))
 
-	// Key-action pairs with separators
-	hints := []struct {
-		key    string
-		action string
-	}{
-		{"<tab>", "toggle"},
-		{"s", "stage"},
-		{"u", "unstage"},
-		{"x", "discard"},
-		{"c", "commit"},
-		{"?", "help"},
-	}
-
-	for i, h := range hints {
+	for i, h := range statusHints {
 		if i > 0 {
 			b.WriteString(m.tokens.SubtleText.Render(" | "))
 		}
@@ -537,7 +531,7 @@ func renderRefs(m Model, refs []git.Ref) string {
 		return ""
 	}
 
-	var parts []string
+	parts := make([]string, 0, len(refs))
 	for _, ref := range refs {
 		switch ref.Kind {
 		case git.RefKindLocal:
@@ -649,16 +643,167 @@ func renderContent(m Model) (content string, cursorLine int) {
 			cursorLine = lineNum
 		}
 
-		sectionContent := renderSectionWithLineTracking(m, i, &s, lineNum, &cursorLine)
+		sectionContent, sectionLines := renderSectionWithLineTracking(m, i, &s, lineNum, &cursorLine)
 		b.WriteString(sectionContent)
-		lineNum += strings.Count(sectionContent, "\n")
+		lineNum += sectionLines
 	}
 
 	return b.String(), cursorLine
 }
 
+// renderContentBase renders content without cursor styling (cacheable).
+// Uses a sentinel cursor position so no cursor checks match.
+func renderContentBase(m Model) string {
+	m.cursor = Cursor{Section: -1, Item: -1, Hunk: -1, Line: -1}
+	content, _ := renderContent(m)
+	return content
+}
+
+// invalidateContent marks the render cache as stale.
+func (m *Model) invalidateContent() {
+	m.contentDirty = true
+}
+
+// ensureContent populates the render cache if needed.
+func (m *Model) ensureContent() {
+	if !m.contentDirty && m.cachedBaseContent != "" {
+		return
+	}
+	m.cachedBaseContent = renderContentBase(*m)
+	m.cachedBaseLines = strings.Split(m.cachedBaseContent, "\n")
+	m.contentDirty = false
+}
+
+// computeCursorLine maps the cursor position to a visual line number
+// without rendering. Must match renderContent's line accounting exactly.
+func computeCursorLine(m Model) int {
+	lineNum := 0
+
+	// Hint bar (2 lines: hint text + blank line)
+	if m.cfg == nil || !m.cfg.UI.DisableHint {
+		lineNum += 2
+	}
+
+	// Head bar: Head is always 1 line. Optional Merge/Push/Tag add 1 each.
+	// renderHeadBar uses \n between lines (no trailing \n).
+	// renderContent counts strings.Count(headBar, "\n") = N-1 for N lines,
+	// then adds 2 for "\n\n" after head bar. Total advance = N+1.
+	headLines := 1
+	if m.head.UpstreamBranch != "" {
+		headLines++
+	}
+	if m.head.PushBranch != "" {
+		headLines++
+	}
+	if m.head.Tag != "" {
+		headLines++
+	}
+	lineNum += headLines + 1 // (headLines-1) newlines within + 2 after = headLines+1
+
+	// Sections
+	for i, s := range m.sections {
+		if s.Hidden {
+			continue
+		}
+
+		// Section header
+		if m.cursor.Section == i && m.cursor.Item == -1 {
+			return lineNum
+		}
+		lineNum++ // section header line
+
+		// Items (only if not folded)
+		if !s.Folded {
+			for j, item := range s.Items {
+				// Item line
+				if m.cursor.Section == i && m.cursor.Item == j && m.cursor.Hunk == -1 {
+					return lineNum
+				}
+
+				// Count item lines based on type
+				if item.BisectDetail != nil {
+					// Bisect detail: Author + AuthorDate + Committer + CommitDate = 4 lines
+					count := 4
+					if item.BisectDetail.Body != "" {
+						bodyLines := strings.Split(item.BisectDetail.Body, "\n")
+						count += 1 + len(bodyLines) // blank line + body lines
+					}
+					lineNum += count
+					continue
+				}
+
+				lineNum++ // single-line item (file, stash, commit, sequencer, etc.)
+
+				// Expanded hunks
+				if item.Expanded && len(item.Hunks) > 0 {
+					for h, hunk := range item.Hunks {
+						if m.cursor.Section == i && m.cursor.Item == j && m.cursor.Hunk == h && m.cursor.Line == -1 {
+							return lineNum
+						}
+						lineNum++ // hunk header
+
+						isFolded := len(item.HunksFolded) > h && item.HunksFolded[h]
+						if !isFolded {
+							for l := range hunk.Lines {
+								if m.cursor.Section == i && m.cursor.Item == j && m.cursor.Hunk == h && m.cursor.Line == l {
+									return lineNum
+								}
+								lineNum++
+							}
+						}
+					}
+				} else if item.Expanded && item.HunksLoading {
+					lineNum++ // "Loading diff..." line
+				}
+			}
+		}
+
+		lineNum++ // trailing blank line after section
+	}
+
+	return lineNum
+}
+
+// renderWithBlockCursorNoNewline renders block cursor without trailing newline.
+func renderWithBlockCursorNoNewline(tokens theme.Tokens, line string) string {
+	if len(line) == 0 {
+		return tokens.CursorBlock.Render(" ")
+	}
+	firstRune, size := utf8.DecodeRuneInString(line)
+	rest := line[size:]
+	return tokens.CursorBlock.Render(string(firstRune)) + tokens.Cursor.Render(rest)
+}
+
+// applyViewportWithCursor builds viewport content from cached base lines,
+// applying cursor styling to the cursor line, and updates the viewport.
+func (m *Model) applyViewportWithCursor() {
+	m.ensureContent()
+	cursorLine := computeCursorLine(*m)
+
+	// Build content with cursor styling applied
+	var b strings.Builder
+	for i, line := range m.cachedBaseLines {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		if i == cursorLine {
+			stripped := ansi.Strip(line)
+			if m.popup != nil {
+				b.WriteString(m.tokens.Cursor.Render(stripped))
+			} else {
+				b.WriteString(renderWithBlockCursorNoNewline(m.tokens, stripped))
+			}
+		} else {
+			b.WriteString(line)
+		}
+	}
+	m.viewport.SetContent(b.String())
+	ensureCursorVisible(m, cursorLine)
+}
+
 // renderSectionWithLineTracking renders a section and updates cursorLine if cursor is within.
-func renderSectionWithLineTracking(m Model, sectionIdx int, s *Section, startLine int, cursorLine *int) string {
+// Returns the rendered content and the number of newlines written.
+func renderSectionWithLineTracking(m Model, sectionIdx int, s *Section, startLine int, cursorLine *int) (string, int) {
 	var b strings.Builder
 	lineNum := startLine
 
@@ -704,18 +849,19 @@ func renderSectionWithLineTracking(m Model, sectionIdx int, s *Section, startLin
 	// Items (only if not folded)
 	if !s.Folded {
 		for i, item := range s.Items {
-			itemContent := renderItemWithLineTracking(m, sectionIdx, i, &item, s.Kind, lineNum, cursorLine)
+			itemContent, itemLines := renderItemWithLineTracking(m, sectionIdx, i, &item, s.Kind, lineNum, cursorLine)
 			b.WriteString(itemContent)
-			lineNum += strings.Count(itemContent, "\n")
+			lineNum += itemLines
 		}
 	}
 
 	b.WriteString("\n")
-	return b.String()
+	return b.String(), lineNum - startLine + 1 // +1 for trailing blank line
 }
 
 // renderItemWithLineTracking renders an item and updates cursorLine if cursor is on this item.
-func renderItemWithLineTracking(m Model, sectionIdx, itemIdx int, item *Item, sectionKind SectionKind, startLine int, cursorLine *int) string {
+// Returns the rendered content and the number of newlines written.
+func renderItemWithLineTracking(m Model, sectionIdx, itemIdx int, item *Item, sectionKind SectionKind, startLine int, cursorLine *int) (string, int) {
 	var b strings.Builder
 	lineNum := startLine
 
@@ -727,8 +873,9 @@ func renderItemWithLineTracking(m Model, sectionIdx, itemIdx int, item *Item, se
 
 	// Bisect details item ("Bisecting at" section)
 	if item.BisectDetail != nil {
-		b.WriteString(renderBisectDetailItem(m, item.BisectDetail, onItem))
-		return b.String()
+		content := renderBisectDetailItem(m, item.BisectDetail, onItem)
+		b.WriteString(content)
+		return b.String(), strings.Count(content, "\n")
 	}
 
 	// Sequencer/Rebase/Bisect items (have Action)
@@ -741,7 +888,7 @@ func renderItemWithLineTracking(m Model, sectionIdx, itemIdx int, item *Item, se
 		default:
 			b.WriteString(renderSequencerItem(m, item, onItem))
 		}
-		return b.String()
+		return b.String(), 1
 	}
 
 	// File entry
@@ -778,33 +925,35 @@ func renderItemWithLineTracking(m Model, sectionIdx, itemIdx int, item *Item, se
 		if item.Expanded && len(item.Hunks) > 0 {
 			for hunkIdx, hunk := range item.Hunks {
 				isFolded := len(item.HunksFolded) > hunkIdx && item.HunksFolded[hunkIdx]
-				hunkContent := renderHunkWithLineTracking(m, sectionIdx, itemIdx, hunkIdx, &hunk, isFolded, lineNum, cursorLine)
+				hunkContent, hunkLines := renderHunkWithLineTracking(m, sectionIdx, itemIdx, hunkIdx, &hunk, isFolded, lineNum, cursorLine)
 				b.WriteString(hunkContent)
-				lineNum += strings.Count(hunkContent, "\n")
+				lineNum += hunkLines
 			}
 		} else if item.Expanded && item.HunksLoading {
 			b.WriteString("      Loading diff...\n")
+			lineNum++
 		}
-		return b.String()
+		return b.String(), lineNum - startLine
 	}
 
 	// Stash entry
 	if item.Stash != nil {
 		b.WriteString(renderStashItem(m, item, onItem))
-		return b.String()
+		return b.String(), 1
 	}
 
 	// Commit entry
 	if item.Commit != nil {
 		b.WriteString(renderCommitItem(m, item, onItem))
-		return b.String()
+		return b.String(), 1
 	}
 
-	return b.String()
+	return b.String(), 0
 }
 
 // renderHunkWithLineTracking renders a hunk and updates cursorLine if cursor is within.
-func renderHunkWithLineTracking(m Model, sectionIdx, itemIdx, hunkIdx int, hunk *git.Hunk, folded bool, startLine int, cursorLine *int) string {
+// Returns the rendered content and the number of newlines written.
+func renderHunkWithLineTracking(m Model, sectionIdx, itemIdx, hunkIdx int, hunk *git.Hunk, folded bool, startLine int, cursorLine *int) (string, int) {
 	var b strings.Builder
 	lineNum := startLine
 
@@ -874,7 +1023,7 @@ func renderHunkWithLineTracking(m Model, sectionIdx, itemIdx, hunkIdx int, hunk 
 		}
 	}
 
-	return b.String()
+	return b.String(), lineNum - startLine
 }
 
 // ensureCursorVisible scrolls the viewport minimally to keep cursor in view.

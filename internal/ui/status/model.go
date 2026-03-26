@@ -396,6 +396,11 @@ type Model struct {
 	inputPrompt      textinput.Model
 
 	err error
+
+	// Render cache — base content without cursor styling
+	cachedBaseContent string   // rendered content with no cursor highlighting
+	cachedBaseLines   []string // pre-split lines of cachedBaseContent
+	contentDirty      bool     // true when base content needs re-render
 }
 
 // New creates a new status buffer model.
@@ -411,7 +416,8 @@ func New(repo *git.Repository, cfg *config.Config, tokens theme.Tokens, keys Key
 			Hunk:    -1,
 			Line:    -1,
 		},
-		loading: true,
+		loading:      true,
+		contentDirty: true,
 	}
 }
 

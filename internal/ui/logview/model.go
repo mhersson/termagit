@@ -14,6 +14,13 @@ import (
 	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
+// commitSearchEntry holds pre-lowercased fields for fast case-insensitive filtering.
+type commitSearchEntry struct {
+	subject string
+	hash    string
+	author  string
+}
+
 // displayRow represents a single rendered line in the log view.
 type displayRow struct {
 	commitIdx  int       // Index into m.commits (-1 for graph-only connector rows)
@@ -37,11 +44,12 @@ type Model struct {
 	opts    git.LogOpts
 	header string
 
-	commits  []git.LogEntry
-	cursor   nav.Cursor
-	hasMore  bool
-	loading  bool
-	expanded []bool // commit detail expansion state
+	commits     []git.LogEntry
+	searchCache []commitSearchEntry // pre-lowered fields for filtering
+	cursor      nav.Cursor
+	hasMore     bool
+	loading     bool
+	expanded    []bool // commit detail expansion state
 
 	filterActive bool
 	filterInput  textinput.Model
@@ -66,6 +74,7 @@ func New(commits []git.LogEntry, repo *git.Repository, tokens theme.Tokens, opts
 	}
 
 	expanded := make([]bool, len(commits))
+	cache := buildSearchCache(commits)
 
 	m := Model{
 		repo:         repo,
@@ -79,6 +88,7 @@ func New(commits []git.LogEntry, repo *git.Repository, tokens theme.Tokens, opts
 		},
 		opts:         logOpts,
 		commits:      commits,
+		searchCache:  cache,
 		hasMore:      hasMore,
 		header:       "Commits on " + branch,
 		expanded:     expanded,
@@ -136,6 +146,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Subject:         c.subject,
 				AuthorName:      c.authorName,
 				ParentHashes:    c.parentHashes,
+			})
+			m.searchCache = append(m.searchCache, commitSearchEntry{
+				subject: strings.ToLower(c.subject),
+				hash:    strings.ToLower(c.abbrevHash),
+				author:  strings.ToLower(c.authorName),
 			})
 			m.expanded = append(m.expanded, false)
 		}
@@ -297,6 +312,19 @@ func (m Model) handleCommitViewKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	return m, cmd
 }
 
+// buildSearchCache creates pre-lowercased entries for fast case-insensitive filtering.
+func buildSearchCache(commits []git.LogEntry) []commitSearchEntry {
+	cache := make([]commitSearchEntry, len(commits))
+	for i, c := range commits {
+		cache[i] = commitSearchEntry{
+			subject: strings.ToLower(c.Subject),
+			hash:    strings.ToLower(c.AbbreviatedHash),
+			author:  strings.ToLower(c.AuthorName),
+		}
+	}
+	return cache
+}
+
 func (m *Model) applyFilter() {
 	text := m.filterText
 	if text == "" {
@@ -311,10 +339,11 @@ func (m *Model) applyFilter() {
 	filter := strings.ToLower(text)
 	m.filtered = nil
 
-	for i, c := range m.commits {
-		if strings.Contains(strings.ToLower(c.Subject), filter) ||
-			strings.Contains(strings.ToLower(c.AbbreviatedHash), filter) ||
-			strings.Contains(strings.ToLower(c.AuthorName), filter) {
+	for i := range m.commits {
+		if i < len(m.searchCache) &&
+			(strings.Contains(m.searchCache[i].subject, filter) ||
+				strings.Contains(m.searchCache[i].hash, filter) ||
+				strings.Contains(m.searchCache[i].author, filter)) {
 			m.filtered = append(m.filtered, i)
 		}
 	}

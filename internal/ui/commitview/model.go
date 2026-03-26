@@ -1,6 +1,8 @@
 package commitview
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -39,6 +41,8 @@ type Model struct {
 	done           bool   // true when view should close
 	pendingKey     string // "g" for gg sequence
 	pendingBracket string // "[" or "]" for [c/]c two-key sequences
+
+	cachedSep string // cached border separator string
 }
 
 // New creates a new commit view model.
@@ -67,8 +71,9 @@ func (m Model) CommitID() string {
 func (m *Model) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	// Use full height for viewport - content is self-contained
-	m.viewport = viewport.New(width, height)
+	m.viewport.Width = width
+	m.viewport.Height = height
+	m.cachedSep = strings.Repeat("─", width)
 }
 
 // UpdateCommit changes to a different commit (singleton support).
