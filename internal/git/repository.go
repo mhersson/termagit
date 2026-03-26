@@ -579,30 +579,11 @@ func (r *Repository) runGitWithEnv(ctx context.Context, env []string, args ...st
 	cmd.Stderr = &stderrBuf
 
 	cmdErr := cmd.Run()
-	duration := time.Since(start)
 
 	stdout := stdoutBuf.String()
 	stderr := stderrBuf.String()
 
-	if r.logger != nil {
-		exitCode := 0
-		if cmdErr != nil {
-			if exitErr, ok := cmdErr.(*exec.ExitError); ok {
-				exitCode = exitErr.ExitCode()
-			} else {
-				exitCode = -1
-			}
-		}
-		_ = r.logger.Append(cmdlog.Entry{
-			Timestamp:  start,
-			Command:    "git " + strings.Join(args, " "),
-			Dir:        r.path,
-			ExitCode:   exitCode,
-			Stdout:     stdout,
-			Stderr:     stderr,
-			DurationMs: duration.Milliseconds(),
-		})
-	}
+	r.logGitCmd(start, args, stdout, stderr, cmdErr)
 
 	if cmdErr != nil {
 		return stdout, fmt.Errorf("git %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(stderr), cmdErr)
@@ -638,37 +619,41 @@ func (r *Repository) runGitFullWithStdin(ctx context.Context, stdin io.Reader, a
 	}
 
 	cmdErr := cmd.Run()
-	duration := time.Since(start)
 
 	stdout = stdoutBuf.String()
 	stderr = stderrBuf.String()
 
-	// Log the command
-	if r.logger != nil {
-		exitCode := 0
-		if cmdErr != nil {
-			if exitErr, ok := cmdErr.(*exec.ExitError); ok {
-				exitCode = exitErr.ExitCode()
-			} else {
-				exitCode = -1
-			}
-		}
-		_ = r.logger.Append(cmdlog.Entry{
-			Timestamp:  start,
-			Command:    "git " + strings.Join(args, " "),
-			Dir:        r.path,
-			ExitCode:   exitCode,
-			Stdout:     stdout,
-			Stderr:     stderr,
-			DurationMs: duration.Milliseconds(),
-		})
-	}
+	r.logGitCmd(start, args, stdout, stderr, cmdErr)
 
 	if cmdErr != nil {
 		err = fmt.Errorf("git %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(stderr), cmdErr)
 	}
 
 	return stdout, stderr, err
+}
+
+// logGitCmd logs a git command execution if a logger is configured.
+func (r *Repository) logGitCmd(start time.Time, args []string, stdout, stderr string, cmdErr error) {
+	if r.logger == nil {
+		return
+	}
+	exitCode := 0
+	if cmdErr != nil {
+		if exitErr, ok := cmdErr.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		} else {
+			exitCode = -1
+		}
+	}
+	_ = r.logger.Append(cmdlog.Entry{
+		Timestamp:  start,
+		Command:    "git " + strings.Join(args, " "),
+		Dir:        r.path,
+		ExitCode:   exitCode,
+		Stdout:     stdout,
+		Stderr:     stderr,
+		DurationMs: time.Since(start).Milliseconds(),
+	})
 }
 
 // logOp wraps a go-git operation with logging.

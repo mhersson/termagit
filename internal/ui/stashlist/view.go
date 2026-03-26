@@ -7,11 +7,12 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/ui/notification"
+	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
 // View renders the stash list view.
 func (m Model) View() string {
-	if m.width == 0 || m.height == 0 {
+	if m.cursor.Width == 0 || m.cursor.Height == 0 {
 		return ""
 	}
 
@@ -22,14 +23,14 @@ func (m Model) View() string {
 	b.WriteString("\n\n")
 
 	// Stash entries
-	vis := m.visibleLines()
-	end := m.offset + vis
+	vis := m.cursor.VisibleLines()
+	end := m.cursor.Offset + vis
 	if end > len(m.stashes) {
 		end = len(m.stashes)
 	}
 
-	for i := m.offset; i < end; i++ {
-		isCursor := i == m.cursor
+	for i := m.cursor.Offset; i < end; i++ {
+		isCursor := i == m.cursor.Pos
 
 		row := m.renderStashRow(m.stashes[i])
 
@@ -41,14 +42,14 @@ func (m Model) View() string {
 		b.WriteString("\n")
 	}
 
-	base := padToHeight(b.String(), m.height)
+	base := shared.PadToHeight(b.String(), m.cursor.Height)
 
 	// Overlay confirmation dialog if pending
 	confirmMsg := m.ConfirmMessage()
 	if confirmMsg != "" {
 		d := notification.ConfirmDialog{Message: confirmMsg}
-		confirmView := d.View(m.tokens, m.width-4)
-		base = notification.CenterOverlay(base, confirmView, m.width, m.height)
+		confirmView := d.View(m.tokens, m.cursor.Width-4)
+		base = notification.CenterOverlay(base, confirmView, m.cursor.Width, m.cursor.Height)
 	}
 
 	return base
@@ -59,13 +60,4 @@ func (m Model) View() string {
 func (m Model) renderStashRow(entry git.StashEntry) string {
 	label := fmt.Sprintf("stash@{%d}", entry.Index)
 	return m.tokens.Comment.Render(label) + " " + entry.Message
-}
-
-// padToHeight ensures the string has at least height lines for overlay placement.
-func padToHeight(s string, height int) string {
-	lines := strings.Split(s, "\n")
-	for len(lines) < height {
-		lines = append(lines, "")
-	}
-	return strings.Join(lines[:height], "\n")
 }

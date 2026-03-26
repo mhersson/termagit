@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
 // Update implements tea.Model.
@@ -33,7 +34,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.totalLines > 0 && !strings.HasSuffix(content, "\n") {
 			m.totalLines++ // Count the last line if it doesn't end with newline
 		}
-		m.maxLineWidth = maxVisibleWidth(content)
+		m.maxLineWidth = shared.MaxVisibleWidth(content)
 		m.viewport.SetContent(content)
 		m.cursorLine = 0
 		return m, nil
@@ -197,7 +198,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	// Yank
 	case key.Matches(msg, m.keys.YankSelected):
 		if m.info != nil {
-			return m, yankCmd(m.info.Hash)
+			return m, shared.YankCmd(m.info.Hash)
 		}
 		return m, nil
 
@@ -222,55 +223,35 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 	// Popup triggers
 	case key.Matches(msg, m.keys.CherryPickPopup):
-		return m, m.openPopupCmd("cherry-pick")
-
+		return m, shared.OpenPopupCmd("cherry-pick", m.currentHash())
 	case key.Matches(msg, m.keys.BranchPopup):
-		return m, m.openPopupCmd("branch")
-
+		return m, shared.OpenPopupCmd("branch", m.currentHash())
 	case key.Matches(msg, m.keys.BisectPopup):
-		return m, m.openPopupCmd("bisect")
-
+		return m, shared.OpenPopupCmd("bisect", m.currentHash())
 	case key.Matches(msg, m.keys.CommitPopup):
-		return m, m.openPopupCmd("commit")
-
+		return m, shared.OpenPopupCmd("commit", m.currentHash())
 	case key.Matches(msg, m.keys.DiffPopup):
-		return m, m.openPopupCmd("diff")
-
+		return m, shared.OpenPopupCmd("diff", m.currentHash())
 	case key.Matches(msg, m.keys.PushPopup):
-		return m, m.openPopupCmd("push")
-
+		return m, shared.OpenPopupCmd("push", m.currentHash())
 	case key.Matches(msg, m.keys.RevertPopup):
-		return m, m.openPopupCmd("revert")
-
+		return m, shared.OpenPopupCmd("revert", m.currentHash())
 	case key.Matches(msg, m.keys.RebasePopup):
-		return m, m.openPopupCmd("rebase")
-
+		return m, shared.OpenPopupCmd("rebase", m.currentHash())
 	case key.Matches(msg, m.keys.ResetPopup):
-		return m, m.openPopupCmd("reset")
-
+		return m, shared.OpenPopupCmd("reset", m.currentHash())
 	case key.Matches(msg, m.keys.TagPopup):
-		return m, m.openPopupCmd("tag")
+		return m, shared.OpenPopupCmd("tag", m.currentHash())
 	}
 
 	return m, nil
 }
 
-// openPopupCmd returns a command that emits OpenPopupMsg.
-func (m Model) openPopupCmd(popupType string) tea.Cmd {
-	commitHash := ""
+func (m Model) currentHash() string {
 	if m.info != nil {
-		commitHash = m.info.Hash
+		return m.info.Hash
 	}
-	return func() tea.Msg {
-		return OpenPopupMsg{Type: popupType, Commit: commitHash}
-	}
-}
-
-// yankCmd returns a command that emits YankMsg.
-func yankCmd(text string) tea.Cmd {
-	return func() tea.Msg {
-		return YankMsg{Text: text}
-	}
+	return ""
 }
 
 // ensureCursorVisible adjusts viewport to keep cursor in view.

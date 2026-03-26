@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/mhersson/termagit/internal/git"
+	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
 // Update implements tea.Model.
@@ -31,7 +32,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Build viewport content
 		content := m.renderContent()
 		m.totalLines = countLines(content)
-		m.maxLineWidth = maxVisibleWidth(content)
+		m.maxLineWidth = shared.MaxVisibleWidth(content)
 		m.viewport.SetContent(content)
 		m.cursorLine = 0
 		return m, nil

@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/theme"
+	"github.com/mhersson/termagit/internal/ui/shared"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +27,7 @@ func TestStashListModel_Init_ShowsStashes(t *testing.T) {
 	m := New(testStashes(), nil, testTokens())
 
 	assert.Len(t, m.stashes, 3)
-	assert.Equal(t, 0, m.cursor)
+	assert.Equal(t, 0, m.cursor.Pos)
 }
 
 func TestStashListModel_Navigation(t *testing.T) {
@@ -34,20 +35,20 @@ func TestStashListModel_Navigation(t *testing.T) {
 
 	// Move down
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	assert.Equal(t, 1, m.cursor)
+	assert.Equal(t, 1, m.cursor.Pos)
 
 	// Move up
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	assert.Equal(t, 0, m.cursor)
+	assert.Equal(t, 0, m.cursor.Pos)
 
 	// Can't go below 0
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	assert.Equal(t, 0, m.cursor)
+	assert.Equal(t, 0, m.cursor.Pos)
 
 	// Go to bottom
-	m.cursor = 2
+	m.cursor.Pos = 2
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	assert.Equal(t, 2, m.cursor) // stays at bottom
+	assert.Equal(t, 2, m.cursor.Pos) // stays at bottom
 }
 
 func TestStashListModel_Close_SendsCloseMsg(t *testing.T) {
@@ -63,20 +64,20 @@ func TestStashListModel_Close_SendsCloseMsg(t *testing.T) {
 
 func TestStashListModel_Select_OpensCommitView(t *testing.T) {
 	m := New(testStashes(), nil, testTokens())
-	m.cursor = 0
+	m.cursor.Pos = 0
 
 	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
 
 	require.NotNil(t, cmd)
 	msg := cmd()
-	cvMsg, ok := msg.(OpenCommitViewMsg)
+	cvMsg, ok := msg.(shared.OpenCommitViewMsg)
 	assert.True(t, ok)
 	assert.Equal(t, "stash@{0}", cvMsg.Hash)
 }
 
 func TestStashListModel_Discard_RequiresConfirm(t *testing.T) {
 	m := New(testStashes(), nil, testTokens())
-	m.cursor = 1
+	m.cursor.Pos = 1
 
 	// Press x
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
@@ -90,7 +91,7 @@ func TestStashListModel_Discard_RequiresConfirm(t *testing.T) {
 
 func TestStashListModel_Discard_CancelOnN(t *testing.T) {
 	m := New(testStashes(), nil, testTokens())
-	m.cursor = 1
+	m.cursor.Pos = 1
 
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	assert.Equal(t, confirmDropStash, m.confirmMode)
@@ -101,21 +102,20 @@ func TestStashListModel_Discard_CancelOnN(t *testing.T) {
 
 func TestStashListModel_Yank_EmitsYankMsg(t *testing.T) {
 	m := New(testStashes(), nil, testTokens())
-	m.cursor = 0
+	m.cursor.Pos = 0
 
 	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'Y'}})
 
 	require.NotNil(t, cmd)
 	msg := cmd()
-	ym, ok := msg.(YankMsg)
+	ym, ok := msg.(shared.YankMsg)
 	assert.True(t, ok)
 	assert.Equal(t, "stash@{0}", ym.Text)
 }
 
 func TestStashListView_StashRow_RendersNameAndMessage(t *testing.T) {
 	m := New(testStashes(), nil, testTokens())
-	m.width = 80
-	m.height = 24
+	m.cursor.SetSize(80, 24)
 
 	view := m.View()
 
@@ -126,8 +126,7 @@ func TestStashListView_StashRow_RendersNameAndMessage(t *testing.T) {
 
 func TestStashListView_HeaderShowsCount(t *testing.T) {
 	m := New(testStashes(), nil, testTokens())
-	m.width = 80
-	m.height = 24
+	m.cursor.SetSize(80, 24)
 
 	view := m.View()
 
@@ -136,8 +135,7 @@ func TestStashListView_HeaderShowsCount(t *testing.T) {
 
 func TestStashListModel_EmptyList_NoErrors(t *testing.T) {
 	m := New(nil, nil, testTokens())
-	m.width = 80
-	m.height = 24
+	m.cursor.SetSize(80, 24)
 
 	// Should not panic on empty list
 	view := m.View()

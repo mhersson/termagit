@@ -1,70 +1,33 @@
-package stashlist
+package nav
 
 import "github.com/charmbracelet/bubbles/key"
 
-// KeyMap defines the key bindings for the stash list view.
-type KeyMap struct {
+// NavigationKeys contains the standard navigation key bindings shared by all list views.
+type NavigationKeys struct {
 	MoveDown     key.Binding
 	MoveUp       key.Binding
-	Close        key.Binding
-	CloseEscape  key.Binding
-	Select       key.Binding // enter - open commit view
-	Discard      key.Binding // x - drop stash
-	Yank         key.Binding
 	PageDown     key.Binding
 	PageUp       key.Binding
 	HalfPageDown key.Binding
 	HalfPageUp   key.Binding
 	GoToTop      key.Binding
 	GoToBottom   key.Binding
-
-	// Popup triggers (matching Neogit stash_list_view mappings)
-	CherryPickPopup key.Binding
-	BranchPopup     key.Binding
-	CommitPopup     key.Binding
-	DiffPopup       key.Binding
-	FetchPopup      key.Binding
-	MergePopup      key.Binding
-	PullPopup       key.Binding
-	PushPopup       key.Binding
-	RebasePopup     key.Binding
-	RevertPopup     key.Binding
-	ResetPopup      key.Binding
-	TagPopup        key.Binding
-	BisectPopup     key.Binding
-	RemotePopup     key.Binding
+	Close        key.Binding
+	CloseEscape  key.Binding
+	Yank         key.Binding
+	Select       key.Binding
 }
 
-// DefaultKeyMap returns the default key bindings matching Neogit.
-func DefaultKeyMap() KeyMap {
-	return KeyMap{
+// DefaultNavigationKeys returns the standard navigation key bindings.
+func DefaultNavigationKeys() NavigationKeys {
+	return NavigationKeys{
 		MoveDown: key.NewBinding(
 			key.WithKeys("j", "down"),
-			key.WithHelp("j", "next stash"),
+			key.WithHelp("j", "move down"),
 		),
 		MoveUp: key.NewBinding(
 			key.WithKeys("k", "up"),
-			key.WithHelp("k", "prev stash"),
-		),
-		Close: key.NewBinding(
-			key.WithKeys("q"),
-			key.WithHelp("q", "close"),
-		),
-		CloseEscape: key.NewBinding(
-			key.WithKeys("esc"),
-			key.WithHelp("esc", "close"),
-		),
-		Select: key.NewBinding(
-			key.WithKeys("enter"),
-			key.WithHelp("enter", "open stash"),
-		),
-		Discard: key.NewBinding(
-			key.WithKeys("x"),
-			key.WithHelp("x", "drop stash"),
-		),
-		Yank: key.NewBinding(
-			key.WithKeys("Y"),
-			key.WithHelp("Y", "yank stash name"),
+			key.WithHelp("k", "move up"),
 		),
 		PageDown: key.NewBinding(
 			key.WithKeys("ctrl+f", "pgdown"),
@@ -90,8 +53,48 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("G"),
 			key.WithHelp("G", "go to bottom"),
 		),
+		Close: key.NewBinding(
+			key.WithKeys("q"),
+			key.WithHelp("q", "close"),
+		),
+		CloseEscape: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "close"),
+		),
+		Yank: key.NewBinding(
+			key.WithKeys("Y"),
+			key.WithHelp("Y", "yank hash"),
+		),
+		Select: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("enter", "select"),
+		),
+	}
+}
 
-		// Popup triggers
+// PopupKeys contains popup trigger key bindings shared by all views.
+type PopupKeys struct {
+	CherryPickPopup key.Binding
+	BranchPopup     key.Binding
+	CommitPopup     key.Binding
+	DiffPopup       key.Binding
+	FetchPopup      key.Binding
+	MergePopup      key.Binding
+	PullPopup       key.Binding
+	PushPopup       key.Binding
+	RebasePopup     key.Binding
+	RevertPopup     key.Binding
+	ResetPopup      key.Binding
+	TagPopup        key.Binding
+	BisectPopup     key.Binding
+	RemotePopup     key.Binding
+	WorktreePopup   key.Binding
+	OpenCommitLink  key.Binding
+}
+
+// DefaultPopupKeys returns the standard popup trigger key bindings.
+func DefaultPopupKeys() PopupKeys {
+	return PopupKeys{
 		CherryPickPopup: key.NewBinding(key.WithKeys("A")),
 		BranchPopup:     key.NewBinding(key.WithKeys("b")),
 		CommitPopup:     key.NewBinding(key.WithKeys("c")),
@@ -106,5 +109,7 @@ func DefaultKeyMap() KeyMap {
 		TagPopup:        key.NewBinding(key.WithKeys("t")),
 		BisectPopup:     key.NewBinding(key.WithKeys("B")),
 		RemotePopup:     key.NewBinding(key.WithKeys("M")),
+		WorktreePopup:   key.NewBinding(key.WithKeys("w")),
+		OpenCommitLink:  key.NewBinding(key.WithKeys("o"), key.WithHelp("o", "open commit link")),
 	}
 }

@@ -425,17 +425,6 @@ func (m Model) applyHorizontalScroll(line string) string {
 	return ansi.Truncate(ansi.TruncateLeft(line, m.xOffset, ""), m.width, "")
 }
 
-// maxVisibleWidth returns the maximum visible width across all lines in content.
-func maxVisibleWidth(content string) int {
-	maxW := 0
-	for _, line := range strings.Split(content, "\n") {
-		w := ansi.StringWidth(line)
-		if w > maxW {
-			maxW = w
-		}
-	}
-	return maxW
-}
 
 // renderFileDiff renders a single file diff.
 func (m Model) renderFileDiff(b *strings.Builder, diff *git.FileDiff) {

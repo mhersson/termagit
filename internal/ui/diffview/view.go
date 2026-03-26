@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/mhersson/termagit/internal/git"
+	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
 // View implements tea.Model.
@@ -154,7 +155,7 @@ func (m Model) renderStatBlock(b *strings.Builder, lineNum int) int {
 	// File stat lines
 	for _, f := range m.stats.Files {
 		var fileLine strings.Builder
-		fileLine.WriteString(m.tokens.FilePath.Render(padRight(f.Path, maxPathLen)))
+		fileLine.WriteString(m.tokens.FilePath.Render(shared.PadRight(f.Path, maxPathLen)))
 		fileLine.WriteString("  | ")
 		fileLine.WriteString(m.tokens.Number.Render(padLeft(f.Changes, 5)))
 		if f.IsBinary {
@@ -335,13 +336,6 @@ func (m Model) renderCursorLine(line string) string {
 	return result.String()
 }
 
-// padRight pads a string to the given width with spaces.
-func padRight(s string, width int) string {
-	if len(s) >= width {
-		return s
-	}
-	return s + strings.Repeat(" ", width-len(s))
-}
 
 // padLeft pads a string to the given width with leading spaces.
 func padLeft(s string, width int) string {
@@ -359,14 +353,3 @@ func (m Model) applyHorizontalScroll(line string) string {
 	return ansi.Truncate(ansi.TruncateLeft(line, m.xOffset, ""), m.width, "")
 }
 
-// maxVisibleWidth returns the maximum visible width across all lines in content.
-func maxVisibleWidth(content string) int {
-	maxW := 0
-	for _, line := range strings.Split(content, "\n") {
-		w := ansi.StringWidth(line)
-		if w > maxW {
-			maxW = w
-		}
-	}
-	return maxW
-}

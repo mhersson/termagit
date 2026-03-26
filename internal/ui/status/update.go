@@ -17,10 +17,9 @@ import (
 	"github.com/mhersson/termagit/internal/ui/commitselect"
 	"github.com/mhersson/termagit/internal/ui/commitview"
 	"github.com/mhersson/termagit/internal/ui/diffview"
-	"github.com/mhersson/termagit/internal/ui/logview"
 	"github.com/mhersson/termagit/internal/ui/notification"
 	"github.com/mhersson/termagit/internal/ui/popup"
-	"github.com/mhersson/termagit/internal/ui/reflogview"
+	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
 // update handles messages for the status model.
@@ -210,11 +209,7 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case commitview.OpenPopupMsg:
-		return openPopupByName(m, msg.Type)
-	case logview.OpenPopupMsg:
-		return openPopupByName(m, msg.Type)
-	case reflogview.OpenPopupMsg:
+	case shared.OpenPopupMsg:
 		return openPopupByName(m, msg.Type)
 
 	case commitselect.AbortedMsg:

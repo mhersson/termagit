@@ -13,6 +13,7 @@ import (
 	"github.com/mhersson/termagit/internal/ui/commitview"
 	"github.com/mhersson/termagit/internal/ui/notification"
 	"github.com/mhersson/termagit/internal/ui/popup"
+	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
 func TestSectionKind_AllTwelveValues(t *testing.T) {
@@ -3359,10 +3360,10 @@ func TestOpenPopupByName_UnknownType_Noop(t *testing.T) {
 
 func TestOpenPopupByName_ViaCommitViewMsg(t *testing.T) {
 	m := Model{}
-	result, _ := update(m, commitview.OpenPopupMsg{Type: "commit"})
+	result, _ := update(m, shared.OpenPopupMsg{Type: "commit"})
 	updated := result.(Model)
 	if updated.popup == nil {
-		t.Fatal("popup should not be nil when receiving commitview.OpenPopupMsg")
+		t.Fatal("popup should not be nil when receiving shared.OpenPopupMsg")
 	}
 	if updated.popupKind != PopupCommit {
 		t.Errorf("expected PopupCommit, got %d", updated.popupKind)

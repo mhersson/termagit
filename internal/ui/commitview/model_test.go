@@ -9,6 +9,7 @@ import (
 
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/theme"
+	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
 func testTokens() theme.Tokens {
@@ -477,7 +478,7 @@ func TestYankSelected_EmitsYankMsg(t *testing.T) {
 
 	require.NotNil(t, cmd, "Y key should return a command")
 	result := cmd()
-	yankMsg, ok := result.(YankMsg)
+	yankMsg, ok := result.(shared.YankMsg)
 	assert.True(t, ok, "should emit YankMsg")
 	assert.Equal(t, "abc123def456789", yankMsg.Text, "should yank full commit hash")
 }
@@ -526,7 +527,7 @@ func TestPopupTriggers_EmitOpenPopupMsg(t *testing.T) {
 
 			require.NotNil(t, cmd, "%s key should return a command", tc.key)
 			result := cmd()
-			popupMsg, ok := result.(OpenPopupMsg)
+			popupMsg, ok := result.(shared.OpenPopupMsg)
 			assert.True(t, ok, "should emit OpenPopupMsg for %s", tc.popupType)
 			assert.Equal(t, tc.popupType, popupMsg.Type, "popup type should be %s", tc.popupType)
 			assert.Equal(t, "abc123def456", popupMsg.Commit, "should include commit hash")

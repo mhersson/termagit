@@ -26,6 +26,7 @@ import (
 	"github.com/mhersson/termagit/internal/ui/rebaseeditor"
 	"github.com/mhersson/termagit/internal/ui/reflogview"
 	"github.com/mhersson/termagit/internal/ui/refsview"
+	"github.com/mhersson/termagit/internal/ui/shared"
 	"github.com/mhersson/termagit/internal/ui/stashlist"
 	"github.com/mhersson/termagit/internal/ui/status"
 	"github.com/mhersson/termagit/internal/watcher"
@@ -309,21 +310,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case status.OpenLogViewMsg:
 		return m.openLogView(msg.Commits, msg.HasMore, msg.Branch, msg.Opts)
 
-	case logview.CloseLogViewMsg:
-		m.active = ScreenStatus
-		return m, nil
+	// Shared messages from any sub-view
+	case shared.YankMsg:
+		return m, yankToClipboardCmd(msg.Text)
 
-	case logview.OpenPopupMsg:
+	case shared.OpenPopupMsg:
 		newStatus, cmd := m.status.Update(msg)
 		m.status = newStatus.(status.Model)
 		m.active = ScreenStatus
 		return m, cmd
 
-	case logview.YankMsg:
-		return m, yankToClipboardCmd(msg.Text)
+	case shared.OpenCommitViewMsg:
+		return m.openCommitView(msg.Hash, nil)
 
-	case logview.OpenCommitLinkMsg:
+	case shared.OpenCommitLinkMsg:
 		return m, openCommitURLCmd(m.repo, msg.Hash)
+
+	case logview.CloseLogViewMsg:
+		m.active = ScreenStatus
+		return m, nil
 
 	// Reflog view
 	case status.OpenReflogViewMsg:
@@ -333,21 +338,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.active = ScreenStatus
 		return m, nil
 
-	case reflogview.OpenCommitViewMsg:
-		return m.openCommitView(msg.Hash, nil)
-
-	case reflogview.OpenPopupMsg:
-		newStatus, cmd := m.status.Update(msg)
-		m.status = newStatus.(status.Model)
-		m.active = ScreenStatus
-		return m, cmd
-
-	case reflogview.YankMsg:
-		return m, yankToClipboardCmd(msg.Text)
-
-	case reflogview.OpenCommitLinkMsg:
-		return m, openCommitURLCmd(m.repo, msg.Hash)
-
 	// Refs view
 	case status.OpenRefsViewMsg:
 		return m.openRefsView(msg.Refs, msg.Remotes)
@@ -355,18 +345,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case refsview.CloseRefsViewMsg:
 		m.active = ScreenStatus
 		return m, nil
-
-	case refsview.OpenCommitViewMsg:
-		return m.openCommitView(msg.Hash, nil)
-
-	case refsview.OpenPopupMsg:
-		newStatus, cmd := m.status.Update(msg)
-		m.status = newStatus.(status.Model)
-		m.active = ScreenStatus
-		return m, cmd
-
-	case refsview.YankMsg:
-		return m, yankToClipboardCmd(msg.Text)
 
 	// Stash list view
 	case status.OpenStashListMsg:
@@ -376,35 +354,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.active = ScreenStatus
 		return m, nil
 
-	case stashlist.OpenCommitViewMsg:
-		return m.openCommitView(msg.Hash, nil)
-
-	case stashlist.OpenPopupMsg:
-		newStatus, cmd := m.status.Update(msg)
-		m.status = newStatus.(status.Model)
-		m.active = ScreenStatus
-		return m, cmd
-
-	case stashlist.YankMsg:
-		return m, yankToClipboardCmd(msg.Text)
-
-	// Commit view
+	// Commit view (has its own OpenCommitViewMsg with Filter field)
 	case commitview.OpenCommitViewMsg:
 		return m.openCommitView(msg.CommitID, msg.Filter)
 
 	case commitview.CloseCommitViewMsg:
-		// Return to the screen that opened the commit view
 		m.active = m.previousScreen
 		return m, nil
-
-	case commitview.YankMsg:
-		return m, yankToClipboardCmd(msg.Text)
-
-	case commitview.OpenPopupMsg:
-		newStatus, cmd := m.status.Update(msg)
-		m.status = newStatus.(status.Model)
-		m.active = ScreenStatus
-		return m, cmd
 
 	case commitview.OpenFileMsg:
 		return m, openFileCmd(m.repo.Path(), msg.Path)

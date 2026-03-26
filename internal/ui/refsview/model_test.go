@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/theme"
+	"github.com/mhersson/termagit/internal/ui/shared"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -97,7 +98,7 @@ func TestRefsModel_HeadBranch_MarkedAsCurrent(t *testing.T) {
 	m := New(testRefs(), testRemotes(), nil, testTokens())
 
 	// Move cursor to first ref (past the first section header)
-	m.cursor = 1 // first item in first section
+	m.cursor.Pos = 1 // first item in first section
 
 	ref := m.currentRef()
 	require.NotNil(t, ref)
@@ -112,7 +113,7 @@ func TestRefsModel_FoldToggle_HidesItems(t *testing.T) {
 	initialRows := len(m.flatRows)
 
 	// Cursor on first section header (index 0)
-	m.cursor = 0
+	m.cursor.Pos = 0
 	m = m.toggleFold()
 
 	assert.True(t, m.sections[0].Folded)
@@ -127,11 +128,10 @@ func TestRefsModel_FoldToggle_HidesItems(t *testing.T) {
 
 func TestRefsModel_DeleteBranch_RequiresConfirm(t *testing.T) {
 	m := New(testRefs(), testRemotes(), nil, testTokens())
-	m.width = 80
-	m.height = 24
+	m.cursor.SetSize(80, 24)
 
 	// Move to feature/x (second item in first section = flatRow index 2)
-	m.cursor = 2
+	m.cursor.Pos = 2
 
 	// Press x
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
@@ -143,7 +143,7 @@ func TestRefsModel_DeleteBranch_RequiresConfirm(t *testing.T) {
 
 func TestRefsModel_DeleteBranch_CancelOnN(t *testing.T) {
 	m := New(testRefs(), testRemotes(), nil, testTokens())
-	m.cursor = 2 // feature/x
+	m.cursor.Pos = 2 // feature/x
 
 	// Press x then n
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
@@ -167,21 +167,20 @@ func TestRefsModel_Close_SendsCloseMsg(t *testing.T) {
 
 func TestRefsModel_Select_OpensCommitView(t *testing.T) {
 	m := New(testRefs(), testRemotes(), nil, testTokens())
-	m.cursor = 1 // first ref (main)
+	m.cursor.Pos = 1 // first ref (main)
 
 	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
 
 	require.NotNil(t, cmd)
 	msg := cmd()
-	cvMsg, ok := msg.(OpenCommitViewMsg)
+	cvMsg, ok := msg.(shared.OpenCommitViewMsg)
 	assert.True(t, ok)
 	assert.Equal(t, "abc123def456", cvMsg.Hash)
 }
 
 func TestRefsView_HeadBranch_HasAtPrefix(t *testing.T) {
 	m := New(testRefs(), testRemotes(), nil, testTokens())
-	m.width = 120
-	m.height = 24
+	m.cursor.SetSize(120, 24)
 
 	view := m.View()
 
@@ -191,8 +190,7 @@ func TestRefsView_HeadBranch_HasAtPrefix(t *testing.T) {
 
 func TestRefsView_UpstreamStatus_ColourCoded(t *testing.T) {
 	m := New(testRefs(), testRemotes(), nil, testTokens())
-	m.width = 120
-	m.height = 24
+	m.cursor.SetSize(120, 24)
 
 	view := m.View()
 
@@ -202,8 +200,7 @@ func TestRefsView_UpstreamStatus_ColourCoded(t *testing.T) {
 
 func TestRefsView_SectionHeaders_FoldableWithSigns(t *testing.T) {
 	m := New(testRefs(), testRemotes(), nil, testTokens())
-	m.width = 120
-	m.height = 24
+	m.cursor.SetSize(120, 24)
 
 	view := m.View()
 
@@ -214,8 +211,7 @@ func TestRefsView_SectionHeaders_FoldableWithSigns(t *testing.T) {
 
 func TestRefsView_RemoteSection_ShowsURL(t *testing.T) {
 	m := New(testRefs(), testRemotes(), nil, testTokens())
-	m.width = 120
-	m.height = 24
+	m.cursor.SetSize(120, 24)
 
 	view := m.View()
 
@@ -225,17 +221,17 @@ func TestRefsView_RemoteSection_ShowsURL(t *testing.T) {
 func TestRefsModel_Navigation_MovesCorrectly(t *testing.T) {
 	m := New(testRefs(), testRemotes(), nil, testTokens())
 
-	assert.Equal(t, 0, m.cursor)
+	assert.Equal(t, 0, m.cursor.Pos)
 
 	// Move down
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	assert.Equal(t, 1, m.cursor)
+	assert.Equal(t, 1, m.cursor.Pos)
 
 	// Move up
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	assert.Equal(t, 0, m.cursor)
+	assert.Equal(t, 0, m.cursor.Pos)
 
 	// Can't go above 0
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	assert.Equal(t, 0, m.cursor)
+	assert.Equal(t, 0, m.cursor.Pos)
 }

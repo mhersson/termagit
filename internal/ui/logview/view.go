@@ -10,11 +10,12 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/graph"
+	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
 // View renders the log view.
 func (m Model) View() string {
-	if m.width == 0 || m.height == 0 {
+	if m.cursor.Width == 0 || m.cursor.Height == 0 {
 		return ""
 	}
 
@@ -54,17 +55,17 @@ func (m Model) renderLogContent() string {
 		reservedLines = 3 // blank + hint + blank
 	}
 
-	maxLines := m.height - reservedLines
+	maxLines := m.cursor.Height - reservedLines
 
 	if m.graphEnabled && len(m.displayRows) > 0 {
 		// Graph mode: iterate displayRows
 		rowCount := len(m.displayRows)
-		for i := m.offset; i < rowCount && linesUsed < maxLines; i++ {
+		for i := m.cursor.Offset; i < rowCount && linesUsed < maxLines; i++ {
 			dr := m.displayRows[i]
 			if dr.commitIdx >= 0 && dr.commitIdx < len(m.commits) {
 				// Commit row
 				c := m.commits[dr.commitIdx]
-				isCursor := i == m.cursor
+				isCursor := i == m.cursor.Pos
 				row := m.renderCommitRow(c, isCursor, dr.graphCells)
 				b.WriteString(row)
 				b.WriteString("\n")
@@ -94,7 +95,7 @@ func (m Model) renderLogContent() string {
 			commitCount = len(m.filtered)
 		}
 
-		for i := m.offset; i < commitCount && linesUsed < maxLines; i++ {
+		for i := m.cursor.Offset; i < commitCount && linesUsed < maxLines; i++ {
 			idx := i
 			if len(m.filtered) > 0 && i < len(m.filtered) {
 				idx = m.filtered[i]
@@ -105,7 +106,7 @@ func (m Model) renderLogContent() string {
 			}
 
 			c := m.commits[idx]
-			isCursor := i == m.cursor
+			isCursor := i == m.cursor.Pos
 
 			row := m.renderCommitRow(c, isCursor, nil)
 			b.WriteString(row)
@@ -147,8 +148,8 @@ func (m Model) renderCommitViewOverlay() string {
 	cvLines := strings.Split(cvContent, "\n")
 
 	// Commit view gets 70% of screen height
-	cvHeight := m.height * 70 / 100
-	maxLogLines := m.height - cvHeight
+	cvHeight := m.cursor.Height * 70 / 100
+	maxLogLines := m.cursor.Height - cvHeight
 	if maxLogLines < 0 {
 		maxLogLines = 0
 	}
@@ -209,7 +210,7 @@ func (m Model) renderCommitRow(c git.LogEntry, isCursor bool, graphCells graph.R
 
 	// Calculate space available for refs + subject
 	rightSideWidth := authorColWidth + timeColWidth
-	middleWidth := m.width - hashWidth - graphVisualWidth - rightSideWidth
+	middleWidth := m.cursor.Width - hashWidth - graphVisualWidth - rightSideWidth
 
 	if middleWidth < minSubjectWidth {
 		middleWidth = minSubjectWidth
@@ -239,7 +240,7 @@ func (m Model) renderCommitRow(c git.LogEntry, isCursor bool, graphCells graph.R
 
 	// Build the row with proper alignment
 	var row string
-	if m.width > 60 {
+	if m.cursor.Width > 60 {
 		// Wide terminal: show full format
 		graphPart := ""
 		if graphStr != "" {
@@ -253,9 +254,9 @@ func (m Model) renderCommitRow(c git.LogEntry, isCursor bool, graphCells graph.R
 			m.tokens.Hash.Render(hash),
 			graphPart,
 			refsStr,
-			padRight(subject, subjectWidth),
-			m.tokens.CommitAuthor.Render(padRight(author, authorColWidth)),
-			m.tokens.CommitDate.Render(padRight(relTime, timeColWidth)),
+			shared.PadRight(subject, subjectWidth),
+			m.tokens.CommitAuthor.Render(shared.PadRight(author, authorColWidth)),
+			m.tokens.CommitDate.Render(shared.PadRight(relTime, timeColWidth)),
 		)
 	} else {
 		// Narrow terminal: simplified format
@@ -344,15 +345,6 @@ func (m Model) renderRefsFlat(refs []git.Ref) string {
 	return strings.Join(parts, " ")
 }
 
-// padRight pads a string with spaces on the right to reach the target width.
-// Uses rune count for proper UTF-8 handling (e.g., æ, ø, å are 1 visual char).
-func padRight(s string, width int) string {
-	runeCount := utf8.RuneCountInString(s)
-	if runeCount >= width {
-		return s
-	}
-	return s + strings.Repeat(" ", width-runeCount)
-}
 
 // formatRelativeTimeFull formats a time as a full relative duration (e.g., "10 hours", "2 days").
 func formatRelativeTimeFull(t time.Time) string {

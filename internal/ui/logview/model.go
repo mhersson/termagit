@@ -10,26 +10,36 @@ import (
 	"github.com/mhersson/termagit/internal/graph"
 	"github.com/mhersson/termagit/internal/theme"
 	"github.com/mhersson/termagit/internal/ui/commitview"
+	"github.com/mhersson/termagit/internal/ui/nav"
+	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
 // displayRow represents a single rendered line in the log view.
 type displayRow struct {
-	commitIdx  int          // Index into m.commits (-1 for graph-only connector rows)
-	graphCells graph.Row    // Graph cells for this row (nil when graph disabled)
+	commitIdx  int       // Index into m.commits (-1 for graph-only connector rows)
+	graphCells graph.Row // Graph cells for this row (nil when graph disabled)
+}
+
+// KeyMap has view-specific keys only.
+type KeyMap struct {
+	LoadMore     key.Binding
+	Filter       key.Binding
+	ToggleDetail key.Binding
 }
 
 // Model is the log view model.
 type Model struct {
 	repo    *git.Repository
 	tokens  theme.Tokens
+	navKeys nav.NavigationKeys
+	popKeys nav.PopupKeys
 	keys    KeyMap
 	opts    git.LogOpts
 	remotes []string
 	header  string
 
 	commits  []git.LogEntry
-	cursor   int
-	offset   int // scroll offset
+	cursor   nav.Cursor
 	hasMore  bool
 	loading  bool
 	expanded []bool // commit detail expansion state
@@ -39,15 +49,10 @@ type Model struct {
 	filterText   string
 	filtered     []int // indices into commits
 
-	pendingKey string // for "gg" sequence
-
 	commitView *commitview.Model // overlay (nil = not showing)
 
 	graphEnabled bool
 	displayRows  []displayRow
-
-	width  int
-	height int
 }
 
 // New creates a new log view model.
@@ -66,7 +71,13 @@ func New(commits []git.LogEntry, repo *git.Repository, tokens theme.Tokens, opts
 	m := Model{
 		repo:         repo,
 		tokens:       tokens,
-		keys:         DefaultKeyMap(),
+		navKeys:      nav.DefaultNavigationKeys(),
+		popKeys:      nav.DefaultPopupKeys(),
+		keys: KeyMap{
+			LoadMore: key.NewBinding(key.WithKeys("+"), key.WithHelp("+", "load more")),
+			Filter:   key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
+			ToggleDetail: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "toggle details")),
+		},
 		opts:         logOpts,
 		commits:      commits,
 		hasMore:      hasMore,
@@ -74,6 +85,7 @@ func New(commits []git.LogEntry, repo *git.Repository, tokens theme.Tokens, opts
 		expanded:     expanded,
 		graphEnabled: logOpts.Graph,
 		filterInput:  ti,
+		cursor:       nav.NewCursor(3),
 	}
 	m.computeDisplayRows()
 	return m
@@ -88,20 +100,16 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		// Update commit view size if active (70% of screen)
+		m.cursor.SetSize(msg.Width, msg.Height)
 		if m.commitView != nil {
-			m.commitView.SetSize(m.width, m.height*70/100)
+			m.commitView.SetSize(msg.Width, msg.Height*70/100)
 		}
 		return m, nil
 
 	case tea.KeyMsg:
-		newM, cmd := m.handleKey(msg)
-		return newM, cmd
+		return m.handleKey(msg)
 
 	case commitview.CommitDataLoadedMsg:
-		// Forward to commit view if active
 		if m.commitView != nil {
 			cv := *m.commitView
 			newCV, cmd := cv.Update(msg)
@@ -112,7 +120,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case commitview.CloseCommitViewMsg:
-		// Handle close from the overlay commit view - don't bubble up to app
 		if m.commitView != nil {
 			m.commitView = nil
 		}
@@ -123,7 +130,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Err != nil {
 			return m, nil
 		}
-		// Append new commits
 		for _, c := range msg.Commits {
 			m.commits = append(m.commits, git.LogEntry{
 				Hash:            c.hash,
@@ -135,7 +141,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.expanded = append(m.expanded, false)
 		}
 		m.hasMore = msg.HasMore
-		// Recompute display rows (graph needs all commits for correct topology)
 		m.computeDisplayRows()
 		return m, nil
 	}
@@ -144,54 +149,49 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
-	// Delegate to commit view if active
 	if m.commitView != nil {
 		return m.handleCommitViewKey(msg)
 	}
 
-	// Handle filter mode
 	if m.filterActive {
 		return m.handleFilterKey(msg)
 	}
 
-	// Handle "gg" sequence
-	if m.pendingKey == "g" {
-		m.pendingKey = ""
-		if msg.String() == "g" {
-			m.cursor = 0
-			m.offset = 0
-			return m, nil
-		}
+	if m.cursor.HandleGG(msg.String()) {
+		return m, nil
+	}
+
+	// Navigation (custom due to graph row skipping)
+	max := m.maxCursor()
+	switch {
+	case key.Matches(msg, m.navKeys.MoveDown):
+		return m.moveDown(1), nil
+	case key.Matches(msg, m.navKeys.MoveUp):
+		return m.moveUp(1), nil
+	case key.Matches(msg, m.navKeys.PageDown):
+		return m.moveDown(m.cursor.VisibleLines()), nil
+	case key.Matches(msg, m.navKeys.PageUp):
+		return m.moveUp(m.cursor.VisibleLines()), nil
+	case key.Matches(msg, m.navKeys.HalfPageDown):
+		return m.moveDown(m.cursor.VisibleLines() / 2), nil
+	case key.Matches(msg, m.navKeys.HalfPageUp):
+		return m.moveUp(m.cursor.VisibleLines() / 2), nil
+	case key.Matches(msg, m.navKeys.GoToTop):
+		m.cursor.PendingKey = "g"
+		return m, nil
+	case key.Matches(msg, m.navKeys.GoToBottom):
+		m.cursor.GoToBottom(max)
+		return m, nil
+	}
+
+	// Popup triggers
+	if handled, cmd := nav.HandlePopupKey(msg, m.popKeys, m.currentHash()); handled {
+		return m, cmd
 	}
 
 	switch {
-	case key.Matches(msg, m.keys.Close), key.Matches(msg, m.keys.CloseEscape):
+	case key.Matches(msg, m.navKeys.Close), key.Matches(msg, m.navKeys.CloseEscape):
 		return m, func() tea.Msg { return CloseLogViewMsg{} }
-
-	case key.Matches(msg, m.keys.MoveDown):
-		return m.moveDown(1), nil
-
-	case key.Matches(msg, m.keys.MoveUp):
-		return m.moveUp(1), nil
-
-	case key.Matches(msg, m.keys.PageDown):
-		return m.moveDown(m.visibleLines()), nil
-
-	case key.Matches(msg, m.keys.PageUp):
-		return m.moveUp(m.visibleLines()), nil
-
-	case key.Matches(msg, m.keys.HalfPageDown):
-		return m.moveDown(m.visibleLines() / 2), nil
-
-	case key.Matches(msg, m.keys.HalfPageUp):
-		return m.moveUp(m.visibleLines() / 2), nil
-
-	case key.Matches(msg, m.keys.GoToTop):
-		m.pendingKey = "g"
-		return m, nil
-
-	case key.Matches(msg, m.keys.GoToBottom):
-		return m.goToBottom(), nil
 
 	case key.Matches(msg, m.keys.LoadMore):
 		if m.hasMore && !m.loading {
@@ -205,119 +205,63 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.filterInput.Focus()
 		return m, textinput.Blink
 
-	case key.Matches(msg, m.keys.Yank):
-		if len(m.commits) > 0 && m.cursor < len(m.commits) {
-			hash := m.commits[m.cursor].AbbreviatedHash
-			return m, yankCmd(hash)
+	case key.Matches(msg, m.navKeys.Yank):
+		if len(m.commits) > 0 && m.cursor.Pos < len(m.commits) {
+			hash := m.commits[m.cursor.Pos].AbbreviatedHash
+			return m, shared.YankCmd(hash)
 		}
 		return m, nil
 
 	case key.Matches(msg, m.keys.ToggleDetail):
-		if m.cursor < len(m.expanded) {
-			idx := m.cursor
-			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
-				idx = m.filtered[m.cursor]
+		if m.cursor.Pos < len(m.expanded) {
+			idx := m.cursor.Pos
+			if len(m.filtered) > 0 && m.cursor.Pos < len(m.filtered) {
+				idx = m.filtered[m.cursor.Pos]
 			}
 			if idx < len(m.expanded) {
 				m.expanded[idx] = !m.expanded[idx]
-				// If expanding, scroll down to show details
-				if m.expanded[idx] && m.cursor == m.offset {
-					// Cursor is at top of view, scroll down slightly to show details
-					if m.offset > 0 {
-						m.offset--
+				if m.expanded[idx] && m.cursor.Pos == m.cursor.Offset {
+					if m.cursor.Offset > 0 {
+						m.cursor.Offset--
 					}
 				}
 			}
 		}
 		return m, nil
 
-	case key.Matches(msg, m.keys.Select):
-		// Open commit view as overlay for the selected commit
+	case key.Matches(msg, m.navKeys.Select):
 		if len(m.commits) > 0 {
-			idx := m.cursor
-			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
-				idx = m.filtered[m.cursor]
+			idx := m.cursor.Pos
+			if len(m.filtered) > 0 && m.cursor.Pos < len(m.filtered) {
+				idx = m.filtered[m.cursor.Pos]
 			}
 			if idx < len(m.commits) {
 				hash := m.commits[idx].Hash
 				cv := commitview.New(m.repo, hash, m.tokens, nil)
-				cv.SetSize(m.width, m.height*70/100)
+				cv.SetSize(m.cursor.Width, m.cursor.Height*70/100)
 				cv.SetOverlayMode(true)
 				m.commitView = &cv
 				return m, cv.Init()
 			}
 		}
 		return m, nil
-
-	// Popup triggers
-	case key.Matches(msg, m.keys.CherryPickPopup):
-		return m, m.openPopupCmd("cherry-pick")
-	case key.Matches(msg, m.keys.BranchPopup):
-		return m, m.openPopupCmd("branch")
-	case key.Matches(msg, m.keys.CommitPopup):
-		return m, m.openPopupCmd("commit")
-	case key.Matches(msg, m.keys.DiffPopup):
-		return m, m.openPopupCmd("diff")
-	case key.Matches(msg, m.keys.FetchPopup):
-		return m, m.openPopupCmd("fetch")
-	case key.Matches(msg, m.keys.MergePopup):
-		return m, m.openPopupCmd("merge")
-	case key.Matches(msg, m.keys.PullPopup):
-		return m, m.openPopupCmd("pull")
-	case key.Matches(msg, m.keys.RebasePopup):
-		return m, m.openPopupCmd("rebase")
-	case key.Matches(msg, m.keys.RevertPopup):
-		return m, m.openPopupCmd("revert")
-	case key.Matches(msg, m.keys.ResetPopup):
-		return m, m.openPopupCmd("reset")
-	case key.Matches(msg, m.keys.TagPopup):
-		return m, m.openPopupCmd("tag")
-	case key.Matches(msg, m.keys.BisectPopup):
-		return m, m.openPopupCmd("bisect")
-	case key.Matches(msg, m.keys.RemotePopup):
-		return m, m.openPopupCmd("remote")
-	case key.Matches(msg, m.keys.WorktreePopup):
-		return m, m.openPopupCmd("worktree")
-	case key.Matches(msg, m.keys.OpenCommitLink):
-		return m, m.openCommitLinkCmd()
 	}
 
 	return m, nil
 }
 
-// openPopupCmd returns a command that emits an OpenPopupMsg for the given popup type.
-func (m Model) openPopupCmd(popupType string) tea.Cmd {
-	hash := ""
-	if len(m.commits) > 0 {
-		idx := m.cursor
-		if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
-			idx = m.filtered[m.cursor]
-		}
-		if idx < len(m.commits) {
-			hash = m.commits[idx].Hash
-		}
-	}
-	return func() tea.Msg {
-		return OpenPopupMsg{Type: popupType, Commit: hash}
-	}
-}
-
-// openCommitLinkCmd returns a command to open the commit URL in a browser.
-func (m Model) openCommitLinkCmd() tea.Cmd {
+func (m Model) currentHash() string {
 	if len(m.commits) == 0 {
-		return nil
+		return ""
 	}
-	idx := m.cursor
-	if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
-		idx = m.filtered[m.cursor]
+	idx := m.cursor.Pos
+	if len(m.filtered) > 0 && m.cursor.Pos < len(m.filtered) {
+		idx = m.filtered[m.cursor.Pos]
 	}
-	if idx >= len(m.commits) {
-		return nil
+	if idx < len(m.commits) {
+		return m.commits[idx].Hash
 	}
-	hash := m.commits[idx].Hash
-	return func() tea.Msg {
-		return OpenCommitLinkMsg{Hash: hash}
-	}
+	return ""
 }
 
 func (m Model) handleFilterKey(msg tea.KeyMsg) (Model, tea.Cmd) {
@@ -349,13 +293,12 @@ func (m Model) handleCommitViewKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 	if cvModel.Done() {
 		m.commitView = nil
-		return m, nil // Don't bubble CloseCommitViewMsg
+		return m, nil
 	}
 	return m, cmd
 }
 
 func (m *Model) applyFilter() {
-	// Use filterInput value if filterText not set (for testing)
 	text := m.filterText
 	if text == "" {
 		text = m.filterInput.Value()
@@ -377,16 +320,14 @@ func (m *Model) applyFilter() {
 		}
 	}
 
-	// Reset cursor to first filtered result
 	if len(m.filtered) > 0 {
-		m.cursor = 0
+		m.cursor.Pos = 0
 	}
 }
 
 // computeDisplayRows builds the display row list from commits and graph data.
 func (m *Model) computeDisplayRows() {
 	if !m.graphEnabled || len(m.commits) == 0 {
-		// No graph — one display row per commit
 		m.displayRows = make([]displayRow, len(m.commits))
 		for i := range m.commits {
 			m.displayRows[i] = displayRow{commitIdx: i}
@@ -394,7 +335,6 @@ func (m *Model) computeDisplayRows() {
 		return
 	}
 
-	// Convert commits to graph input
 	inputs := make([]graph.CommitInput, len(m.commits))
 	for i, c := range m.commits {
 		var parents []string
@@ -406,8 +346,6 @@ func (m *Model) computeDisplayRows() {
 
 	graphRows := graph.Build(inputs)
 
-	// Build display rows by matching graph rows to commits via OID
-	// Build a map from OID -> commit index for lookup
 	oidToIdx := make(map[string]int, len(m.commits))
 	for i, c := range m.commits {
 		oidToIdx[c.Hash] = i
@@ -428,49 +366,40 @@ func (m *Model) computeDisplayRows() {
 	}
 }
 
+// Graph-aware moveDown: skips connector rows.
 func (m Model) moveDown(n int) Model {
 	max := m.maxCursor()
 	if max < 0 {
 		return m
 	}
 
-	for i := 0; i < n; i++ {
-		next := m.cursor + 1
-		// Skip connector rows (commitIdx == -1)
+	for range n {
+		next := m.cursor.Pos + 1
 		for next <= max && m.graphEnabled && len(m.displayRows) > 0 && m.displayRows[next].commitIdx < 0 {
 			next++
 		}
 		if next > max {
 			break
 		}
-		m.cursor = next
+		m.cursor.Pos = next
 	}
-	m.ensureVisible()
+	m.cursor.EnsureVisible()
 	return m
 }
 
+// Graph-aware moveUp: skips connector rows.
 func (m Model) moveUp(n int) Model {
-	for i := 0; i < n; i++ {
-		next := m.cursor - 1
-		// Skip connector rows (commitIdx == -1)
+	for range n {
+		next := m.cursor.Pos - 1
 		for next >= 0 && m.graphEnabled && len(m.displayRows) > 0 && m.displayRows[next].commitIdx < 0 {
 			next--
 		}
 		if next < 0 {
 			break
 		}
-		m.cursor = next
+		m.cursor.Pos = next
 	}
-	m.ensureVisible()
-	return m
-}
-
-func (m Model) goToBottom() Model {
-	max := m.maxCursor()
-	if max >= 0 {
-		m.cursor = max
-		m.ensureVisible()
-	}
+	m.cursor.EnsureVisible()
 	return m
 }
 
@@ -479,7 +408,6 @@ func (m Model) maxCursor() int {
 		return len(m.filtered) - 1
 	}
 	if m.graphEnabled && len(m.displayRows) > 0 {
-		// Find the last display row with a commit
 		for i := len(m.displayRows) - 1; i >= 0; i-- {
 			if m.displayRows[i].commitIdx >= 0 {
 				return i
@@ -490,27 +418,7 @@ func (m Model) maxCursor() int {
 	return len(m.commits) - 1
 }
 
-func (m Model) visibleLines() int {
-	// Reserve 3 lines for header + hint row + filter
-	v := m.height - 3
-	if v < 1 {
-		return 1
-	}
-	return v
-}
-
-func (m *Model) ensureVisible() {
-	vis := m.visibleLines()
-	if m.cursor < m.offset {
-		m.offset = m.cursor
-	}
-	if m.cursor >= m.offset+vis {
-		m.offset = m.cursor - vis + 1
-	}
-}
-
 func (m Model) loadMoreCmd() tea.Cmd {
-	// Will be implemented when wiring to app
 	return func() tea.Msg {
 		return LoadMoreMsg{}
 	}
@@ -518,8 +426,7 @@ func (m Model) loadMoreCmd() tea.Cmd {
 
 // SetSize updates the view dimensions.
 func (m *Model) SetSize(width, height int) {
-	m.width = width
-	m.height = height
+	m.cursor.SetSize(width, height)
 }
 
 // SetRemotes sets the remote names for ref parsing.

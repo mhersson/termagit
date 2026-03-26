@@ -7,17 +7,18 @@ import (
 
 // StageFile stages a file in the index.
 func (r *Repository) StageFile(ctx context.Context, path string) error {
-	return r.logOpVoid(ctx, "git add "+path, func() error {
+	_, _, err := r.logOp(ctx, "git add "+path, func() (string, string, error) {
 		wt, err := r.raw.Worktree()
 		if err != nil {
-			return fmt.Errorf("get worktree: %w", err)
+			return "", "", fmt.Errorf("get worktree: %w", err)
 		}
 		_, err = wt.Add(path)
 		if err != nil {
-			return fmt.Errorf("stage file: %w", err)
+			return "", "", fmt.Errorf("stage file: %w", err)
 		}
-		return nil
+		return "", "", nil
 	})
+	return err
 }
 
 // UnstageFile removes a file from the staging area.
@@ -92,15 +93,3 @@ func (r *Repository) DiscardHunk(ctx context.Context, path string, hunk Hunk) er
 	return r.ApplyPatch(ctx, patch)
 }
 
-// UnstageStaged unstages all staged files.
-func (r *Repository) UnstageStaged(ctx context.Context) error {
-	return r.UnstageAll(ctx)
-}
-
-// logOpVoid wraps a void operation with logging.
-func (r *Repository) logOpVoid(ctx context.Context, equiv string, fn func() error) error {
-	_, _, err := r.logOp(ctx, equiv, func() (string, string, error) {
-		return "", "", fn()
-	})
-	return err
-}

@@ -288,7 +288,7 @@ func TestDiscardHunk_RemovesFromWorktree(t *testing.T) {
 	assert.Contains(t, string(content), "LINE10")
 }
 
-func TestUnstageStaged_ClearsAllStaged(t *testing.T) {
+func TestUnstageAll_ClearsAllStaged(t *testing.T) {
 	skipInShort(t)
 	r := newTempRepo(t)
 	ctx := context.Background()
@@ -303,8 +303,8 @@ func TestUnstageStaged_ClearsAllStaged(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, status.Staged, 2, "should have 2 staged files")
 
-	// UnstageStaged should clear all staged.
-	err = r.UnstageStaged(ctx)
+	// UnstageAll should clear all staged.
+	err = r.UnstageAll(ctx)
 	require.NoError(t, err)
 
 	status, err = r.Status(ctx)

@@ -8,6 +8,8 @@ import (
 
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/theme"
+	"github.com/mhersson/termagit/internal/ui/nav"
+	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
 // confirmMode indicates what type of confirmation is pending.
@@ -22,18 +24,14 @@ const (
 type Model struct {
 	repo    *git.Repository
 	tokens  theme.Tokens
-	keys    KeyMap
+	navKeys nav.NavigationKeys
+	popKeys nav.PopupKeys
+	Discard key.Binding
 	stashes []git.StashEntry
-	cursor  int
-	offset  int
+	cursor  nav.Cursor
 
 	confirmMode confirmMode
 	confirmIdx  int // stash index being confirmed
-
-	pendingKey string
-
-	width  int
-	height int
 }
 
 // New creates a new stash list view model.
@@ -41,8 +39,14 @@ func New(stashes []git.StashEntry, repo *git.Repository, tokens theme.Tokens) Mo
 	return Model{
 		repo:    repo,
 		tokens:  tokens,
-		keys:    DefaultKeyMap(),
+		navKeys: nav.DefaultNavigationKeys(),
+		popKeys: nav.DefaultPopupKeys(),
+		Discard: key.NewBinding(
+			key.WithKeys("x"),
+			key.WithHelp("x", "drop stash"),
+		),
 		stashes: stashes,
+		cursor:  nav.NewCursor(2),
 	}
 }
 
@@ -55,8 +59,7 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
+		m.cursor.SetSize(msg.Width, msg.Height)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -72,11 +75,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case StashesRefreshedMsg:
 		if msg.Err == nil {
 			m.stashes = msg.Stashes
-			if m.cursor >= len(m.stashes) {
-				m.cursor = len(m.stashes) - 1
+			if m.cursor.Pos >= len(m.stashes) {
+				m.cursor.Pos = len(m.stashes) - 1
 			}
-			if m.cursor < 0 {
-				m.cursor = 0
+			if m.cursor.Pos < 0 {
+				m.cursor.Pos = 0
 			}
 		}
 		return m, nil
@@ -92,93 +95,45 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 
 	// Handle "gg" sequence
-	if m.pendingKey == "g" {
-		m.pendingKey = ""
-		if msg.String() == "g" {
-			m.cursor = 0
-			m.offset = 0
-			return m, nil
-		}
+	if m.cursor.HandleGG(msg.String()) {
+		return m, nil
 	}
 
+	// Navigation keys
+	max := len(m.stashes) - 1
+	if handled, cmd := nav.HandleNavigationKey(msg, &m.cursor, m.navKeys, max); handled {
+		return m, cmd
+	}
+
+	// Popup trigger keys
+	if handled, cmd := nav.HandlePopupKey(msg, m.popKeys, m.currentStashName()); handled {
+		return m, cmd
+	}
+
+	// View-specific keys
 	switch {
-	case key.Matches(msg, m.keys.Close), key.Matches(msg, m.keys.CloseEscape):
+	case key.Matches(msg, m.navKeys.Close), key.Matches(msg, m.navKeys.CloseEscape):
 		return m, func() tea.Msg { return CloseStashListMsg{} }
 
-	case key.Matches(msg, m.keys.MoveDown):
-		return m.moveDown(1), nil
-
-	case key.Matches(msg, m.keys.MoveUp):
-		return m.moveUp(1), nil
-
-	case key.Matches(msg, m.keys.PageDown):
-		return m.moveDown(m.visibleLines()), nil
-
-	case key.Matches(msg, m.keys.PageUp):
-		return m.moveUp(m.visibleLines()), nil
-
-	case key.Matches(msg, m.keys.HalfPageDown):
-		return m.moveDown(m.visibleLines() / 2), nil
-
-	case key.Matches(msg, m.keys.HalfPageUp):
-		return m.moveUp(m.visibleLines() / 2), nil
-
-	case key.Matches(msg, m.keys.GoToTop):
-		m.pendingKey = "g"
-		return m, nil
-
-	case key.Matches(msg, m.keys.GoToBottom):
-		return m.goToBottom(), nil
-
-	case key.Matches(msg, m.keys.Select):
-		if len(m.stashes) > 0 && m.cursor < len(m.stashes) {
-			name := m.stashes[m.cursor].Name
-			return m, func() tea.Msg { return OpenCommitViewMsg{Hash: name} }
+	case key.Matches(msg, m.navKeys.Select):
+		if len(m.stashes) > 0 && m.cursor.Pos < len(m.stashes) {
+			name := m.stashes[m.cursor.Pos].Name
+			return m, func() tea.Msg { return shared.OpenCommitViewMsg{Hash: name} }
 		}
 		return m, nil
 
-	case key.Matches(msg, m.keys.Discard):
-		if len(m.stashes) > 0 && m.cursor < len(m.stashes) {
+	case key.Matches(msg, m.Discard):
+		if len(m.stashes) > 0 && m.cursor.Pos < len(m.stashes) {
 			m.confirmMode = confirmDropStash
-			m.confirmIdx = m.stashes[m.cursor].Index
+			m.confirmIdx = m.stashes[m.cursor.Pos].Index
 		}
 		return m, nil
 
-	case key.Matches(msg, m.keys.Yank):
-		if len(m.stashes) > 0 && m.cursor < len(m.stashes) {
-			return m, yankCmd(m.stashes[m.cursor].Name)
+	case key.Matches(msg, m.navKeys.Yank):
+		if len(m.stashes) > 0 && m.cursor.Pos < len(m.stashes) {
+			return m, shared.YankCmd(m.stashes[m.cursor.Pos].Name)
 		}
 		return m, nil
-
-	// Popup triggers
-	case key.Matches(msg, m.keys.CherryPickPopup):
-		return m, m.openPopupCmd("cherry-pick")
-	case key.Matches(msg, m.keys.BranchPopup):
-		return m, m.openPopupCmd("branch")
-	case key.Matches(msg, m.keys.CommitPopup):
-		return m, m.openPopupCmd("commit")
-	case key.Matches(msg, m.keys.DiffPopup):
-		return m, m.openPopupCmd("diff")
-	case key.Matches(msg, m.keys.FetchPopup):
-		return m, m.openPopupCmd("fetch")
-	case key.Matches(msg, m.keys.MergePopup):
-		return m, m.openPopupCmd("merge")
-	case key.Matches(msg, m.keys.PullPopup):
-		return m, m.openPopupCmd("pull")
-	case key.Matches(msg, m.keys.PushPopup):
-		return m, m.openPopupCmd("push")
-	case key.Matches(msg, m.keys.RebasePopup):
-		return m, m.openPopupCmd("rebase")
-	case key.Matches(msg, m.keys.RevertPopup):
-		return m, m.openPopupCmd("revert")
-	case key.Matches(msg, m.keys.ResetPopup):
-		return m, m.openPopupCmd("reset")
-	case key.Matches(msg, m.keys.TagPopup):
-		return m, m.openPopupCmd("tag")
-	case key.Matches(msg, m.keys.BisectPopup):
-		return m, m.openPopupCmd("bisect")
-	case key.Matches(msg, m.keys.RemotePopup):
-		return m, m.openPopupCmd("remote")
 	}
 
 	return m, nil
@@ -199,71 +154,16 @@ func (m Model) handleConfirmKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// openPopupCmd returns a command that emits an OpenPopupMsg.
-func (m Model) openPopupCmd(popupType string) tea.Cmd {
-	name := ""
-	if len(m.stashes) > 0 && m.cursor < len(m.stashes) {
-		name = m.stashes[m.cursor].Name
+func (m Model) currentStashName() string {
+	if len(m.stashes) > 0 && m.cursor.Pos < len(m.stashes) {
+		return m.stashes[m.cursor.Pos].Name
 	}
-	return func() tea.Msg {
-		return OpenPopupMsg{Type: popupType, Commit: name}
-	}
-}
-
-func (m Model) moveDown(n int) Model {
-	max := len(m.stashes) - 1
-	if max < 0 {
-		return m
-	}
-	m.cursor += n
-	if m.cursor > max {
-		m.cursor = max
-	}
-	m.ensureVisible()
-	return m
-}
-
-func (m Model) moveUp(n int) Model {
-	m.cursor -= n
-	if m.cursor < 0 {
-		m.cursor = 0
-	}
-	m.ensureVisible()
-	return m
-}
-
-func (m Model) goToBottom() Model {
-	max := len(m.stashes) - 1
-	if max >= 0 {
-		m.cursor = max
-		m.ensureVisible()
-	}
-	return m
-}
-
-func (m Model) visibleLines() int {
-	// Reserve 2 lines for header
-	v := m.height - 2
-	if v < 1 {
-		return 1
-	}
-	return v
-}
-
-func (m *Model) ensureVisible() {
-	vis := m.visibleLines()
-	if m.cursor < m.offset {
-		m.offset = m.cursor
-	}
-	if m.cursor >= m.offset+vis {
-		m.offset = m.cursor - vis + 1
-	}
+	return ""
 }
 
 // SetSize updates the view dimensions.
 func (m *Model) SetSize(width, height int) {
-	m.width = width
-	m.height = height
+	m.cursor.SetSize(width, height)
 }
 
 // ConfirmMessage returns the confirmation message if pending.

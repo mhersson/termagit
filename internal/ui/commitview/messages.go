@@ -28,17 +28,6 @@ type ScrollCommitViewMsg struct {
 	Direction int // -1 up, +1 down
 }
 
-// YankMsg carries text to be copied to clipboard.
-type YankMsg struct {
-	Text string
-}
-
-// OpenPopupMsg requests opening a popup with commit context.
-type OpenPopupMsg struct {
-	Type   string // popup type: "commit", "branch", "rebase", etc.
-	Commit string // commit hash for context
-}
-
 // OpenFileMsg requests opening a file in the worktree.
 type OpenFileMsg struct {
 	Path string
@@ -56,8 +45,6 @@ var (
 	_ tea.Msg = CloseCommitViewMsg{}
 	_ tea.Msg = CommitDataLoadedMsg{}
 	_ tea.Msg = ScrollCommitViewMsg{}
-	_ tea.Msg = YankMsg{}
-	_ tea.Msg = OpenPopupMsg{}
 	_ tea.Msg = OpenFileMsg{}
 	_ tea.Msg = OpenURLMsg{}
 )

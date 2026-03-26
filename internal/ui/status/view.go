@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/mhersson/termagit/internal/git"
+	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
 // view renders the status buffer.
@@ -238,7 +239,7 @@ func renderHeadBar(m Model) string {
 	}
 
 	// Head line
-	headLabel := padRight("Head:", padding)
+	headLabel := shared.PadRight("Head:", padding)
 	b.WriteString(m.tokens.Bold.Render(headLabel))
 
 	if m.head.AbbrevOid != "" {
@@ -260,7 +261,7 @@ func renderHeadBar(m Model) string {
 	// Merge line (if applicable)
 	if m.head.UpstreamBranch != "" {
 		b.WriteString("\n")
-		mergeLabel := padRight("Merge:", padding)
+		mergeLabel := shared.PadRight("Merge:", padding)
 		b.WriteString(m.tokens.Bold.Render(mergeLabel))
 
 		if m.head.UpstreamOid != "" {
@@ -280,7 +281,7 @@ func renderHeadBar(m Model) string {
 	// Push line (if applicable)
 	if m.head.PushBranch != "" {
 		b.WriteString("\n")
-		pushLabel := padRight("Push:", padding)
+		pushLabel := shared.PadRight("Push:", padding)
 		b.WriteString(m.tokens.Bold.Render(pushLabel))
 
 		if m.head.PushOid != "" {
@@ -300,7 +301,7 @@ func renderHeadBar(m Model) string {
 	// Tag line (if applicable)
 	if m.head.Tag != "" {
 		b.WriteString("\n")
-		tagLabel := padRight("Tag:", padding)
+		tagLabel := shared.PadRight("Tag:", padding)
 		b.WriteString(m.tokens.Bold.Render(tagLabel))
 		b.WriteString(m.tokens.Tag.Render(m.head.Tag))
 
@@ -331,7 +332,7 @@ func getSectionHeaderStyle(tokens Tokens, kind SectionKind) lipgloss.Style {
 // renderSequencerItem renders a cherry-pick or revert item.
 // Format: action (6 chars) + hash (7 chars) + subject
 func renderSequencerItem(m Model, item *Item, onItem bool) string {
-	action := padRight(item.Action, 6)
+	action := shared.PadRight(item.Action, 6)
 	hash := item.ActionHash
 	if len(hash) > 7 {
 		hash = hash[:7]
@@ -363,7 +364,7 @@ func renderRebaseItem(m Model, item *Item, onItem bool) string {
 		prefix = "> "
 	}
 
-	action := padRight(item.Action, 6)
+	action := shared.PadRight(item.Action, 6)
 	hash := item.ActionHash
 	if len(hash) > 7 {
 		hash = hash[:7]
@@ -401,7 +402,7 @@ func renderBisectItem(m Model, item *Item, onItem bool) string {
 	prefix := "  "
 	// Could mark current but bisect log doesn't typically have a current marker
 
-	action := padRight(item.Action, 5)
+	action := shared.PadRight(item.Action, 5)
 	hash := item.ActionHash
 	if len(hash) > 7 {
 		hash = hash[:7]
@@ -442,31 +443,31 @@ func renderBisectDetailItem(m Model, entry *git.LogEntry, onItem bool) string {
 	var b strings.Builder
 
 	// Author line
-	author := fmt.Sprintf("  %s%s <%s>", padRight("Author:", 12), entry.AuthorName, entry.AuthorEmail)
+	author := fmt.Sprintf("  %s%s <%s>", shared.PadRight("Author:", 12), entry.AuthorName, entry.AuthorEmail)
 	if onItem {
 		b.WriteString(renderCursorLine(m, author))
 	} else {
 		b.WriteString("  ")
-		b.WriteString(m.tokens.SubtleText.Render(padRight("Author:", 12)))
+		b.WriteString(m.tokens.SubtleText.Render(shared.PadRight("Author:", 12)))
 		fmt.Fprintf(&b, "%s <%s>", entry.AuthorName, entry.AuthorEmail)
 		b.WriteString("\n")
 	}
 
 	// AuthorDate line
 	b.WriteString("  ")
-	b.WriteString(m.tokens.SubtleText.Render(padRight("AuthorDate:", 12)))
+	b.WriteString(m.tokens.SubtleText.Render(shared.PadRight("AuthorDate:", 12)))
 	b.WriteString(entry.AuthorDate)
 	b.WriteString("\n")
 
 	// Committer line
 	b.WriteString("  ")
-	b.WriteString(m.tokens.SubtleText.Render(padRight("Committer:", 12)))
+	b.WriteString(m.tokens.SubtleText.Render(shared.PadRight("Committer:", 12)))
 	fmt.Fprintf(&b, "%s <%s>", entry.CommitterName, entry.CommitterEmail)
 	b.WriteString("\n")
 
 	// CommitDate line
 	b.WriteString("  ")
-	b.WriteString(m.tokens.SubtleText.Render(padRight("CommitDate:", 12)))
+	b.WriteString(m.tokens.SubtleText.Render(shared.PadRight("CommitDate:", 12)))
 	b.WriteString(entry.CommitterDate)
 	b.WriteString("\n")
 
@@ -603,14 +604,6 @@ func styleForMode(tokens Tokens, entry *git.StatusEntry, sectionKind SectionKind
 	default:
 		return tokens.Normal
 	}
-}
-
-// padRight pads a string to the right with spaces.
-func padRight(s string, width int) string {
-	if len(s) >= width {
-		return s
-	}
-	return s + strings.Repeat(" ", width-len(s))
 }
 
 // renderContent renders the status buffer and returns the content along with
@@ -765,7 +758,7 @@ func renderItemWithLineTracking(m Model, sectionIdx, itemIdx int, item *Item, se
 			if modeText == "" {
 				line = fmt.Sprintf("  %s %s", sign, path)
 			} else {
-				line = fmt.Sprintf("  %s %s %s", sign, padRight(modeText, 12), path)
+				line = fmt.Sprintf("  %s %s %s", sign, shared.PadRight(modeText, 12), path)
 			}
 			b.WriteString(renderCursorLine(m, line))
 		} else {
@@ -773,7 +766,7 @@ func renderItemWithLineTracking(m Model, sectionIdx, itemIdx int, item *Item, se
 			b.WriteString(sign)
 			b.WriteString(" ")
 			if modeText != "" {
-				b.WriteString(styleForMode(m.tokens, item.Entry, sectionKind).Render(padRight(modeText, 12)))
+				b.WriteString(styleForMode(m.tokens, item.Entry, sectionKind).Render(shared.PadRight(modeText, 12)))
 			}
 			b.WriteString(path)
 			b.WriteString("\n")

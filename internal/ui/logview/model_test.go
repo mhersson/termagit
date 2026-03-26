@@ -80,7 +80,7 @@ func TestLogModel_New_InitializesWithCommits(t *testing.T) {
 	m := New(commits, nil, testTokens(), nil, false, "main")
 
 	assert.Len(t, m.commits, 3)
-	assert.Equal(t, 0, m.cursor)
+	assert.Equal(t, 0, m.cursor.Pos)
 }
 
 func TestLogModel_CursorDown_MovesToNextCommit(t *testing.T) {
@@ -90,38 +90,38 @@ func TestLogModel_CursorDown_MovesToNextCommit(t *testing.T) {
 	// Press j to move down
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 
-	assert.Equal(t, 1, m.cursor)
+	assert.Equal(t, 1, m.cursor.Pos)
 }
 
 func TestLogModel_CursorUp_MovesToPreviousCommit(t *testing.T) {
 	commits := testCommits()
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.cursor = 2
+	m.cursor.Pos =2
 
 	// Press k to move up
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 
-	assert.Equal(t, 1, m.cursor)
+	assert.Equal(t, 1, m.cursor.Pos)
 }
 
 func TestLogModel_CursorDown_StopsAtBottom(t *testing.T) {
 	commits := testCommits()
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.cursor = 2 // last commit
+	m.cursor.Pos =2 // last commit
 
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 
-	assert.Equal(t, 2, m.cursor) // stays at last
+	assert.Equal(t, 2, m.cursor.Pos) // stays at last
 }
 
 func TestLogModel_CursorUp_StopsAtTop(t *testing.T) {
 	commits := testCommits()
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.cursor = 0
+	m.cursor.Pos =0
 
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 
-	assert.Equal(t, 0, m.cursor) // stays at top
+	assert.Equal(t, 0, m.cursor.Pos) // stays at top
 }
 
 func TestLogModel_Close_SendsCloseMsg(t *testing.T) {
@@ -162,8 +162,8 @@ func TestLogModel_LoadMore_AppendsCommits(t *testing.T) {
 func TestLogModel_Filter_MatchesSubject(t *testing.T) {
 	commits := testCommits()
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.width = 80
-	m.height = 24
+	m.cursor.Width = 80
+	m.cursor.Height = 24
 
 	// Activate filter
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
@@ -210,8 +210,8 @@ func TestLogView_CommitRow_RendersHash(t *testing.T) {
 		{AbbreviatedHash: "abc123d", Subject: "Test commit"},
 	}
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.width = 80
-	m.height = 24
+	m.cursor.Width = 80
+	m.cursor.Height = 24
 
 	view := m.View()
 
@@ -230,8 +230,8 @@ func TestLogView_CommitRow_RendersRefDecorations(t *testing.T) {
 		},
 	}
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.width = 80
-	m.height = 24
+	m.cursor.Width = 80
+	m.cursor.Height = 24
 
 	view := m.View()
 
@@ -243,8 +243,8 @@ func TestLogView_LastRow_ShowsLoadMoreHint(t *testing.T) {
 	commits := testCommits()
 	m := New(commits, nil, testTokens(), nil, true, "main")
 	m.hasMore = true
-	m.width = 80
-	m.height = 50 // tall enough to show all
+	m.cursor.Width = 80
+	m.cursor.Height = 50 // tall enough to show all
 
 	view := m.View()
 
@@ -254,7 +254,7 @@ func TestLogView_LastRow_ShowsLoadMoreHint(t *testing.T) {
 func TestLogModel_YankHash_CopiesHash(t *testing.T) {
 	commits := testCommits()
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.cursor = 0
+	m.cursor.Pos =0
 
 	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'Y'}})
 
@@ -265,8 +265,8 @@ func TestLogModel_YankHash_CopiesHash(t *testing.T) {
 func TestLogModel_SelectOpensCommitViewOverlay(t *testing.T) {
 	commits := testCommits()
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.width = 80
-	m.height = 24
+	m.cursor.Width = 80
+	m.cursor.Height = 24
 
 	// Press Enter to select
 	newM, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
@@ -280,8 +280,8 @@ func TestLogModel_SelectOpensCommitViewOverlay(t *testing.T) {
 func TestLogModel_CommitViewOverlay_QClosesOverlay(t *testing.T) {
 	commits := testCommits()
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.width = 80
-	m.height = 24
+	m.cursor.Width = 80
+	m.cursor.Height = 24
 
 	// First open commit view
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
@@ -297,19 +297,19 @@ func TestLogModel_CommitViewOverlay_QClosesOverlay(t *testing.T) {
 func TestLogModel_CommitViewOverlay_KeysDelegatedToCommitView(t *testing.T) {
 	commits := testCommits()
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.width = 80
-	m.height = 24
+	m.cursor.Width = 80
+	m.cursor.Height = 24
 
 	// First open commit view
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
 	require.NotNil(t, m.commitView)
 
 	// j should be delegated to commit view, not move log cursor
-	origLogCursor := m.cursor
+	origLogCursor := m.cursor.Pos
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 
 	// Log cursor should not have changed
-	assert.Equal(t, origLogCursor, m.cursor)
+	assert.Equal(t, origLogCursor, m.cursor.Pos)
 	// Commit view should still be active
 	assert.NotNil(t, m.commitView)
 }
@@ -320,8 +320,8 @@ func TestLogModel_GraphEnabled_HasMoreDisplayRowsThanCommits(t *testing.T) {
 	commits := testMergeCommits()
 	opts := &git.LogOpts{Graph: true}
 	m := New(commits, nil, testTokens(), opts, false, "main")
-	m.width = 80
-	m.height = 24
+	m.cursor.Width = 80
+	m.cursor.Height = 24
 
 	// With merge commits and graph enabled, displayRows should include connector rows
 	assert.Greater(t, len(m.displayRows), len(m.commits),
@@ -331,8 +331,8 @@ func TestLogModel_GraphEnabled_HasMoreDisplayRowsThanCommits(t *testing.T) {
 func TestLogModel_GraphDisabled_DisplayRowsMatchCommits(t *testing.T) {
 	commits := testMergeCommits()
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.width = 80
-	m.height = 24
+	m.cursor.Width = 80
+	m.cursor.Height = 24
 
 	assert.Equal(t, len(m.commits), len(m.displayRows))
 }
@@ -341,15 +341,15 @@ func TestLogModel_GraphEnabled_CursorSkipsConnectorRows(t *testing.T) {
 	commits := testMergeCommits()
 	opts := &git.LogOpts{Graph: true}
 	m := New(commits, nil, testTokens(), opts, false, "main")
-	m.width = 80
-	m.height = 24
+	m.cursor.Width = 80
+	m.cursor.Height = 24
 
 	// Cursor starts at 0, which should be a commit row
-	assert.GreaterOrEqual(t, m.displayRows[m.cursor].commitIdx, 0)
+	assert.GreaterOrEqual(t, m.displayRows[m.cursor.Pos].commitIdx, 0)
 
 	// Press j — cursor should move to the next commit row, skipping connector rows
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	assert.GreaterOrEqual(t, m.displayRows[m.cursor].commitIdx, 0,
+	assert.GreaterOrEqual(t, m.displayRows[m.cursor.Pos].commitIdx, 0,
 		"cursor should always land on a commit row, not a connector row")
 }
 
@@ -357,12 +357,12 @@ func TestLogModel_GraphEnabled_MaxCursorOnCommitRow(t *testing.T) {
 	commits := testMergeCommits()
 	opts := &git.LogOpts{Graph: true}
 	m := New(commits, nil, testTokens(), opts, false, "main")
-	m.width = 80
-	m.height = 50
+	m.cursor.Width = 80
+	m.cursor.Height = 50
 
 	// Go to bottom
-	m = m.goToBottom()
-	assert.GreaterOrEqual(t, m.displayRows[m.cursor].commitIdx, 0,
+	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
+	assert.GreaterOrEqual(t, m.displayRows[m.cursor.Pos].commitIdx, 0,
 		"max cursor should be on a commit row")
 }
 
@@ -374,8 +374,8 @@ func TestLogModel_GraphEnabled_LoadMoreRecomputesGraph(t *testing.T) {
 	}
 	opts := &git.LogOpts{Graph: true}
 	m := New(commits, nil, testTokens(), opts, true, "main")
-	m.width = 120
-	m.height = 40
+	m.cursor.Width = 120
+	m.cursor.Height = 40
 
 	assert.Equal(t, 2, len(m.commits))
 
@@ -406,8 +406,8 @@ func TestLogView_GraphEnabled_RendersGraphChars(t *testing.T) {
 	commits := testMergeCommits()
 	opts := &git.LogOpts{Graph: true}
 	m := New(commits, nil, testTokens(), opts, false, "main")
-	m.width = 120
-	m.height = 40
+	m.cursor.Width = 120
+	m.cursor.Height = 40
 
 	view := m.View()
 	assert.Contains(t, view, "•", "graph-enabled view should contain commit marker")
@@ -416,8 +416,8 @@ func TestLogView_GraphEnabled_RendersGraphChars(t *testing.T) {
 func TestLogView_GraphDisabled_NoGraphChars(t *testing.T) {
 	commits := testCommits()
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.width = 120
-	m.height = 40
+	m.cursor.Width = 120
+	m.cursor.Height = 40
 
 	view := m.View()
 	assert.NotContains(t, view, "•", "graph-disabled view should not contain commit marker")
@@ -428,8 +428,8 @@ func TestLogView_GraphOnlyRow_NotHighlightedByCursor(t *testing.T) {
 	commits := testMergeCommits()
 	opts := &git.LogOpts{Graph: true}
 	m := New(commits, nil, testTokens(), opts, false, "main")
-	m.width = 120
-	m.height = 40
+	m.cursor.Width = 120
+	m.cursor.Height = 40
 
 	view := m.View()
 	// The view should render without crashing and contain commit data

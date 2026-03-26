@@ -3,31 +3,31 @@ package refsview
 import (
 	"fmt"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/ui/notification"
+	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
 // View renders the refs view.
 func (m Model) View() string {
-	if m.width == 0 || m.height == 0 {
+	if m.cursor.Width == 0 || m.cursor.Height == 0 {
 		return ""
 	}
 
 	var b strings.Builder
 
-	vis := m.visibleLines()
-	end := m.offset + vis
+	vis := m.cursor.VisibleLines()
+	end := m.cursor.Offset + vis
 	if end > len(m.flatRows) {
 		end = len(m.flatRows)
 	}
 
-	for i := m.offset; i < end; i++ {
+	for i := m.cursor.Offset; i < end; i++ {
 		row := m.flatRows[i]
-		isCursor := i == m.cursor
+		isCursor := i == m.cursor.Pos
 
 		var line string
 		if row.isHeader {
@@ -45,14 +45,14 @@ func (m Model) View() string {
 		b.WriteString("\n")
 	}
 
-	base := padToHeight(b.String(), m.height)
+	base := shared.PadToHeight(b.String(), m.cursor.Height)
 
 	// Overlay confirmation dialog if pending
 	confirmMsg := m.ConfirmMessage()
 	if confirmMsg != "" {
 		d := notification.ConfirmDialog{Message: confirmMsg}
-		confirmView := d.View(m.tokens, m.width-4)
-		base = notification.CenterOverlay(base, confirmView, m.width, m.height)
+		confirmView := d.View(m.tokens, m.cursor.Width-4)
+		base = notification.CenterOverlay(base, confirmView, m.cursor.Width, m.cursor.Height)
 	}
 
 	return base
@@ -101,8 +101,8 @@ func (m Model) renderRefRow(ref git.RefEntry, kind RefsSectionKind) string {
 
 	// Ref name: truncated to 34 chars, right-padded to 35
 	nameStyle := m.nameStyle(kind)
-	name := truncateString(ref.Name, 34)
-	name = padRight(name, 35)
+	name := shared.TruncateString(ref.Name, 34)
+	name = shared.PadRight(name, 35)
 	parts = append(parts, nameStyle.Render(name))
 
 	// Upstream info (for local branches with upstream)
@@ -151,31 +151,4 @@ func (m Model) upstreamStatusStyle(status string) lipgloss.Style {
 	default:
 		return m.tokens.GraphRed
 	}
-}
-
-// truncateString truncates a string to maxRunes runes.
-func truncateString(s string, maxRunes int) string {
-	if utf8.RuneCountInString(s) <= maxRunes {
-		return s
-	}
-	runes := []rune(s)
-	return string(runes[:maxRunes])
-}
-
-// padRight pads a string with spaces to the given width in runes.
-func padRight(s string, width int) string {
-	n := utf8.RuneCountInString(s)
-	if n >= width {
-		return s
-	}
-	return s + strings.Repeat(" ", width-n)
-}
-
-// padToHeight ensures the string has at least height lines for overlay placement.
-func padToHeight(s string, height int) string {
-	lines := strings.Split(s, "\n")
-	for len(lines) < height {
-		lines = append(lines, "")
-	}
-	return strings.Join(lines[:height], "\n")
 }

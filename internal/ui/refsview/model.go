@@ -10,6 +10,8 @@ import (
 
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/theme"
+	"github.com/mhersson/termagit/internal/ui/nav"
+	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
 // confirmMode indicates what type of confirmation is pending.
@@ -50,20 +52,20 @@ type flatRow struct {
 type Model struct {
 	repo   *git.Repository
 	tokens theme.Tokens
-	keys   KeyMap
+
+	navKeys nav.NavigationKeys
+	popKeys nav.PopupKeys
+
+	toggleKey       key.Binding
+	deleteBranchKey key.Binding
+	refreshKey      key.Binding
 
 	sections []RefsSection
 	flatRows []flatRow
-	cursor   int
-	offset   int
+	cursor   nav.Cursor
 
 	confirmMode confirmMode
 	confirmRef  *git.RefEntry
-
-	pendingKey string
-
-	width  int
-	height int
 }
 
 // New creates a new refs view model.
@@ -71,10 +73,24 @@ func New(refs *git.RefsResult, remotes []git.Remote, repo *git.Repository, token
 	sections := buildSections(refs, remotes)
 
 	m := Model{
-		repo:     repo,
-		tokens:   tokens,
-		keys:     DefaultKeyMap(),
+		repo:    repo,
+		tokens:  tokens,
+		navKeys: nav.DefaultNavigationKeys(),
+		popKeys: nav.DefaultPopupKeys(),
+		toggleKey: key.NewBinding(
+			key.WithKeys("tab"),
+			key.WithHelp("tab", "fold/unfold"),
+		),
+		deleteBranchKey: key.NewBinding(
+			key.WithKeys("x"),
+			key.WithHelp("x", "delete branch"),
+		),
+		refreshKey: key.NewBinding(
+			key.WithKeys("ctrl+r"),
+			key.WithHelp("C-r", "refresh"),
+		),
 		sections: sections,
+		cursor:   nav.NewCursor(0),
 	}
 	m.rebuildFlatRows()
 	return m
@@ -147,8 +163,7 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
+		m.cursor.SetSize(msg.Width, msg.Height)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -171,11 +186,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				remotes, _ := m.repo.ListRemotes(ctx)
 				m.sections = buildSections(refs, remotes)
 				m.rebuildFlatRows()
-				if m.cursor >= len(m.flatRows) {
-					m.cursor = len(m.flatRows) - 1
+				if m.cursor.Pos >= len(m.flatRows) {
+					m.cursor.Pos = len(m.flatRows) - 1
 				}
-				if m.cursor < 0 {
-					m.cursor = 0
+				if m.cursor.Pos < 0 {
+					m.cursor.Pos = 0
 				}
 			}
 		}
@@ -192,55 +207,35 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 
 	// Handle "gg" sequence
-	if m.pendingKey == "g" {
-		m.pendingKey = ""
-		if msg.String() == "g" {
-			m.cursor = 0
-			m.offset = 0
-			return m, nil
-		}
+	if m.cursor.HandleGG(msg.String()) {
+		return m, nil
+	}
+
+	max := len(m.flatRows) - 1
+
+	if handled, cmd := nav.HandleNavigationKey(msg, &m.cursor, m.navKeys, max); handled {
+		return m, cmd
+	}
+
+	if handled, cmd := nav.HandlePopupKey(msg, m.popKeys, m.currentRefHash()); handled {
+		return m, cmd
 	}
 
 	switch {
-	case key.Matches(msg, m.keys.Close), key.Matches(msg, m.keys.CloseEscape):
+	case key.Matches(msg, m.navKeys.Close), key.Matches(msg, m.navKeys.CloseEscape):
 		return m, func() tea.Msg { return CloseRefsViewMsg{} }
 
-	case key.Matches(msg, m.keys.MoveDown):
-		return m.moveDown(1), nil
-
-	case key.Matches(msg, m.keys.MoveUp):
-		return m.moveUp(1), nil
-
-	case key.Matches(msg, m.keys.PageDown):
-		return m.moveDown(m.visibleLines()), nil
-
-	case key.Matches(msg, m.keys.PageUp):
-		return m.moveUp(m.visibleLines()), nil
-
-	case key.Matches(msg, m.keys.HalfPageDown):
-		return m.moveDown(m.visibleLines() / 2), nil
-
-	case key.Matches(msg, m.keys.HalfPageUp):
-		return m.moveUp(m.visibleLines() / 2), nil
-
-	case key.Matches(msg, m.keys.GoToTop):
-		m.pendingKey = "g"
-		return m, nil
-
-	case key.Matches(msg, m.keys.GoToBottom):
-		return m.goToBottom(), nil
-
-	case key.Matches(msg, m.keys.Toggle):
+	case key.Matches(msg, m.toggleKey):
 		return m.toggleFold(), nil
 
-	case key.Matches(msg, m.keys.Select):
+	case key.Matches(msg, m.navKeys.Select):
 		ref := m.currentRef()
 		if ref != nil {
-			return m, func() tea.Msg { return OpenCommitViewMsg{Hash: ref.Oid} }
+			return m, func() tea.Msg { return shared.OpenCommitViewMsg{Hash: ref.Oid} }
 		}
 		return m, nil
 
-	case key.Matches(msg, m.keys.DeleteBranch):
+	case key.Matches(msg, m.deleteBranchKey):
 		ref := m.currentRef()
 		if ref != nil && ref.Type == git.RefTypeLocalBranch {
 			m.confirmMode = confirmDeleteBranch
@@ -248,43 +243,15 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case key.Matches(msg, m.keys.Yank):
+	case key.Matches(msg, m.navKeys.Yank):
 		ref := m.currentRef()
 		if ref != nil {
-			return m, yankCmd(ref.AbbrevOid)
+			return m, shared.YankCmd(ref.AbbrevOid)
 		}
 		return m, nil
 
-	case key.Matches(msg, m.keys.Refresh):
+	case key.Matches(msg, m.refreshKey):
 		return m, m.refreshCmd()
-
-	// Popup triggers
-	case key.Matches(msg, m.keys.CherryPickPopup):
-		return m, m.openPopupCmd("cherry-pick")
-	case key.Matches(msg, m.keys.BranchPopup):
-		return m, m.openPopupCmd("branch")
-	case key.Matches(msg, m.keys.CommitPopup):
-		return m, m.openPopupCmd("commit")
-	case key.Matches(msg, m.keys.DiffPopup):
-		return m, m.openPopupCmd("diff")
-	case key.Matches(msg, m.keys.FetchPopup):
-		return m, m.openPopupCmd("fetch")
-	case key.Matches(msg, m.keys.PullPopup):
-		return m, m.openPopupCmd("pull")
-	case key.Matches(msg, m.keys.PushPopup):
-		return m, m.openPopupCmd("push")
-	case key.Matches(msg, m.keys.RebasePopup):
-		return m, m.openPopupCmd("rebase")
-	case key.Matches(msg, m.keys.RevertPopup):
-		return m, m.openPopupCmd("revert")
-	case key.Matches(msg, m.keys.ResetPopup):
-		return m, m.openPopupCmd("reset")
-	case key.Matches(msg, m.keys.TagPopup):
-		return m, m.openPopupCmd("tag")
-	case key.Matches(msg, m.keys.BisectPopup):
-		return m, m.openPopupCmd("bisect")
-	case key.Matches(msg, m.keys.RemotePopup):
-		return m, m.openPopupCmd("remote")
 	}
 
 	return m, nil
@@ -307,15 +274,11 @@ func (m Model) handleConfirmKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// openPopupCmd returns a command that emits an OpenPopupMsg.
-func (m Model) openPopupCmd(popupType string) tea.Cmd {
-	hash := ""
+func (m Model) currentRefHash() string {
 	if ref := m.currentRef(); ref != nil {
-		hash = ref.Oid
+		return ref.Oid
 	}
-	return func() tea.Msg {
-		return OpenPopupMsg{Type: popupType, Commit: hash}
-	}
+	return ""
 }
 
 // refreshCmd returns a command to reload refs.
@@ -325,10 +288,10 @@ func (m Model) refreshCmd() tea.Cmd {
 
 // currentRef returns the ref under the cursor, or nil if on a header.
 func (m Model) currentRef() *git.RefEntry {
-	if m.cursor < 0 || m.cursor >= len(m.flatRows) {
+	if m.cursor.Pos < 0 || m.cursor.Pos >= len(m.flatRows) {
 		return nil
 	}
-	row := m.flatRows[m.cursor]
+	row := m.flatRows[m.cursor.Pos]
 	if row.isHeader {
 		return nil
 	}
@@ -341,73 +304,18 @@ func (m Model) currentRef() *git.RefEntry {
 
 // toggleFold toggles the fold state of the section under the cursor.
 func (m Model) toggleFold() Model {
-	if m.cursor < 0 || m.cursor >= len(m.flatRows) {
+	if m.cursor.Pos < 0 || m.cursor.Pos >= len(m.flatRows) {
 		return m
 	}
-	row := m.flatRows[m.cursor]
+	row := m.flatRows[m.cursor.Pos]
 	si := row.sectionIdx
 	m.sections[si].Folded = !m.sections[si].Folded
 	m.rebuildFlatRows()
 	// Keep cursor in bounds
-	if m.cursor >= len(m.flatRows) {
-		m.cursor = len(m.flatRows) - 1
+	if m.cursor.Pos >= len(m.flatRows) {
+		m.cursor.Pos = len(m.flatRows) - 1
 	}
 	return m
-}
-
-func (m Model) moveDown(n int) Model {
-	max := len(m.flatRows) - 1
-	if max < 0 {
-		return m
-	}
-	m.cursor += n
-	if m.cursor > max {
-		m.cursor = max
-	}
-	m.ensureVisible()
-	return m
-}
-
-func (m Model) moveUp(n int) Model {
-	m.cursor -= n
-	if m.cursor < 0 {
-		m.cursor = 0
-	}
-	m.ensureVisible()
-	return m
-}
-
-func (m Model) goToBottom() Model {
-	max := len(m.flatRows) - 1
-	if max >= 0 {
-		m.cursor = max
-		m.ensureVisible()
-	}
-	return m
-}
-
-func (m Model) visibleLines() int {
-	v := m.height
-	if v < 1 {
-		return 1
-	}
-	return v
-}
-
-func (m *Model) ensureVisible() {
-	vis := m.visibleLines()
-	if m.cursor < m.offset {
-		m.offset = m.cursor
-	}
-	if m.cursor >= m.offset+vis {
-		m.offset = m.cursor - vis + 1
-	}
-}
-
-// SetSize updates the view dimensions.
-func (m *Model) SetSize(width, height int) {
-	m.width = width
-	m.height = height
 }
 
 // ConfirmMessage returns the confirmation message if pending, empty string otherwise.
@@ -419,4 +327,9 @@ func (m Model) ConfirmMessage() string {
 		}
 	}
 	return ""
+}
+
+// SetSize updates the view dimensions.
+func (m *Model) SetSize(width, height int) {
+	m.cursor.SetSize(width, height)
 }

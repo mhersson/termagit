@@ -10,7 +10,7 @@ import (
 
 // View renders the reflog view.
 func (m Model) View() string {
-	if m.width == 0 || m.height == 0 {
+	if m.cursor.Width == 0 || m.cursor.Height == 0 {
 		return ""
 	}
 
@@ -21,8 +21,8 @@ func (m Model) View() string {
 	b.WriteString("\n\n")
 
 	// Entries list
-	vis := m.visibleLines()
-	end := m.offset + vis
+	vis := m.cursor.VisibleLines()
+	end := m.cursor.Offset + vis
 	if end > len(m.entries) {
 		end = len(m.entries)
 	}
@@ -31,9 +31,9 @@ func (m Model) View() string {
 	maxIdx := len(m.entries) - 1
 	idxWidth := len(fmt.Sprintf("%d", maxIdx)) + 1
 
-	for i := m.offset; i < end; i++ {
+	for i := m.cursor.Offset; i < end; i++ {
 		e := m.entries[i]
-		isCursor := i == m.cursor
+		isCursor := i == m.cursor.Pos
 
 		row := m.renderEntry(e, idxWidth)
 

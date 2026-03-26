@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/theme"
+	"github.com/mhersson/termagit/internal/ui/shared"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,7 +52,7 @@ func TestReflogModel_New_InitializesWithEntries(t *testing.T) {
 	m := New(entries, testTokens(), "HEAD")
 
 	assert.Len(t, m.entries, 3)
-	assert.Equal(t, 0, m.cursor)
+	assert.Equal(t, 0, m.cursor.Pos)
 }
 
 func TestReflogModel_CursorMovement(t *testing.T) {
@@ -60,11 +61,11 @@ func TestReflogModel_CursorMovement(t *testing.T) {
 
 	// Move down
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	assert.Equal(t, 1, m.cursor)
+	assert.Equal(t, 1, m.cursor.Pos)
 
 	// Move up
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	assert.Equal(t, 0, m.cursor)
+	assert.Equal(t, 0, m.cursor.Pos)
 }
 
 func TestReflogModel_CursorStopsAtBoundaries(t *testing.T) {
@@ -73,12 +74,12 @@ func TestReflogModel_CursorStopsAtBoundaries(t *testing.T) {
 
 	// At top, can't go up
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	assert.Equal(t, 0, m.cursor)
+	assert.Equal(t, 0, m.cursor.Pos)
 
 	// At bottom, can't go down
-	m.cursor = 2
+	m.cursor.Pos = 2
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	assert.Equal(t, 2, m.cursor)
+	assert.Equal(t, 2, m.cursor.Pos)
 }
 
 func TestReflogModel_Close_SendsCloseMsg(t *testing.T) {
@@ -96,8 +97,7 @@ func TestReflogModel_Close_SendsCloseMsg(t *testing.T) {
 func TestReflogView_RendersEntries(t *testing.T) {
 	entries := testEntries()
 	m := New(entries, testTokens(), "HEAD")
-	m.width = 80
-	m.height = 24
+	m.cursor.SetSize(80, 24)
 
 	view := m.View()
 
@@ -111,11 +111,8 @@ func TestReflogView_TypeHighlight_CommitIsGreen(t *testing.T) {
 		{Oid: "abc123def456abc123def456abc123def456abc1", Type: "commit", RefSubject: "commit: test"},
 	}
 	m := New(entries, testTokens(), "HEAD")
-	m.width = 80
-	m.height = 24
+	m.cursor.SetSize(80, 24)
 
-	// The type should be rendered with GraphGreen style
-	// We can't easily test the actual color, but we can verify it renders
 	view := m.View()
 	assert.Contains(t, view, "commit")
 }
@@ -125,8 +122,7 @@ func TestReflogView_TypeHighlight_ResetIsRed(t *testing.T) {
 		{Oid: "abc123def456abc123def456abc123def456abc1", Type: "reset", RefSubject: "reset: HEAD~1"},
 	}
 	m := New(entries, testTokens(), "HEAD")
-	m.width = 80
-	m.height = 24
+	m.cursor.SetSize(80, 24)
 
 	view := m.View()
 	assert.Contains(t, view, "reset")
@@ -137,8 +133,7 @@ func TestReflogView_TypeHighlight_CheckoutIsBlue(t *testing.T) {
 		{Oid: "abc123def456abc123def456abc123def456abc1", Type: "checkout", RefSubject: "checkout: main"},
 	}
 	m := New(entries, testTokens(), "HEAD")
-	m.width = 80
-	m.height = 24
+	m.cursor.SetSize(80, 24)
 
 	view := m.View()
 	assert.Contains(t, view, "checkout")
@@ -147,7 +142,7 @@ func TestReflogView_TypeHighlight_CheckoutIsBlue(t *testing.T) {
 func TestReflogModel_YankHash(t *testing.T) {
 	entries := testEntries()
 	m := New(entries, testTokens(), "HEAD")
-	m.cursor = 0
+	m.cursor.Pos = 0
 
 	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'Y'}})
 
@@ -157,13 +152,13 @@ func TestReflogModel_YankHash(t *testing.T) {
 func TestReflogView_Select_OpensCommitView(t *testing.T) {
 	entries := testEntries()
 	m := New(entries, testTokens(), "HEAD")
-	m.cursor = 0
+	m.cursor.Pos = 0
 
 	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
 
 	require.NotNil(t, cmd, "Select should return a command")
 	msg := cmd()
-	cvMsg, ok := msg.(OpenCommitViewMsg)
+	cvMsg, ok := msg.(shared.OpenCommitViewMsg)
 	assert.True(t, ok, "expected OpenCommitViewMsg, got %T", msg)
 	if ok {
 		assert.Equal(t, entries[0].Oid, cvMsg.Hash)
@@ -172,7 +167,7 @@ func TestReflogView_Select_OpensCommitView(t *testing.T) {
 
 func TestReflogView_Select_NoEntries_Noop(t *testing.T) {
 	m := New(nil, testTokens(), "HEAD")
-	m.cursor = 0
+	m.cursor.Pos = 0
 
 	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
 	assert.Nil(t, cmd, "Select with no entries should be nil")
