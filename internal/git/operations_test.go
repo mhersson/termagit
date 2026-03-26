@@ -313,6 +313,85 @@ func TestUnstageAll_ClearsAllStaged(t *testing.T) {
 	assert.Len(t, status.Untracked, 2, "files should now be untracked")
 }
 
+func TestSanitizePath_RejectsDashPrefix(t *testing.T) {
+	_, err := sanitizePath("-malicious")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "refusing path starting with dash")
+}
+
+func TestSanitizePath_AcceptsNormalPath(t *testing.T) {
+	tests := []string{
+		"file.txt",
+		"dir/file.txt",
+		"dir/sub/file.txt",
+		".hidden",
+		"file-with-dash.txt",
+		"path/to/-not-leading.txt",
+	}
+	for _, path := range tests {
+		result, err := sanitizePath(path)
+		assert.NoError(t, err, "path %q should be accepted", path)
+		assert.Equal(t, path, result)
+	}
+}
+
+func TestSanitizePath_AcceptsPathWithDots(t *testing.T) {
+	result, err := sanitizePath("../relative/path")
+	assert.NoError(t, err)
+	assert.Equal(t, "../relative/path", result)
+}
+
+func TestStageFile_RejectsDashPath(t *testing.T) {
+	r := newMemRepo(t)
+	ctx := context.Background()
+
+	err := r.StageFile(ctx, "-malicious")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "refusing path starting with dash")
+}
+
+func TestUnstageFile_RejectsDashPath(t *testing.T) {
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	err := r.UnstageFile(ctx, "-malicious")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "refusing path starting with dash")
+}
+
+func TestDiscardFile_RejectsDashPath(t *testing.T) {
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	err := r.DiscardFile(ctx, "-malicious")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "refusing path starting with dash")
+}
+
+func TestUntrackFile_RejectsDashPath(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	err := r.UntrackFile(ctx, "-malicious")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "refusing path starting with dash")
+}
+
+func TestRenameFile_RejectsDashPath(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	err := r.RenameFile(ctx, "-malicious", "new.txt")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "refusing path starting with dash")
+
+	err = r.RenameFile(ctx, "old.txt", "-malicious")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "refusing path starting with dash")
+}
+
 func TestRenameFile_RenamesInIndex(t *testing.T) {
 	skipInShort(t)
 	r := newTempRepo(t)

@@ -3,11 +3,15 @@ package git
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing"
 )
+
+var safeConfigKeyRe = regexp.MustCompile(`^[a-zA-Z0-9._/-]+$`)
 
 // Branch represents a git branch with tracking information.
 type Branch struct {
@@ -252,6 +256,9 @@ func (r *Repository) SetUpstream(ctx context.Context, local, remote string) erro
 
 // SetBranchConfig sets a branch configuration value.
 func (r *Repository) SetBranchConfig(ctx context.Context, branch, key, value string) error {
+	if !safeConfigKeyRe.MatchString(branch) {
+		return fmt.Errorf("invalid branch name for config key: %q", branch)
+	}
 	configKey := "branch." + branch + "." + key
 	_, err := r.runGit(ctx, "config", configKey, value)
 	if err != nil {
@@ -325,6 +332,6 @@ func (r *Repository) PullRequestURL(ctx context.Context, branch string) (string,
 		return "", fmt.Errorf("cannot determine web URL from remote: %s", remoteURL)
 	}
 
-	return webURL + "/compare/" + branch + "?expand=1", nil
+	return webURL + "/compare/" + url.PathEscape(branch) + "?expand=1", nil
 }
 

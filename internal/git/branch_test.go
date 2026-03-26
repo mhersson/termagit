@@ -278,6 +278,30 @@ func TestDeleteBranch_Force_DeletesUnmerged(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestSetBranchConfig_RejectsBadChars(t *testing.T) {
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	err := r.SetBranchConfig(ctx, "branch;evil", "key", "value")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid branch name")
+}
+
+func TestSetBranchConfig_AcceptsNormalBranch(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// These should all be accepted
+	for _, name := range []string{"main", "feature/foo", "release-1.0", "user_branch"} {
+		err := r.SetBranchConfig(ctx, name, "description", "test")
+		// May fail because branch doesn't exist, but should NOT fail on validation
+		if err != nil {
+			assert.NotContains(t, err.Error(), "invalid branch name", "branch %q should pass validation", name)
+		}
+	}
+}
+
 func TestSetBranchConfig_SetsValue(t *testing.T) {
 	skipInShort(t)
 	r := newTempRepo(t)
@@ -323,6 +347,35 @@ func TestCurrentPushRemote_ReturnsEmptyWhenOnlyUpstreamConfigured(t *testing.T) 
 	require.NoError(t, err)
 	assert.Empty(t, remote, "push remote should be empty when only upstream is configured")
 	assert.Empty(t, branch)
+}
+
+func TestPullRequestURL_EncodesSlash(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Add a remote so PullRequestURL can resolve it
+	_, err := r.runGit(ctx, "remote", "add", "origin", "https://github.com/user/repo.git")
+	require.NoError(t, err)
+
+	url, err := r.PullRequestURL(ctx, "feature/my-branch")
+	require.NoError(t, err)
+	assert.Contains(t, url, "feature%2Fmy-branch")
+	assert.NotContains(t, url, "feature/my-branch?")
+}
+
+func TestPullRequestURL_EncodesSpecialChars(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	_, err := r.runGit(ctx, "remote", "add", "origin", "https://github.com/user/repo.git")
+	require.NoError(t, err)
+
+	url, err := r.PullRequestURL(ctx, "fix/hello world#1")
+	require.NoError(t, err)
+	assert.NotContains(t, url, " ")
+	assert.NotContains(t, url, "#1?")
 }
 
 func TestCurrentPushRemote_ReturnsValueWhenExplicitlyConfigured(t *testing.T) {

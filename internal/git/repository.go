@@ -263,7 +263,7 @@ func (r *Repository) BisectInProgress() bool {
 // Returns empty string if no sequencer operation is in progress.
 func (r *Repository) SequencerOperation() string {
 	todoPath := filepath.Join(r.gitDir, "sequencer", "todo")
-	data, err := os.ReadFile(todoPath)
+	data, err := readGitFile(todoPath)
 	if err != nil {
 		return ""
 	}
@@ -293,7 +293,7 @@ func (r *Repository) SequencerOperation() string {
 func (r *Repository) ReadMergeState() (head, subject, branch string, err error) {
 	// Read MERGE_HEAD
 	mergeHeadPath := filepath.Join(r.gitDir, "MERGE_HEAD")
-	data, err := os.ReadFile(mergeHeadPath)
+	data, err := readGitFile(mergeHeadPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", "", "", nil // No merge in progress
@@ -304,7 +304,7 @@ func (r *Repository) ReadMergeState() (head, subject, branch string, err error) 
 
 	// Read MERGE_MSG
 	mergeMsgPath := filepath.Join(r.gitDir, "MERGE_MSG")
-	msgData, err := os.ReadFile(mergeMsgPath)
+	msgData, err := readGitFile(mergeMsgPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return head, "", "", fmt.Errorf("read MERGE_MSG: %w", err)
@@ -335,7 +335,7 @@ func (r *Repository) ReadMergeState() (head, subject, branch string, err error) 
 // Returns empty state if no bisect is in progress.
 func (r *Repository) BisectState(ctx context.Context) (BisectState, error) {
 	bisectLogPath := filepath.Join(r.gitDir, "BISECT_LOG")
-	data, err := os.ReadFile(bisectLogPath)
+	data, err := readGitFile(bisectLogPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return BisectState{}, nil // No bisect in progress
@@ -369,7 +369,7 @@ func (r *Repository) BisectState(ctx context.Context) (BisectState, error) {
 
 	// Read the current commit being tested from BISECT_EXPECTED_REV
 	expectedPath := filepath.Join(r.gitDir, "BISECT_EXPECTED_REV")
-	if expectedData, err := os.ReadFile(expectedPath); err == nil {
+	if expectedData, err := readGitFile(expectedPath); err == nil {
 		rev := strings.TrimSpace(string(expectedData))
 		if rev != "" {
 			entry, err := r.commitDetailForBisect(ctx, rev)
@@ -485,7 +485,7 @@ func (r *Repository) SequencerState(ctx context.Context) (SequencerState, error)
 
 	// Read sequencer/todo if it exists
 	todoPath := filepath.Join(r.gitDir, "sequencer", "todo")
-	data, err := os.ReadFile(todoPath)
+	data, err := readGitFile(todoPath)
 	if err != nil {
 		// Single cherry-pick/revert without sequencer
 		// Read the HEAD file for current operation
@@ -496,7 +496,7 @@ func (r *Repository) SequencerState(ctx context.Context) (SequencerState, error)
 			headPath = filepath.Join(r.gitDir, "REVERT_HEAD")
 		}
 
-		headData, err := os.ReadFile(headPath)
+		headData, err := readGitFile(headPath)
 		if err != nil {
 			return state, nil
 		}
@@ -604,6 +604,38 @@ func (r *Repository) runGitWithStdin(ctx context.Context, stdin string, args ...
 	return stdout, err
 }
 
+const maxGitOutput = 64 * 1024 * 1024 // 64 MB
+
+const maxGitFileSize = 10 * 1024 * 1024 // 10 MB
+
+// readGitFile reads a file from the .git directory with a size limit.
+func readGitFile(path string) ([]byte, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	if info.Size() > maxGitFileSize {
+		return nil, fmt.Errorf("git file too large (%d bytes): %s", info.Size(), path)
+	}
+	return os.ReadFile(path)
+}
+
+// limitedWriter wraps a bytes.Buffer with a maximum size.
+// Writes that would exceed the limit are silently discarded.
+type limitedWriter struct {
+	buf     bytes.Buffer
+	max     int
+	overrun bool
+}
+
+func (w *limitedWriter) Write(p []byte) (int, error) {
+	if w.buf.Len()+len(p) > w.max {
+		w.overrun = true
+		return len(p), nil
+	}
+	return w.buf.Write(p)
+}
+
 // runGitFullWithStdin executes a git command with optional stdin and returns stdout, stderr, and error.
 func (r *Repository) runGitFullWithStdin(ctx context.Context, stdin io.Reader, args ...string) (stdout, stderr string, err error) {
 	start := time.Now()
@@ -611,17 +643,18 @@ func (r *Repository) runGitFullWithStdin(ctx context.Context, stdin io.Reader, a
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = r.path
 
-	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
+	stdoutBuf := &limitedWriter{max: maxGitOutput}
+	stderrBuf := &limitedWriter{max: maxGitOutput}
+	cmd.Stdout = stdoutBuf
+	cmd.Stderr = stderrBuf
 	if stdin != nil {
 		cmd.Stdin = stdin
 	}
 
 	cmdErr := cmd.Run()
 
-	stdout = stdoutBuf.String()
-	stderr = stderrBuf.String()
+	stdout = stdoutBuf.buf.String()
+	stderr = stderrBuf.buf.String()
 
 	r.logGitCmd(start, args, stdout, stderr, cmdErr)
 

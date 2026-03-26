@@ -632,7 +632,7 @@ func openFileCmd(repoPath, path string) tea.Cmd {
 		editor = "vi"
 	}
 	fullPath := filepath.Join(repoPath, path)
-	c := exec.Command(editor, fullPath)
+	c := exec.Command(editor, "--", fullPath)
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		if err != nil {
 			return notification.NotifyMsg{

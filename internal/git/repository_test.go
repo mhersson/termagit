@@ -651,3 +651,61 @@ func TestSequencerOperation_ReturnsEmpty_WhenNone(t *testing.T) {
 	// Clean repo with no sequencer directory at all
 	assert.Equal(t, "", r.SequencerOperation())
 }
+
+func TestReadGitFile_NormalFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test")
+	require.NoError(t, os.WriteFile(path, []byte("hello"), 0o600))
+
+	data, err := readGitFile(path)
+	assert.NoError(t, err)
+	assert.Equal(t, "hello", string(data))
+}
+
+func TestReadGitFile_OversizedFile_ReturnsError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "big")
+	// Create a file just over 1 MB
+	require.NoError(t, os.WriteFile(path, make([]byte, maxGitFileSize+1), 0o600))
+
+	_, err := readGitFile(path)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "git file too large")
+}
+
+func TestReadGitFile_MissingFile_ReturnsError(t *testing.T) {
+	_, err := readGitFile("/nonexistent/path")
+	assert.Error(t, err)
+}
+
+func TestLimitedWriter_UnderLimit(t *testing.T) {
+	w := &limitedWriter{max: 100}
+	n, err := w.Write([]byte("hello"))
+	assert.NoError(t, err)
+	assert.Equal(t, 5, n)
+	assert.Equal(t, "hello", w.buf.String())
+	assert.False(t, w.overrun)
+}
+
+func TestLimitedWriter_AtLimit(t *testing.T) {
+	w := &limitedWriter{max: 5}
+	n, err := w.Write([]byte("hello"))
+	assert.NoError(t, err)
+	assert.Equal(t, 5, n)
+	assert.Equal(t, "hello", w.buf.String())
+	assert.False(t, w.overrun)
+}
+
+func TestLimitedWriter_OverLimit_Discards(t *testing.T) {
+	w := &limitedWriter{max: 5}
+	n, err := w.Write([]byte("hello"))
+	assert.NoError(t, err)
+	assert.Equal(t, 5, n)
+
+	// This write exceeds the limit — should be discarded
+	n, err = w.Write([]byte(" world"))
+	assert.NoError(t, err)
+	assert.Equal(t, 6, n) // reports len(p) even when discarding
+	assert.True(t, w.overrun)
+	assert.Equal(t, "hello", w.buf.String()) // buffer unchanged
+}

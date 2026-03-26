@@ -21,7 +21,8 @@ func ReadRecent(path string, n int) ([]Entry, error) {
 	all = append(all, entries...)
 
 	// Read from rotated files (.1, .2, etc.)
-	for i := 1; ; i++ {
+	const maxRotatedFiles = 10
+	for i := 1; i <= maxRotatedFiles; i++ {
 		rotated := fmt.Sprintf("%s.%d", path, i)
 		entries, err := readFile(rotated)
 		if err != nil {

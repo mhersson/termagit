@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -14,6 +15,9 @@ func ConfigDir() (string, error) {
 		return filepath.Join(xdg, appName), nil
 	}
 	home := os.Getenv("HOME")
+	if home == "" {
+		return "", fmt.Errorf("neither XDG_CONFIG_HOME nor HOME is set")
+	}
 	return filepath.Join(home, ".config", appName), nil
 }
 
@@ -24,6 +28,9 @@ func StateDir() (string, error) {
 		return filepath.Join(xdg, appName), nil
 	}
 	home := os.Getenv("HOME")
+	if home == "" {
+		return "", fmt.Errorf("neither XDG_STATE_HOME nor HOME is set")
+	}
 	return filepath.Join(home, ".local", "state", appName), nil
 }
 

@@ -287,3 +287,39 @@ func TestLogger_Entries_NilSafe(t *testing.T) {
 	entries := logger.Entries()
 	assert.Nil(t, entries)
 }
+
+func TestLogger_FilePermissions_0600(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.log")
+
+	logger, err := New(path, 1024*1024, 3)
+	require.NoError(t, err)
+	defer func() { _ = logger.Close() }()
+
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm(), "log file should be 0600")
+}
+
+func TestLogger_RotatedFilePermissions_0600(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.log")
+
+	// Small max size to trigger rotation
+	logger, err := New(path, 50, 3)
+	require.NoError(t, err)
+
+	for i := 0; i < 10; i++ {
+		_ = logger.Append(Entry{
+			Timestamp: time.Now(),
+			Command:   "git status --long-option-to-make-it-bigger",
+			Dir:       "/some/long/path/to/repository",
+		})
+	}
+	_ = logger.Close()
+
+	// Check new file after rotation also has 0600
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm(), "rotated log file should be 0600")
+}

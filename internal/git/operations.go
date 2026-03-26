@@ -3,10 +3,22 @@ package git
 import (
 	"context"
 	"fmt"
+	"strings"
 )
+
+// sanitizePath rejects paths starting with a dash to prevent flag injection.
+func sanitizePath(path string) (string, error) {
+	if strings.HasPrefix(path, "-") {
+		return "", fmt.Errorf("refusing path starting with dash: %q", path)
+	}
+	return path, nil
+}
 
 // StageFile stages a file in the index.
 func (r *Repository) StageFile(ctx context.Context, path string) error {
+	if _, err := sanitizePath(path); err != nil {
+		return err
+	}
 	_, _, err := r.logOp(ctx, "git add "+path, func() (string, string, error) {
 		wt, err := r.raw.Worktree()
 		if err != nil {
@@ -23,6 +35,9 @@ func (r *Repository) StageFile(ctx context.Context, path string) error {
 
 // UnstageFile removes a file from the staging area.
 func (r *Repository) UnstageFile(ctx context.Context, path string) error {
+	if _, err := sanitizePath(path); err != nil {
+		return err
+	}
 	_, err := r.runGit(ctx, "reset", "--", path)
 	if err != nil {
 		return fmt.Errorf("unstage file %s: %w", path, err)
@@ -50,6 +65,9 @@ func (r *Repository) UnstageAll(ctx context.Context) error {
 
 // DiscardFile discards changes to a file in the working tree.
 func (r *Repository) DiscardFile(ctx context.Context, path string) error {
+	if _, err := sanitizePath(path); err != nil {
+		return err
+	}
 	_, err := r.runGit(ctx, "checkout", "--", path)
 	if err != nil {
 		return fmt.Errorf("discard file %s: %w", path, err)
@@ -59,7 +77,10 @@ func (r *Repository) DiscardFile(ctx context.Context, path string) error {
 
 // UntrackFile removes a file from the index but keeps it in the working tree.
 func (r *Repository) UntrackFile(ctx context.Context, path string) error {
-	_, err := r.runGit(ctx, "rm", "--cached", path)
+	if _, err := sanitizePath(path); err != nil {
+		return err
+	}
+	_, err := r.runGit(ctx, "rm", "--cached", "--", path)
 	if err != nil {
 		return fmt.Errorf("untrack file %s: %w", path, err)
 	}
@@ -68,7 +89,13 @@ func (r *Repository) UntrackFile(ctx context.Context, path string) error {
 
 // RenameFile renames a file in the index and working tree.
 func (r *Repository) RenameFile(ctx context.Context, oldPath, newPath string) error {
-	_, err := r.runGit(ctx, "mv", oldPath, newPath)
+	if _, err := sanitizePath(oldPath); err != nil {
+		return err
+	}
+	if _, err := sanitizePath(newPath); err != nil {
+		return err
+	}
+	_, err := r.runGit(ctx, "mv", "--", oldPath, newPath)
 	if err != nil {
 		return fmt.Errorf("rename file %s to %s: %w", oldPath, newPath, err)
 	}

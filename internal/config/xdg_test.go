@@ -86,3 +86,21 @@ func TestLogFile_IsInStateDir(t *testing.T) {
 
 	assert.Equal(t, filepath.Join(stateDir, "commands.log"), logFile)
 }
+
+func TestConfigDir_EmptyHome_ReturnsError(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("HOME", "")
+
+	_, err := ConfigDir()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "neither XDG_CONFIG_HOME nor HOME is set")
+}
+
+func TestStateDir_EmptyHome_ReturnsError(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", "")
+	t.Setenv("HOME", "")
+
+	_, err := StateDir()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "neither XDG_STATE_HOME nor HOME is set")
+}

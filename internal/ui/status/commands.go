@@ -652,7 +652,7 @@ func openInEditorCmd(repoPath, filePath string) tea.Cmd {
 	}
 
 	fullPath := filepath.Join(repoPath, filePath)
-	c := exec.Command(editor, fullPath)
+	c := exec.Command(editor, "--", fullPath)
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		return operationDoneMsg{err: err}
 	})
@@ -1396,7 +1396,7 @@ func stashFormatPatchCmd(repo *git.Repository, index int) tea.Cmd {
 			return operationDoneMsg{err: err, op: "Stash format-patch"}
 		}
 		filename := fmt.Sprintf("stash-%d.patch", index)
-		if err := os.WriteFile(filename, []byte(patch), 0o644); err != nil {
+		if err := os.WriteFile(filename, []byte(patch), 0o600); err != nil {
 			return operationDoneMsg{err: fmt.Errorf("write patch file: %w", err), op: "Stash format-patch"}
 		}
 		return operationDoneMsg{op: "Stash format-patch: wrote " + filename}

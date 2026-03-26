@@ -72,30 +72,30 @@ func (r *Repository) readRebaseMergeState(dir string) (RebaseState, error) {
 	state := RebaseState{}
 
 	// Read head-name (branch being rebased)
-	if data, err := os.ReadFile(filepath.Join(dir, "head-name")); err == nil {
+	if data, err := readGitFile(filepath.Join(dir, "head-name")); err == nil {
 		branchRef := strings.TrimSpace(string(data))
 		state.Branch = strings.TrimPrefix(branchRef, "refs/heads/")
 	}
 
 	// Read onto (base commit)
-	if data, err := os.ReadFile(filepath.Join(dir, "onto")); err == nil {
+	if data, err := readGitFile(filepath.Join(dir, "onto")); err == nil {
 		state.Onto = strings.TrimSpace(string(data))
 	}
 
 	// Read stopped-sha (current position)
 	stoppedSha := ""
-	if data, err := os.ReadFile(filepath.Join(dir, "stopped-sha")); err == nil {
+	if data, err := readGitFile(filepath.Join(dir, "stopped-sha")); err == nil {
 		stoppedSha = strings.TrimSpace(string(data))
 	}
 
 	// Read done file (completed entries)
-	if data, err := os.ReadFile(filepath.Join(dir, "done")); err == nil {
+	if data, err := readGitFile(filepath.Join(dir, "done")); err == nil {
 		entries := parseTodoEntries(string(data), true, stoppedSha)
 		state.Entries = append(state.Entries, entries...)
 	}
 
 	// Read git-rebase-todo (pending entries)
-	if data, err := os.ReadFile(filepath.Join(dir, "git-rebase-todo")); err == nil {
+	if data, err := readGitFile(filepath.Join(dir, "git-rebase-todo")); err == nil {
 		entries := parseTodoEntries(string(data), false, stoppedSha)
 		state.Entries = append(state.Entries, entries...)
 	}
@@ -123,13 +123,13 @@ func (r *Repository) readRebaseApplyState(dir string) (RebaseState, error) {
 	state := RebaseState{}
 
 	// Read head-name
-	if data, err := os.ReadFile(filepath.Join(dir, "head-name")); err == nil {
+	if data, err := readGitFile(filepath.Join(dir, "head-name")); err == nil {
 		branchRef := strings.TrimSpace(string(data))
 		state.Branch = strings.TrimPrefix(branchRef, "refs/heads/")
 	}
 
 	// Read onto
-	if data, err := os.ReadFile(filepath.Join(dir, "onto")); err == nil {
+	if data, err := readGitFile(filepath.Join(dir, "onto")); err == nil {
 		state.Onto = strings.TrimSpace(string(data))
 	}
 
@@ -275,7 +275,7 @@ func (r *Repository) WriteRebaseTodo(entries []TodoEntry) error {
 
 	todoPath := filepath.Join(rebaseMergeDir, "git-rebase-todo")
 	content := FormatTodoEntries(entries)
-	if err := os.WriteFile(todoPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(todoPath, []byte(content), 0o600); err != nil {
 		return fmt.Errorf("write rebase todo: %w", err)
 	}
 	return nil
