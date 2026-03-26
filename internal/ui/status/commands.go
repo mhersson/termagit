@@ -625,15 +625,6 @@ func unstageAllStagedCmd(repo *git.Repository) tea.Cmd {
 	}
 }
 
-// yankToClipboardCmd copies text to clipboard using platform clipboard tools.
-
-func yankToClipboardCmd(text string) tea.Cmd {
-	return func() tea.Msg {
-		err := platform.CopyToClipboard(text)
-		return operationDoneMsg{err: err}
-	}
-}
-
 // openTreeCmd opens the directory containing a file in the system file manager.
 func openTreeCmd(repoPath, filePath string) tea.Cmd {
 	return func() tea.Msg {

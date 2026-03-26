@@ -868,10 +868,18 @@ func handleYank(m Model) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, tea.Batch(
-		yankToClipboardCmd(text),
-		notifyAppCmd("Yanked: "+text, notification.Info),
-	)
+	return m, func() tea.Msg {
+		if err := platform.CopyToClipboard(text); err != nil {
+			return notification.NotifyMsg{
+				Message: "Failed to copy to clipboard: " + err.Error(),
+				Kind:    notification.Error,
+			}
+		}
+		return notification.NotifyMsg{
+			Message: "Yanked: " + text,
+			Kind:    notification.Info,
+		}
+	}
 }
 
 // handleOpenTree opens the directory containing the current file.
