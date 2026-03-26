@@ -19,6 +19,10 @@ var commandMask = []string{
 
 // View renders the command history view.
 func (m Model) View() string {
+	if m.cursor.Width == 0 || m.cursor.Height == 0 {
+		return ""
+	}
+
 	if len(m.entries) == 0 {
 		return "No commands recorded"
 	}
@@ -29,9 +33,13 @@ func (m Model) View() string {
 	b.WriteString(m.tokens.SectionHeader.Render("Git Command History"))
 	b.WriteString("\n\n")
 
-	for i, entry := range m.entries {
+	maxLines := m.cursor.VisibleLines()
+	linesUsed := 0
+
+	for i := m.cursor.Offset; i < len(m.entries) && linesUsed < maxLines; i++ {
+		entry := m.entries[i]
 		isErr := entry.ExitCode != 0
-		isCursor := i == m.cursor
+		isCursor := i == m.cursor.Pos
 
 		// Exit code
 		code := fmt.Sprintf("%3d", entry.ExitCode)
@@ -76,23 +84,35 @@ func (m Model) View() string {
 
 		b.WriteString(row)
 		b.WriteString("\n")
+		linesUsed++
 
 		// If expanded, show output
 		if !m.folded[i] {
 			output := entry.Stdout + entry.Stderr
 			if output != "" {
 				for _, line := range strings.Split(strings.TrimRight(output, "\n"), "\n") {
+					if linesUsed >= maxLines {
+						break
+					}
 					b.WriteString(m.tokens.SubtleText.Render("  | " + line))
 					b.WriteString("\n")
+					linesUsed++
 				}
 			}
 			if entry.Error != "" {
 				for _, line := range strings.Split(strings.TrimRight(entry.Error, "\n"), "\n") {
+					if linesUsed >= maxLines {
+						break
+					}
 					b.WriteString(m.tokens.NotificationError.Render("  ERR " + line))
 					b.WriteString("\n")
+					linesUsed++
 				}
 			}
-			b.WriteString("\n")
+			if linesUsed < maxLines {
+				b.WriteString("\n")
+				linesUsed++
+			}
 		}
 	}
 
