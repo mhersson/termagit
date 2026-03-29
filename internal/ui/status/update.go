@@ -2380,14 +2380,20 @@ func handlePushPopupAction(m Model, result popup.Result) (tea.Model, tea.Cmd) {
 	if setUpstream {
 		opts.SetUpstream = true
 	}
+	applyPushActionOverrides(result.Action, &opts)
 
 	if remote == "" {
 		return m, notifyAppCmd("No remote configured for push", notification.Warning)
 	}
 
+	notifyMsg := "Pushing to " + remote + "/" + branch + "..."
+	if opts.Tags && branch == "" {
+		notifyMsg = "Pushing tags to " + remote + "..."
+	}
+
 	return m, tea.Batch(
 		pushCmd(m.repo, opts),
-		notifyAppCmd("Pushing to "+remote+"/"+branch+"...", notification.Info),
+		notifyAppCmd(notifyMsg, notification.Info),
 	)
 }
 
@@ -2401,6 +2407,15 @@ func buildPushOpts(result popup.Result) git.PushOpts {
 		SetUpstream:    result.Switches["set-upstream"],
 		Tags:           result.Switches["tags"],
 		FollowTags:     result.Switches["follow-tags"],
+	}
+}
+
+// applyPushActionOverrides applies action-specific overrides to push opts.
+// Some actions imply certain options regardless of switch state.
+func applyPushActionOverrides(action string, opts *git.PushOpts) {
+	switch action {
+	case "t": // all tags - implies Tags option
+		opts.Tags = true
 	}
 }
 

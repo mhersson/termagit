@@ -114,3 +114,31 @@ func TestPushCmd_BuildsCorrectOpts(t *testing.T) {
 	cmd := pushCmd(nil, opts) // nil repo - we just test it returns a Cmd
 	assert.NotNil(t, cmd)
 }
+
+func TestApplyPushActionOverrides_AllTags(t *testing.T) {
+	// Action "t" (all tags) should set Tags=true regardless of switch state
+	result := popup.Result{
+		Action:   "t",
+		Switches: map[string]bool{}, // Tags switch is NOT toggled
+		Options:  map[string]string{},
+	}
+	opts := buildPushOpts(result)
+	assert.False(t, opts.Tags, "Tags should be false from switches before override")
+
+	applyPushActionOverrides(result.Action, &opts)
+	assert.True(t, opts.Tags, "Tags should be true after applying action 't' override")
+}
+
+func TestApplyPushActionOverrides_OtherActions(t *testing.T) {
+	// Other actions should not modify Tags
+	for _, action := range []string{"p", "u", "e", "o"} {
+		result := popup.Result{
+			Action:   action,
+			Switches: map[string]bool{},
+			Options:  map[string]string{},
+		}
+		opts := buildPushOpts(result)
+		applyPushActionOverrides(result.Action, &opts)
+		assert.False(t, opts.Tags, "Action %q should not set Tags", action)
+	}
+}
