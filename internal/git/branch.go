@@ -26,14 +26,18 @@ type Branch struct {
 
 // ListBranches returns all local branches.
 func (r *Repository) ListBranches(ctx context.Context) ([]Branch, error) {
-	head, err := r.raw.Head()
-	if err != nil {
-		return nil, fmt.Errorf("get HEAD: %w", err)
-	}
-
+	// Get current branch name (works even for unborn HEAD)
 	currentName := ""
-	if head.Name().IsBranch() {
-		currentName = head.Name().Short()
+	if unborn, branchName := r.isUnbornHEAD(ctx); unborn {
+		currentName = branchName
+	} else {
+		head, err := r.raw.Head()
+		if err != nil {
+			return nil, fmt.Errorf("get HEAD: %w", err)
+		}
+		if head.Name().IsBranch() {
+			currentName = head.Name().Short()
+		}
 	}
 
 	refs, err := r.raw.References()
@@ -68,6 +72,21 @@ func (r *Repository) ListBranches(ctx context.Context) ([]Branch, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("iterate branches: %w", err)
+	}
+
+	// For unborn HEAD, we may have no branches yet but we know the current branch name
+	// Add a placeholder entry for it if not found
+	if currentName != "" {
+		found := false
+		for _, b := range branches {
+			if b.Name == currentName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			branches = append([]Branch{{Name: currentName, IsCurrent: true}}, branches...)
+		}
 	}
 
 	sort.Slice(branches, func(i, j int) bool {
@@ -111,8 +130,14 @@ func (r *Repository) ListRemoteBranches(ctx context.Context) ([]Branch, error) {
 
 // CurrentBranch returns the name of the current branch.
 // Returns empty string if HEAD is detached.
+// Returns branch name even for unborn HEAD (no commits yet).
 func (r *Repository) CurrentBranch(ctx context.Context) (string, error) {
 	name, _, err := r.logOp(ctx, "git rev-parse --abbrev-ref HEAD", func() (string, string, error) {
+		// Check for unborn HEAD first
+		if unborn, branchName := r.isUnbornHEAD(ctx); unborn {
+			return branchName, "", nil
+		}
+
 		head, err := r.raw.Head()
 		if err != nil {
 			return "", "", fmt.Errorf("get HEAD: %w", err)

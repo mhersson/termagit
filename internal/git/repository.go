@@ -120,8 +120,14 @@ func (r *Repository) GitDir() string {
 
 // HeadInfo returns the current branch name and the subject of HEAD commit.
 // For detached HEAD, branch is "HEAD".
+// For unborn HEAD (no commits yet), returns branch name and empty subject.
 func (r *Repository) HeadInfo(ctx context.Context) (branch, subject string, err error) {
 	return r.logOp(ctx, "git rev-parse --abbrev-ref HEAD && git log -1 --format=%s", func() (string, string, error) {
+		// Check for unborn HEAD first
+		if unborn, branchName := r.isUnbornHEAD(ctx); unborn {
+			return branchName, "", nil
+		}
+
 		head, err := r.raw.Head()
 		if err != nil {
 			return "", "", fmt.Errorf("get HEAD: %w", err)
@@ -148,8 +154,14 @@ func (r *Repository) HeadInfo(ctx context.Context) (branch, subject string, err 
 }
 
 // HeadOID returns the full 40-character hash of HEAD.
+// Returns empty string for unborn HEAD (no commits yet).
 func (r *Repository) HeadOID(ctx context.Context) (string, error) {
 	oid, err := r.logOpSingle(ctx, "git rev-parse HEAD", func() (string, error) {
+		// Check for unborn HEAD first
+		if unborn, _ := r.isUnbornHEAD(ctx); unborn {
+			return "", nil
+		}
+
 		head, err := r.raw.Head()
 		if err != nil {
 			return "", fmt.Errorf("get HEAD: %w", err)
@@ -157,6 +169,28 @@ func (r *Repository) HeadOID(ctx context.Context) (string, error) {
 		return head.Hash().String(), nil
 	})
 	return oid, err
+}
+
+// isUnbornHEAD checks if HEAD points to an unborn branch (no commits yet).
+// If so, returns (true, branchName). Otherwise returns (false, "").
+func (r *Repository) isUnbornHEAD(ctx context.Context) (bool, string) {
+	_, err := r.raw.Head()
+	if err == nil {
+		return false, ""
+	}
+
+	// Check if this is plumbing.ErrReferenceNotFound
+	if !errors.Is(err, plumbing.ErrReferenceNotFound) {
+		return false, ""
+	}
+
+	// HEAD doesn't resolve to a commit, but we can still get the symbolic ref
+	out, err := r.runGit(ctx, "symbolic-ref", "--short", "HEAD")
+	if err != nil {
+		return false, ""
+	}
+
+	return true, strings.TrimSpace(out)
 }
 
 // AheadBehind returns the number of commits ahead and behind the upstream.

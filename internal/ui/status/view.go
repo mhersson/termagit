@@ -251,6 +251,10 @@ func renderHeadBar(m Model) string {
 	if m.head.Subject != "" {
 		b.WriteString(" ")
 		b.WriteString(m.head.Subject)
+	} else if m.head.AbbrevOid == "" {
+		// No OID and no subject means unborn HEAD (no commits yet)
+		b.WriteString(" ")
+		b.WriteString(m.tokens.SubtleText.Render("(No commits yet)"))
 	}
 
 	// Merge line (if applicable)

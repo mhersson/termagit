@@ -785,3 +785,72 @@ func TestLimitedWriter_OverLimit_Discards(t *testing.T) {
 	assert.True(t, w.overrun)
 	assert.Equal(t, "hello", w.buf.String()) // buffer unchanged
 }
+
+// --- Unborn HEAD tests (empty repository) ---
+
+func TestIsUnbornHEAD_ReturnsTrueForEmptyRepo(t *testing.T) {
+	skipInShort(t)
+
+	// Create empty repo with no commits
+	dir := t.TempDir()
+	_, err := gogit.PlainInit(dir, false)
+	require.NoError(t, err)
+
+	repo, err := Open(dir, nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	unborn, branch := repo.isUnbornHEAD(ctx)
+
+	assert.True(t, unborn)
+	// Branch name depends on git config, typically "main" or "master"
+	assert.NotEmpty(t, branch)
+}
+
+func TestIsUnbornHEAD_ReturnsFalseForRepoWithCommits(t *testing.T) {
+	r := newTempRepo(t) // Has initial commit
+	ctx := context.Background()
+
+	unborn, _ := r.isUnbornHEAD(ctx)
+	assert.False(t, unborn)
+}
+
+func TestHeadInfo_ReturnsUnbornHEAD(t *testing.T) {
+	skipInShort(t)
+
+	// Create empty repo with no commits
+	dir := t.TempDir()
+	_, err := gogit.PlainInit(dir, false)
+	require.NoError(t, err)
+
+	repo, err := Open(dir, nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	branch, subject, err := repo.HeadInfo(ctx)
+	require.NoError(t, err)
+
+	// Should return branch name (main or master depending on git config)
+	assert.NotEmpty(t, branch)
+	// Subject should be empty for unborn HEAD
+	assert.Empty(t, subject)
+}
+
+func TestHeadOID_ReturnsEmptyForUnbornHEAD(t *testing.T) {
+	skipInShort(t)
+
+	// Create empty repo with no commits
+	dir := t.TempDir()
+	_, err := gogit.PlainInit(dir, false)
+	require.NoError(t, err)
+
+	repo, err := Open(dir, nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	oid, err := repo.HeadOID(ctx)
+	require.NoError(t, err)
+
+	// OID should be empty for unborn HEAD
+	assert.Empty(t, oid)
+}

@@ -399,3 +399,54 @@ func TestCurrentPushRemote_ReturnsValueWhenExplicitlyConfigured(t *testing.T) {
 	assert.Equal(t, "myfork", remote)
 	assert.Equal(t, branchName, branch)
 }
+
+// --- Unborn HEAD tests (empty repository) ---
+
+func TestCurrentBranch_ReturnsNameForUnbornHEAD(t *testing.T) {
+	skipInShort(t)
+
+	// Create empty repo with no commits
+	dir := t.TempDir()
+	_, err := gogit.PlainInit(dir, false)
+	require.NoError(t, err)
+
+	repo, err := Open(dir, nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	branch, err := repo.CurrentBranch(ctx)
+	require.NoError(t, err)
+
+	// Should return branch name even for unborn HEAD
+	assert.NotEmpty(t, branch)
+}
+
+func TestListBranches_ReturnsCurrentForUnbornHEAD(t *testing.T) {
+	skipInShort(t)
+
+	// Create empty repo with no commits
+	dir := t.TempDir()
+	_, err := gogit.PlainInit(dir, false)
+	require.NoError(t, err)
+
+	repo, err := Open(dir, nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	branches, err := repo.ListBranches(ctx)
+	require.NoError(t, err)
+
+	// Should have at least the current branch (even if unborn)
+	require.NotEmpty(t, branches)
+
+	// Find the current branch
+	var current *Branch
+	for i := range branches {
+		if branches[i].IsCurrent {
+			current = &branches[i]
+			break
+		}
+	}
+	require.NotNil(t, current, "should have a current branch even for unborn HEAD")
+	assert.NotEmpty(t, current.Name)
+}
