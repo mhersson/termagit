@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/mhersson/termagit/internal/git"
 )
 
@@ -38,7 +39,7 @@ func (m Model) View() string {
 		row := m.renderEntry(e, idxWidth)
 
 		if isCursor {
-			row = m.tokens.Cursor.Render(row)
+			row = m.tokens.Cursor.Render(ansi.Strip(row))
 		}
 
 		b.WriteString(row)

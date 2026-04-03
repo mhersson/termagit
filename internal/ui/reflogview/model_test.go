@@ -1,12 +1,16 @@
 package reflogview
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/theme"
 	"github.com/mhersson/termagit/internal/ui/shared"
+	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -171,4 +175,85 @@ func TestReflogView_Select_NoEntries_Noop(t *testing.T) {
 
 	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
 	assert.Nil(t, cmd, "Select with no entries should be nil")
+}
+
+// TestReflogView_CursorRow_NoNestedANSI verifies that the cursor-rendered row
+// does not contain nested ANSI escape sequences. renderEntry produces ANSI-styled
+// content (hash, type, date), so Cursor.Render must receive stripped content to
+// avoid nesting. This matches the fix pattern used in logview, stashlist, refsview,
+// and cmdhistory.
+func TestReflogView_CursorRow_NoNestedANSI(t *testing.T) {
+	// Force TrueColor so lipgloss emits ANSI even without a TTY.
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	t.Cleanup(func() { lipgloss.SetColorProfile(termenv.Ascii) })
+
+	// Use tokens with explicit hex colors so styles emit ANSI sequences.
+	tokens := theme.Compile(theme.RawTokens{
+		Hash:       "#7c9af2",
+		GraphGreen: "#a9dc76",
+		CommitDate: "#78dce8",
+		CursorBg:   "#3a3a3a",
+	})
+
+	entries := []git.ReflogEntry{
+		{
+			Oid:        "abc123def456abc123def456abc123def456abc1",
+			Index:      0,
+			AuthorName: "Test User",
+			RefName:    "HEAD@{0}",
+			RefSubject: "commit: Add feature",
+			RelDate:    "3 hours ago",
+			Type:       "commit",
+		},
+	}
+	m := New(entries, tokens, "HEAD")
+	m.cursor.SetSize(80, 24)
+	m.cursor.Pos = 0
+
+	// renderEntry produces a row with multiple ANSI-styled parts (hash, type, date).
+	idxWidth := 1
+	row := m.renderEntry(entries[0], idxWidth)
+
+	// Verify the raw entry row contains ANSI sequences (pre-styled content).
+	require.NotEqual(t, row, ansi.Strip(row),
+		"renderEntry must produce ANSI-styled content for this test to be meaningful")
+
+	// Render using Cursor.Render with pre-styled content — this is what the
+	// buggy code does. It embeds multiple ANSI sequences inside the cursor
+	// escape, producing nested sequences.
+	wrongCursorRow := tokens.Cursor.Render(row)
+
+	// Render using Cursor.Render with stripped content — this is the correct fix.
+	correctCursorRow := tokens.Cursor.Render(ansi.Strip(row))
+
+	// The wrong rendering contains multiple ESC characters (one per styled part
+	// plus the outer cursor open/close). The correct rendering has only two
+	// (one cursor open, one cursor close/reset).
+	wrongEscCount := strings.Count(wrongCursorRow, "\x1b")
+	correctEscCount := strings.Count(correctCursorRow, "\x1b")
+
+	assert.Greater(t, wrongEscCount, 2,
+		"Cursor.Render(row) with pre-styled content should produce nested ANSI (more than 2 ESC sequences)")
+	assert.Equal(t, 2, correctEscCount,
+		"Cursor.Render(ansi.Strip(row)) should produce exactly 2 ESC sequences (open+close), no nesting")
+
+	// Confirm the view's cursor row matches the correct (stripped) pattern by
+	// checking that it has the same ESC count as the correct rendering.
+	view := m.View()
+	lines := strings.Split(view, "\n")
+	var cursorLine string
+	for _, line := range lines {
+		if strings.Contains(ansi.Strip(line), "abc123d") {
+			cursorLine = line
+			break
+		}
+	}
+
+	require.NotEmpty(t, cursorLine, "cursor line with hash 'abc123d' should be present in view")
+
+	viewEscCount := strings.Count(cursorLine, "\x1b")
+	assert.Equal(t, correctEscCount, viewEscCount,
+		"View cursor row must use ansi.Strip(row) before Cursor.Render — "+
+			"found %d ESC sequences, expected %d (the stripped pattern)",
+		viewEscCount, correctEscCount)
 }

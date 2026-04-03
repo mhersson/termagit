@@ -210,6 +210,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKeyMsg handles keyboard input.
 func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Guard: ignore all key events once the editor is done (submitted or aborted).
+	// This prevents phantom key events or impatient users from triggering
+	// double-commits after the commit is already in progress.
+	if m.done {
+		return m, nil
+	}
+
 	// Handle pending two-key sequences
 	if m.pendingKey == "ctrl+c" {
 		m.pendingKey = ""
