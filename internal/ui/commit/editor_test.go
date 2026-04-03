@@ -923,6 +923,68 @@ func TestRewordKeyHandling_Q_AbortsInNormalMode(t *testing.T) {
 	assert.NotNil(t, cmd, "should return abort command")
 }
 
+// Tests for done-state key ignoring (TERMAGIT-003)
+
+func TestEditorModel_DoneState_IgnoresAllKeyEvents(t *testing.T) {
+	m := newTestModel(t)
+	m.done = true
+	m.vimEditor.SetContent("original content")
+
+	// Send various key events
+	keysToTest := []tea.KeyMsg{
+		{Type: tea.KeyRunes, Runes: []rune{'a'}},
+		{Type: tea.KeyRunes, Runes: []rune{'x'}},
+		{Type: tea.KeyEnter},
+		{Type: tea.KeyBackspace},
+		{Type: tea.KeyEscape},
+	}
+
+	for _, key := range keysToTest {
+		newModel, cmd := m.Update(key)
+		m2 := newModel.(Model)
+
+		assert.True(t, m2.done, "done should still be true after key: %v", key)
+		assert.Nil(t, cmd, "should return nil cmd for key: %v", key)
+		assert.Equal(t, "original content", m2.vimEditor.Content(),
+			"content should not change for key: %v", key)
+	}
+}
+
+func TestEditorModel_DoneState_CtrlC_DoesNotSetPendingKey(t *testing.T) {
+	m := newTestModel(t)
+	m.done = true
+	m.pendingKey = "" // no pending key
+
+	// Send ctrl+c
+	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m = newModel.(Model)
+
+	assert.Empty(t, m.pendingKey, "pendingKey should NOT be set when done")
+	assert.Nil(t, cmd, "should return nil command when done")
+}
+
+func TestEditorModel_DoneState_CtrlC_CtrlC_DoesNotSubmitAgain(t *testing.T) {
+	m := newTestModel(t)
+	m.vimEditor.SetContent("Some message")
+
+	// First submit the editor normally
+	m.pendingKey = "ctrl+c"
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m = newModel.(Model)
+
+	// Verify it's done
+	assert.True(t, m.done, "editor should be done after first submit")
+
+	// Now simulate phantom ctrl+c ctrl+c after done
+	m.pendingKey = "ctrl+c" // Manually set as if phantom key arrived
+	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m = newModel.(Model)
+
+	// Should be silently ignored — no new command
+	assert.True(t, m.done, "done should still be true")
+	assert.Nil(t, cmd, "should NOT return a new commit command when already done")
+}
+
 // newRewordModel creates a commit editor model simulating a reword action
 // with content already initialized (as it would be in the running app).
 func newRewordModel(t *testing.T) Model {
