@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -120,7 +122,23 @@ func run() error {
 		tea.WithAltScreen(),
 		tea.WithInput(tty),
 		tea.WithOutput(tty),
+		tea.WithoutSignalHandler(),
 	)
+
+	// Relay OS signals into the Bubble Tea event loop so that Ctrl-C
+	// (SIGINT) is handled as a key event rather than terminating the
+	// process directly. This is required when termagit runs as a
+	// subprocess inside an editor such as Helix on Linux, where the
+	// editor's controlling TTY causes Ctrl-C to generate SIGINT instead
+	// of a raw key byte.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	relayDone := startSignalRelay(sigCh, p.Send, p.Kill)
+	defer func() {
+		signal.Stop(sigCh)
+		close(sigCh)
+		<-relayDone
+	}()
 
 	// Start file watcher with program.Send as the callback
 	model.StartWatcher(p.Send)
@@ -137,4 +155,28 @@ func run() error {
 // openTTY opens the controlling terminal for direct read-write access.
 func openTTY() (*os.File, error) {
 	return os.OpenFile("/dev/tty", os.O_RDWR, 0)
+}
+
+// startSignalRelay starts a goroutine that reads from sigCh and relays each
+// signal to the Bubble Tea program via the provided callbacks:
+//   - os.Interrupt (SIGINT) is relayed as tea.KeyMsg{Type: tea.KeyCtrlC} via sendFn,
+//     so the two-Ctrl-C commit sequence works when running inside an editor.
+//   - syscall.SIGTERM is relayed as killFn() for a clean shutdown.
+//
+// The goroutine exits when sigCh is closed. The returned channel is closed
+// when the goroutine has exited, allowing callers to wait for it.
+func startSignalRelay(sigCh <-chan os.Signal, sendFn func(tea.Msg), killFn func()) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for sig := range sigCh {
+			switch sig {
+			case os.Interrupt:
+				sendFn(tea.KeyMsg{Type: tea.KeyCtrlC})
+			case syscall.SIGTERM:
+				killFn()
+			}
+		}
+	}()
+	return done
 }
