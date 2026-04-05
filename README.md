@@ -76,6 +76,32 @@ termagit -theme everforest-dark # override the color theme
 termagit -version               # print version
 ```
 
+## Editor Integration
+
+### Helix
+
+termagit can be launched from [Helix](https://helix-editor.com/) via
+`:insert-output`. Add the following to your Helix `config.toml` to bind
+`<Space>gg` in normal mode:
+
+```toml
+[keys.normal.space.g]
+g = [
+    ":write-all",
+    ":new",
+    ":insert-output termagit",
+    ":set mouse false",
+    ":set mouse true",
+    ":buffer-close!",
+    ":redraw",
+    ":reload-all"
+]
+```
+
+This works on macOS and Linux. On Linux, termagit handles TTY signal delivery
+differences automatically — Ctrl-C Ctrl-C to commit and ESC to exit insert mode
+work as expected.
+
 ## Configuration
 
 termagit uses a TOML config file at `~/.config/termagit/config.toml` (or
