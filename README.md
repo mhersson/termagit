@@ -98,9 +98,9 @@ g = [
 ]
 ```
 
-This works on macOS and Linux. On Linux, termagit handles TTY signal delivery
-differences automatically — Ctrl-C Ctrl-C to commit and ESC to exit insert mode
-work as expected.
+This works on macOS and Linux. On Linux, termagit disables the kitty keyboard
+protocol inherited from Helix so that ESC and Ctrl-C are sent as standard bytes
+rather than CSI u sequences.
 
 ## Configuration
 

@@ -155,9 +155,9 @@ func run() error {
 
 	_, err = p.Run()
 
-	// Defensive: reset terminal modes that might linger after abnormal exit.
-	// These are idempotent and safe even when the terminal is already clean.
-	_, _ = tty.WriteString("\033[?1l\033[?25h\033[?2004l")
+	// Defensive: reset terminal modes that might linger after abnormal exit
+	// and pop the kitty keyboard protocol level pushed in prepareTerminal.
+	_ = cleanupTerminal(tty)
 
 	return err
 }
@@ -167,20 +167,24 @@ func openTTY() (*os.File, error) {
 	return os.OpenFile("/dev/tty", os.O_RDWR, 0)
 }
 
-// prepareTerminal writes mouse-disable escape sequences to w so that any
-// mouse tracking enabled by a parent process (e.g. Helix) is turned off
-// before Bubble Tea starts reading input. This prevents residual SGR mouse
-// events from being delivered in the same Read() buffer as the user's ESC
-// keypress, which would cause Bubble Tea's detectOneMsg to misidentify ESC
-// as the start of an escape sequence.
+// prepareTerminal neutralizes terminal state inherited from a parent process
+// (e.g. Helix) before Bubble Tea starts reading input:
+//
+//  1. Disables mouse tracking modes that could inject residual SGR events.
+//  2. Pushes a kitty keyboard protocol level with flags=0 so that the terminal
+//     sends keys in standard encoding (ESC as 0x1b, Ctrl-C as 0x03) instead of
+//     CSI u sequences that Bubble Tea v1 cannot parse.
 func prepareTerminal(w io.Writer) error {
-	// Each sequence disables a different mouse-tracking mode:
-	//   ?1000l — basic mouse tracking (X10 compatible)
-	//   ?1002l — button event tracking
-	//   ?1003l — all-motion tracking
-	//   ?1006l — SGR extended mouse mode
-	//   ?1015l — urxvt extended mouse mode
-	_, err := io.WriteString(w, "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1015l")
+	_, err := io.WriteString(w,
+		"\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1015l"+ // mouse tracking off
+			"\x1b[>u") // push kitty keyboard flags=0
+	return err
+}
+
+// cleanupTerminal resets terminal modes that might linger after exit and pops
+// the kitty keyboard protocol level pushed by prepareTerminal.
+func cleanupTerminal(w io.Writer) error {
+	_, err := io.WriteString(w, "\x1b[<u\033[?1l\033[?25h\033[?2004l")
 	return err
 }
 
