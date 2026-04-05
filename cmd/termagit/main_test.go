@@ -150,11 +150,36 @@ func TestPrepareTerminal(t *testing.T) {
 		"\x1b[?1003l", // disable all-motion tracking
 		"\x1b[?1006l", // disable SGR extended mode
 		"\x1b[?1015l", // disable urxvt extended mode
+		"\x1b[>u",     // push kitty keyboard flags=0 (disable enhancements)
 	}
 
 	for _, seq := range sequences {
 		if !strings.Contains(got, seq) {
 			t.Errorf("prepareTerminal() output missing sequence %q", seq)
+		}
+	}
+}
+
+// TestCleanupTerminal verifies that cleanupTerminal writes the kitty
+// keyboard pop sequence alongside the existing terminal reset sequences.
+func TestCleanupTerminal(t *testing.T) {
+	var buf bytes.Buffer
+	if err := cleanupTerminal(&buf); err != nil {
+		t.Fatalf("cleanupTerminal() returned unexpected error: %v", err)
+	}
+
+	got := buf.String()
+
+	sequences := []string{
+		"\x1b[<u",    // pop kitty keyboard level
+		"\033[?1l",   // reset cursor keys mode
+		"\033[?25h",  // show cursor
+		"\033[?2004l", // disable bracketed paste
+	}
+
+	for _, seq := range sequences {
+		if !strings.Contains(got, seq) {
+			t.Errorf("cleanupTerminal() output missing sequence %q", seq)
 		}
 	}
 }
