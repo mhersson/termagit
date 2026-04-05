@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"os"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -129,5 +131,30 @@ func TestStartSignalRelay_ChannelCloseStopsGoroutine(t *testing.T) {
 		// goroutine exited cleanly
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for relay goroutine to exit after channel close")
+	}
+}
+
+// TestPrepareTerminal verifies that prepareTerminal writes all 5
+// mouse-disable escape sequences to the provided writer.
+func TestPrepareTerminal(t *testing.T) {
+	var buf bytes.Buffer
+	if err := prepareTerminal(&buf); err != nil {
+		t.Fatalf("prepareTerminal() returned unexpected error: %v", err)
+	}
+
+	got := buf.String()
+
+	sequences := []string{
+		"\x1b[?1000l", // disable basic mouse tracking
+		"\x1b[?1002l", // disable button event tracking
+		"\x1b[?1003l", // disable all-motion tracking
+		"\x1b[?1006l", // disable SGR extended mode
+		"\x1b[?1015l", // disable urxvt extended mode
+	}
+
+	for _, seq := range sequences {
+		if !strings.Contains(got, seq) {
+			t.Errorf("prepareTerminal() output missing sequence %q", seq)
+		}
 	}
 }

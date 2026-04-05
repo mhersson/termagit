@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -62,6 +63,15 @@ func run() error {
 		return fmt.Errorf("open terminal: %w", err)
 	}
 	defer tty.Close() //nolint:errcheck // best-effort cleanup
+
+	// Disable any mouse tracking that a parent process (e.g. Helix) may have
+	// enabled. Without this, residual SGR mouse events in the TTY read buffer
+	// can be misidentified by Bubble Tea as the start of an escape sequence,
+	// causing ESC key disambiguation failures.
+	if err := prepareTerminal(tty); err != nil {
+		return fmt.Errorf("prepare terminal: %w", err)
+	}
+
 	lipgloss.SetDefaultRenderer(lipgloss.NewRenderer(tty))
 
 	// Resolve theme: flag > config > fallback
@@ -155,6 +165,23 @@ func run() error {
 // openTTY opens the controlling terminal for direct read-write access.
 func openTTY() (*os.File, error) {
 	return os.OpenFile("/dev/tty", os.O_RDWR, 0)
+}
+
+// prepareTerminal writes mouse-disable escape sequences to w so that any
+// mouse tracking enabled by a parent process (e.g. Helix) is turned off
+// before Bubble Tea starts reading input. This prevents residual SGR mouse
+// events from being delivered in the same Read() buffer as the user's ESC
+// keypress, which would cause Bubble Tea's detectOneMsg to misidentify ESC
+// as the start of an escape sequence.
+func prepareTerminal(w io.Writer) error {
+	// Each sequence disables a different mouse-tracking mode:
+	//   ?1000l — basic mouse tracking (X10 compatible)
+	//   ?1002l — button event tracking
+	//   ?1003l — all-motion tracking
+	//   ?1006l — SGR extended mouse mode
+	//   ?1015l — urxvt extended mouse mode
+	_, err := io.WriteString(w, "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1015l")
+	return err
 }
 
 // startSignalRelay starts a goroutine that reads from sigCh and relays each
