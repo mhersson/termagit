@@ -3509,3 +3509,187 @@ func TestVisualMode_KeyBinding_ExitVisualMode(t *testing.T) {
 		t.Errorf("expected ExitVisualMode binding to include 'esc', got %v", keys)
 	}
 }
+
+func TestVisualMode_MoveDown_ExtendsSelection(t *testing.T) {
+	// j in visual mode moves cursor down but keeps anchor fixed.
+	km := DefaultKeyMap()
+	hunk := git.Hunk{
+		OldStart: 1, OldCount: 5, NewStart: 1, NewCount: 6,
+		Lines: []git.DiffLine{
+			{Op: git.DiffOpContext, Content: "ctx"},
+			{Op: git.DiffOpAdd, Content: "line1"},
+			{Op: git.DiffOpAdd, Content: "line2"},
+			{Op: git.DiffOpAdd, Content: "line3"},
+			{Op: git.DiffOpContext, Content: "ctx2"},
+		},
+	}
+	m := Model{
+		keys:         km,
+		visualMode:   true,
+		visualAnchor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		cursor:       Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		sections: []Section{
+			{
+				Kind: SectionUnstaged,
+				Items: []Item{
+					{
+						Entry:    &git.StatusEntry{Path: "file.go"},
+						Expanded: true,
+						Hunks:    []git.Hunk{hunk},
+					},
+				},
+			},
+		},
+	}
+
+	result, _ := update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	updated := result.(Model)
+
+	// Cursor should move down
+	if updated.cursor.Line != 2 {
+		t.Errorf("expected cursor.Line=2, got %d", updated.cursor.Line)
+	}
+	// Anchor should stay fixed
+	if updated.visualAnchor.Line != 1 {
+		t.Errorf("expected visualAnchor.Line=1, got %d", updated.visualAnchor.Line)
+	}
+	// Visual mode should still be active
+	if !updated.visualMode {
+		t.Error("expected visualMode=true after j in visual mode")
+	}
+}
+
+func TestVisualMode_MoveUp_ExtendsSelection(t *testing.T) {
+	// k in visual mode moves cursor up but keeps anchor fixed.
+	km := DefaultKeyMap()
+	hunk := git.Hunk{
+		OldStart: 1, OldCount: 5, NewStart: 1, NewCount: 6,
+		Lines: []git.DiffLine{
+			{Op: git.DiffOpContext, Content: "ctx"},
+			{Op: git.DiffOpAdd, Content: "line1"},
+			{Op: git.DiffOpAdd, Content: "line2"},
+			{Op: git.DiffOpAdd, Content: "line3"},
+			{Op: git.DiffOpContext, Content: "ctx2"},
+		},
+	}
+	m := Model{
+		keys:         km,
+		visualMode:   true,
+		visualAnchor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 3},
+		cursor:       Cursor{Section: 0, Item: 0, Hunk: 0, Line: 3},
+		sections: []Section{
+			{
+				Kind: SectionUnstaged,
+				Items: []Item{
+					{
+						Entry:    &git.StatusEntry{Path: "file.go"},
+						Expanded: true,
+						Hunks:    []git.Hunk{hunk},
+					},
+				},
+			},
+		},
+	}
+
+	result, _ := update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	updated := result.(Model)
+
+	// Cursor should move up
+	if updated.cursor.Line != 2 {
+		t.Errorf("expected cursor.Line=2, got %d", updated.cursor.Line)
+	}
+	// Anchor should stay fixed
+	if updated.visualAnchor.Line != 3 {
+		t.Errorf("expected visualAnchor.Line=3, got %d", updated.visualAnchor.Line)
+	}
+	// Visual mode should still be active
+	if !updated.visualMode {
+		t.Error("expected visualMode=true after k in visual mode")
+	}
+}
+
+func TestVisualMode_Stage_ExitsVisualModeAndIssuescmd(t *testing.T) {
+	// Pressing 's' in visual mode should exit visual mode and issue a stage command.
+	km := DefaultKeyMap()
+	hunk := git.Hunk{
+		OldStart: 1, OldCount: 3, NewStart: 1, NewCount: 4,
+		Lines: []git.DiffLine{
+			{Op: git.DiffOpContext, Content: "ctx"},
+			{Op: git.DiffOpAdd, Content: "added"},
+			{Op: git.DiffOpContext, Content: "ctx2"},
+		},
+	}
+	m := Model{
+		keys:         km,
+		visualMode:   true,
+		visualAnchor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		cursor:       Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		sections: []Section{
+			{
+				Kind: SectionUnstaged,
+				Items: []Item{
+					{
+						Entry:    &git.StatusEntry{Path: "file.go"},
+						Expanded: true,
+						Hunks:    []git.Hunk{hunk},
+					},
+				},
+			},
+		},
+	}
+
+	result, cmd := update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	updated := result.(Model)
+
+	// Visual mode should be off after staging
+	if updated.visualMode {
+		t.Error("expected visualMode=false after staging")
+	}
+	// A command should have been issued
+	if cmd == nil {
+		t.Error("expected a non-nil tea.Cmd to be returned for stage operation")
+	}
+}
+
+func TestVisualMode_Unstage_ExitsVisualModeAndIssuesCmd(t *testing.T) {
+	// Pressing 'u' in visual mode on a staged hunk exits visual mode and issues an unstage command.
+	km := DefaultKeyMap()
+	hunk := git.Hunk{
+		OldStart: 1, OldCount: 4, NewStart: 1, NewCount: 3,
+		Lines: []git.DiffLine{
+			{Op: git.DiffOpContext, Content: "ctx"},
+			{Op: git.DiffOpDelete, Content: "removed"},
+			{Op: git.DiffOpContext, Content: "ctx2"},
+		},
+	}
+	m := Model{
+		keys:         km,
+		visualMode:   true,
+		visualAnchor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		cursor:       Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		sections: []Section{
+			{
+				Kind: SectionStaged,
+				Items: []Item{
+					{
+						Entry:    &git.StatusEntry{Path: "file.go"},
+						Expanded: true,
+						Hunks:    []git.Hunk{hunk},
+					},
+				},
+			},
+		},
+	}
+
+	result, cmd := update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}})
+	updated := result.(Model)
+
+	// Visual mode should be off after unstaging
+	if updated.visualMode {
+		t.Error("expected visualMode=false after unstaging")
+	}
+	// A command should have been issued
+	if cmd == nil {
+		t.Error("expected a non-nil tea.Cmd to be returned for unstage operation")
+	}
+}

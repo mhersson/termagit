@@ -647,6 +647,127 @@ func TestLineRangeToPatch_NilHunk_ReturnsEmpty(t *testing.T) {
 	assert.Equal(t, "", got)
 }
 
+func TestLineRangeToPatch_Integration_PartialStage(t *testing.T) {
+	// Integration: stage only a subset of lines from a hunk using LineRangeToPatch + ApplyPatch.
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Commit a file with 5 lines.
+	addAndCommit(t, r, "partial.txt", "line1\nline2\nline3\nline4\nline5\n", "initial")
+
+	// Modify all 5 lines in the worktree.
+	addFile(t, r, "partial.txt", "LINE1\nLINE2\nLINE3\nLINE4\nLINE5\n")
+
+	// Get the unstaged diff — expect a single hunk.
+	diffs, err := r.UnstagedDiff(ctx, "partial.txt")
+	require.NoError(t, err)
+	require.NotEmpty(t, diffs)
+	require.NotEmpty(t, diffs[0].Hunks)
+
+	hunk := &diffs[0].Hunks[0]
+
+	// Find indices of the first delete/add pair (line1→LINE1).
+	// Typically: -line1, +LINE1, -line2, +LINE2, ...
+	// We select only the first two lines (index 0 and 1: -line1, +LINE1).
+	patch := LineRangeToPatch("partial.txt", hunk, 0, 1, false)
+	require.NotEmpty(t, patch)
+
+	err = r.ApplyPatch(ctx, patch, "--cached")
+	require.NoError(t, err, "applying partial line range patch to stage")
+
+	// partial.txt should now appear in both Staged (partial) and Unstaged.
+	status, err := r.Status(ctx)
+	require.NoError(t, err)
+
+	foundStaged := false
+	for _, e := range status.Staged {
+		if e.Path == "partial.txt" {
+			foundStaged = true
+		}
+	}
+	assert.True(t, foundStaged, "partial.txt should have partially staged changes")
+}
+
+func TestLineRangeToPatch_Integration_PartialUnstage(t *testing.T) {
+	// Integration: unstage only a subset of lines from a staged hunk using LineRangeToPatch + ApplyPatch.
+	// We stage a file that has an added line followed by a deletion. By selecting only the
+	// delete lines (not the adds) we can produce a well-formed reverse patch that git can apply.
+	// Specifically: commit "aaa\nbbb\n", then stage "bbb\n" (deletes aaa), so the staged diff
+	// shows "-aaa". Selecting index 0 (-aaa) with reverse=true produces a patch that re-adds
+	// "aaa" to the index.
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Commit a file with two lines.
+	addAndCommit(t, r, "unstage_partial.txt", "aaa\nbbb\n", "initial")
+
+	// Stage a deletion of the first line (keep only bbb).
+	addFile(t, r, "unstage_partial.txt", "bbb\n")
+	_, err := r.runGit(ctx, "add", "unstage_partial.txt")
+	require.NoError(t, err)
+
+	// Verify fully staged.
+	status, err := r.Status(ctx)
+	require.NoError(t, err)
+	foundStaged := false
+	for _, e := range status.Staged {
+		if e.Path == "unstage_partial.txt" {
+			foundStaged = true
+		}
+	}
+	require.True(t, foundStaged, "unstage_partial.txt should be fully staged")
+
+	// Get staged diff — should show "-aaa" (the deleted first line).
+	diffs, err := r.StagedDiff(ctx, "unstage_partial.txt")
+	require.NoError(t, err)
+	require.NotEmpty(t, diffs)
+	require.NotEmpty(t, diffs[0].Hunks)
+
+	hunk := &diffs[0].Hunks[0]
+
+	// Find the delete line index.
+	delIdx := -1
+	for i, l := range hunk.Lines {
+		if l.Op == DiffOpDelete {
+			delIdx = i
+			break
+		}
+	}
+	require.GreaterOrEqual(t, delIdx, 0, "expected at least one delete line in staged diff")
+
+	// Select the delete line for unstage (reverse=true). This re-adds "aaa" to the index,
+	// effectively undoing the staged deletion.
+	patch := LineRangeToPatch("unstage_partial.txt", hunk, delIdx, delIdx, true)
+	require.NotEmpty(t, patch)
+
+	err = r.ApplyPatch(ctx, patch, "--cached")
+	require.NoError(t, err, "applying partial line range patch to unstage")
+
+	// After unstaging the deletion, the file should no longer appear as staged
+	// (the index now matches HEAD).
+	status, err = r.Status(ctx)
+	require.NoError(t, err)
+
+	foundStaged = false
+	for _, e := range status.Staged {
+		if e.Path == "unstage_partial.txt" {
+			foundStaged = true
+		}
+	}
+	assert.False(t, foundStaged, "unstage_partial.txt should no longer be staged after undoing the deletion")
+
+	// The deletion should now appear as an unstaged change.
+	foundUnstaged := false
+	for _, e := range status.Unstaged {
+		if e.Path == "unstage_partial.txt" {
+			foundUnstaged = true
+		}
+	}
+	assert.True(t, foundUnstaged, "unstage_partial.txt should appear as an unstaged change")
+}
+
 func TestLineRangeToPatch_PartialReverseUnstage(t *testing.T) {
 	// Unstaging a partial selection: reverse=true, select only one of two adds.
 	// Hunk (staged diff): context, +add1, +add2, context

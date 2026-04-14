@@ -608,6 +608,26 @@ func discardHunkCmd(repo *git.Repository, path string, hunk git.Hunk) tea.Cmd {
 	}
 }
 
+// stageLineRangeCmd stages a selected line range within a hunk.
+// startLine and endLine are 0-based inclusive indices into hunk.Lines.
+func stageLineRangeCmd(repo *git.Repository, path string, hunk git.Hunk, startLine, endLine int) tea.Cmd {
+	return func() tea.Msg {
+		patch := git.LineRangeToPatch(path, &hunk, startLine, endLine, false)
+		err := repo.ApplyPatch(context.Background(), patch, "--cached")
+		return operationDoneMsg{err: err}
+	}
+}
+
+// unstageLineRangeCmd unstages a selected line range within a staged hunk.
+// startLine and endLine are 0-based inclusive indices into hunk.Lines.
+func unstageLineRangeCmd(repo *git.Repository, path string, hunk git.Hunk, startLine, endLine int) tea.Cmd {
+	return func() tea.Msg {
+		patch := git.LineRangeToPatch(path, &hunk, startLine, endLine, true)
+		err := repo.ApplyPatch(context.Background(), patch, "--cached")
+		return operationDoneMsg{err: err}
+	}
+}
+
 // stageAllUnstagedCmd stages all unstaged files.
 func stageAllUnstagedCmd(repo *git.Repository) tea.Cmd {
 	return func() tea.Msg {
