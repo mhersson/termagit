@@ -77,6 +77,10 @@ type KeyMap struct {
 	PullPopup       key.Binding // p
 	RebasePopup     key.Binding // r
 	RevertPopup     key.Binding // v
+
+	// Visual mode
+	VisualMode     key.Binding // V (when on a diff line — enter visual selection)
+	ExitVisualMode key.Binding // Esc — exit visual selection mode
 }
 
 // DefaultKeyMap returns the default key bindings matching Neogit exactly.
@@ -340,6 +344,16 @@ func DefaultKeyMap() KeyMap {
 		RevertPopup: key.NewBinding(
 			key.WithKeys("v"),
 			key.WithHelp("v", "revert"),
+		),
+
+		// Visual mode
+		VisualMode: key.NewBinding(
+			key.WithKeys("V"),
+			key.WithHelp("V", "visual select"),
+		),
+		ExitVisualMode: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "exit visual mode"),
 		),
 	}
 }

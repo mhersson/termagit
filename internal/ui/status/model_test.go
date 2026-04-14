@@ -7,6 +7,8 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
+
 	"github.com/mhersson/termagit/internal/config"
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/theme"
@@ -1525,6 +1527,170 @@ func TestRenderWithBlockCursor_UTF8Rune(t *testing.T) {
 	}
 	if !strings.Contains(result, "界") {
 		t.Error("expected second UTF-8 rune in output")
+	}
+}
+
+func TestRenderWithBlockCursorSelectionNoNewline_MultiChar(t *testing.T) {
+	tokens := theme.Tokens{
+		CursorBlock: lipgloss.NewStyle().Reverse(true),
+		Selection:   lipgloss.NewStyle().Background(lipgloss.Color("#264f78")),
+	}
+
+	result := renderWithBlockCursorSelectionNoNewline(tokens, "Hello")
+
+	// Should contain first character (cursor block)
+	if !strings.Contains(result, "H") {
+		t.Error("expected first character H in output")
+	}
+	// Should contain rest of line (selection styled)
+	if !strings.Contains(result, "ello") {
+		t.Error("expected rest of line in output")
+	}
+	// Should NOT end with newline
+	if strings.HasSuffix(result, "\n") {
+		t.Error("expected no trailing newline")
+	}
+}
+
+func TestRenderWithBlockCursorSelectionNoNewline_EmptyLine(t *testing.T) {
+	tokens := theme.Tokens{
+		CursorBlock: lipgloss.NewStyle().Reverse(true),
+		Selection:   lipgloss.NewStyle().Background(lipgloss.Color("#264f78")),
+	}
+
+	result := renderWithBlockCursorSelectionNoNewline(tokens, "")
+
+	// Should render at least a space for the cursor block
+	if len(result) < 1 {
+		t.Error("expected non-empty output for empty line")
+	}
+}
+
+func TestRenderWithBlockCursorSelectionNoNewline_SingleChar(t *testing.T) {
+	tokens := theme.Tokens{
+		CursorBlock: lipgloss.NewStyle().Reverse(true),
+		Selection:   lipgloss.NewStyle().Background(lipgloss.Color("#264f78")),
+	}
+
+	result := renderWithBlockCursorSelectionNoNewline(tokens, "X")
+
+	// Should contain the character
+	if !strings.Contains(result, "X") {
+		t.Error("expected character X in output")
+	}
+}
+
+func TestApplyViewportWithCursor_VisualModeHighlightsSelection(t *testing.T) {
+	// Force TrueColor so lipgloss emits ANSI even without a TTY.
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	t.Cleanup(func() { lipgloss.SetColorProfile(termenv.Ascii) })
+
+	// In visual mode, non-cursor selected lines should get Selection styling.
+	tokens := theme.Compile(theme.RawTokens{
+		SelectBg:       "#264f78",
+		Selection:      "#ffffff",
+		CursorBg:       "#333333",
+		Cursor:         "#cccccc",
+		DiffAdd:        "#a9dc76",
+		DiffDelete:     "#ff6188",
+		DiffContext:    "#939293",
+		DiffHunkHeader: "#78dce8",
+	})
+	m := Model{
+		tokens: tokens,
+		head:   HeadState{Branch: "main"},
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+				{
+					Entry:    &git.StatusEntry{Path: "file.go", Unstaged: git.FileStatusModified},
+					Expanded: true,
+					Hunks: []git.Hunk{
+						{Header: "@@ -1,4 +1,5 @@", Lines: []git.DiffLine{
+							{Op: git.DiffOpContext, Content: "a"},
+							{Op: git.DiffOpAdd, Content: "b"},
+							{Op: git.DiffOpAdd, Content: "c"},
+							{Op: git.DiffOpContext, Content: "d"},
+						}},
+					},
+				},
+			}},
+		},
+		cursor:       Cursor{Section: 0, Item: 0, Hunk: 0, Line: 2}, // on "c"
+		visualMode:   true,
+		visualAnchor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 0}, // anchor on "a"
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 30
+
+	m.applyViewportWithCursor()
+
+	content := m.viewport.View()
+	lines := strings.Split(content, "\n")
+
+	// Compute expected visual line for anchor (line 0) — a non-cursor selected line.
+	anchorVisual := cursorToVisualLine(m, m.visualAnchor)
+	if anchorVisual >= len(lines) {
+		t.Fatalf("anchorVisual %d out of range (have %d lines)", anchorVisual, len(lines))
+	}
+
+	// The anchor line should have Selection styling applied.
+	// Without the fix, it will have DiffContext styling instead.
+	// Check that the anchor line contains the Selection style's ANSI sequence.
+	anchorLine := lines[anchorVisual]
+	// Selection.Render("x") gives us a string with the Selection ANSI prefix.
+	// Extract just the ANSI prefix to check for it in the actual line.
+	selSample := tokens.Selection.Render("x")
+	selPrefix := selSample[:strings.Index(selSample, "x")]
+	if !strings.HasPrefix(anchorLine, selPrefix) {
+		t.Errorf("anchor line (visual %d) should start with Selection ANSI prefix.\ngot:  %q\nwant prefix: %q",
+			anchorVisual, anchorLine, selPrefix)
+	}
+}
+
+func TestApplyViewportWithCursor_NoVisualMode_NoSelectionStyling(t *testing.T) {
+	// Without visual mode, diff lines should not get Selection styling.
+	tokens := theme.Tokens{
+		CursorBlock:    lipgloss.NewStyle().Reverse(true),
+		Cursor:         lipgloss.NewStyle().Background(lipgloss.Color("#333333")),
+		Selection:      lipgloss.NewStyle().Background(lipgloss.Color("#264f78")),
+		DiffAdd:        lipgloss.NewStyle(),
+		DiffDelete:     lipgloss.NewStyle(),
+		DiffContext:    lipgloss.NewStyle(),
+		DiffHunkHeader: lipgloss.NewStyle(),
+		Normal:         lipgloss.NewStyle(),
+		SubtleText:     lipgloss.NewStyle(),
+		PopupSection:   lipgloss.NewStyle(),
+	}
+	m := Model{
+		tokens: tokens,
+		head:   HeadState{Branch: "main"},
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+				{
+					Entry:    &git.StatusEntry{Path: "file.go", Unstaged: git.FileStatusModified},
+					Expanded: true,
+					Hunks: []git.Hunk{
+						{Header: "@@ -1,3 +1,4 @@", Lines: []git.DiffLine{
+							{Op: git.DiffOpContext, Content: "a"},
+							{Op: git.DiffOpAdd, Content: "b"},
+							{Op: git.DiffOpContext, Content: "c"},
+						}},
+					},
+				},
+			}},
+		},
+		cursor:     Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		visualMode: false,
+	}
+	m.viewport.Width = 80
+	m.viewport.Height = 30
+
+	m.applyViewportWithCursor()
+
+	// Just verify it doesn't crash and produces content.
+	content := m.viewport.View()
+	if len(content) == 0 {
+		t.Error("expected non-empty viewport content")
 	}
 }
 
@@ -3367,5 +3533,436 @@ func TestOpenPopupByName_ViaCommitViewMsg(t *testing.T) {
 	}
 	if updated.popupKind != PopupCommit {
 		t.Errorf("expected PopupCommit, got %d", updated.popupKind)
+	}
+}
+
+// === cursorToVisualLine Tests ===
+
+func TestCursorToVisualLine_MatchesComputeCursorLine(t *testing.T) {
+	// cursorToVisualLine(m, m.cursor) must return the same value as computeCursorLine(m).
+	m := Model{
+		head: HeadState{Branch: "main", AbbrevOid: "abc1234"},
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Untracked files", Items: []Item{{}, {}}},
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+				{
+					Entry:    &git.StatusEntry{Path: "file.go", Unstaged: git.FileStatusModified},
+					Expanded: true,
+					Hunks: []git.Hunk{
+						{Header: "@@ -1,3 +1,4 @@", Lines: []git.DiffLine{
+							{Op: git.DiffOpContext, Content: "a"},
+							{Op: git.DiffOpAdd, Content: "b"},
+							{Op: git.DiffOpContext, Content: "c"},
+						}},
+					},
+				},
+			}},
+		},
+		cursor: Cursor{Section: 1, Item: 0, Hunk: 0, Line: 1},
+	}
+
+	expected := computeCursorLine(m)
+	got := cursorToVisualLine(m, m.cursor)
+	if got != expected {
+		t.Errorf("cursorToVisualLine = %d, computeCursorLine = %d", got, expected)
+	}
+}
+
+func TestCursorToVisualLine_AnchorDiffersFromCursor(t *testing.T) {
+	// cursorToVisualLine can compute line for a position different from m.cursor.
+	m := Model{
+		head: HeadState{Branch: "main", AbbrevOid: "abc1234"},
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+				{
+					Entry:    &git.StatusEntry{Path: "file.go", Unstaged: git.FileStatusModified},
+					Expanded: true,
+					Hunks: []git.Hunk{
+						{Header: "@@ -1,5 +1,6 @@", Lines: []git.DiffLine{
+							{Op: git.DiffOpContext, Content: "a"},
+							{Op: git.DiffOpAdd, Content: "b"},
+							{Op: git.DiffOpDelete, Content: "c"},
+							{Op: git.DiffOpContext, Content: "d"},
+						}},
+					},
+				},
+			}},
+		},
+		cursor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 3},
+	}
+
+	anchor := Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1}
+	anchorLine := cursorToVisualLine(m, anchor)
+	cursorLine := cursorToVisualLine(m, m.cursor)
+
+	// Anchor is on line 1, cursor on line 3 — anchor visual line must be less.
+	if anchorLine >= cursorLine {
+		t.Errorf("expected anchorLine(%d) < cursorLine(%d)", anchorLine, cursorLine)
+	}
+	// Difference should be exactly 2 (lines 1→2→3).
+	if cursorLine-anchorLine != 2 {
+		t.Errorf("expected 2-line gap, got %d", cursorLine-anchorLine)
+	}
+}
+
+// === Visual Mode Tests ===
+
+func TestModel_VisualModeFields(t *testing.T) {
+	// Model must have visualMode and visualAnchor fields.
+	m := New(nil, nil, theme.Tokens{}, KeyMap{})
+
+	// Visual mode starts as false
+	if m.visualMode {
+		t.Error("expected visualMode=false on init")
+	}
+
+	// visualAnchor starts as zero Cursor
+	expected := Cursor{Section: 0, Item: 0, Hunk: 0, Line: 0}
+	_ = expected
+	// Just ensure the field exists and has a zero value
+	var zeroAnchor Cursor
+	if m.visualAnchor != zeroAnchor {
+		t.Errorf("expected visualAnchor=zero, got %+v", m.visualAnchor)
+	}
+}
+
+func TestVisualMode_EnterOnDiffLine(t *testing.T) {
+	// Pressing 'V' when cursor is on a diff line (Hunk>=0, Line>=0) enters visual mode.
+	km := DefaultKeyMap()
+	m := Model{
+		keys: km,
+		cursor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		sections: []Section{
+			{
+				Kind:  SectionUnstaged,
+				Title: "Unstaged changes",
+				Items: []Item{
+					{
+						Entry:    &git.StatusEntry{Path: "file.go", Unstaged: git.FileStatusModified},
+						Expanded: true,
+						Hunks: []git.Hunk{
+							{
+								Header: "@@ -1,3 +1,4 @@",
+								Lines: []git.DiffLine{
+									{Op: git.DiffOpContext, Content: " ctx"},
+									{Op: git.DiffOpAdd, Content: " added"},
+								},
+							},
+						},
+						HunksFolded: []bool{false},
+					},
+				},
+			},
+		},
+	}
+
+	result, _ := update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
+	updated := result.(Model)
+
+	if !updated.visualMode {
+		t.Error("expected visualMode=true after pressing V on diff line")
+	}
+	if updated.visualAnchor != m.cursor {
+		t.Errorf("expected visualAnchor=%+v, got %+v", m.cursor, updated.visualAnchor)
+	}
+}
+
+func TestVisualMode_ExitOnEsc(t *testing.T) {
+	// Pressing Esc exits visual mode.
+	km := DefaultKeyMap()
+	m := Model{
+		keys:        km,
+		visualMode:  true,
+		visualAnchor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		cursor:      Cursor{Section: 0, Item: 0, Hunk: 0, Line: 2},
+	}
+
+	result, _ := update(m, tea.KeyMsg{Type: tea.KeyEsc})
+	updated := result.(Model)
+
+	if updated.visualMode {
+		t.Error("expected visualMode=false after pressing Esc")
+	}
+}
+
+func TestVisualMode_VOnNonDiffLine_DoesNotEnterVisualMode(t *testing.T) {
+	// Pressing 'V' when NOT on a diff line should NOT enter visual mode.
+	km := DefaultKeyMap()
+	m := Model{
+		keys:   km,
+		cursor: Cursor{Section: 0, Item: -1, Hunk: -1, Line: -1},
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{}},
+		},
+	}
+
+	result, _ := update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'V'}})
+	updated := result.(Model)
+
+	if updated.visualMode {
+		t.Error("expected visualMode=false when pressing V on non-diff line")
+	}
+}
+
+func TestVisualMode_vOnDiffLine_OpensRevertPopup(t *testing.T) {
+	// Pressing 'v' (lowercase) on a diff line should open the Revert popup, NOT enter visual mode.
+	km := DefaultKeyMap()
+	m := Model{
+		keys:   km,
+		cursor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		sections: []Section{
+			{
+				Kind:  SectionUnstaged,
+				Title: "Unstaged changes",
+				Items: []Item{
+					{
+						Entry:    &git.StatusEntry{Path: "file.go", Unstaged: git.FileStatusModified},
+						Expanded: true,
+						Hunks: []git.Hunk{
+							{
+								Header: "@@ -1,3 +1,4 @@",
+								Lines: []git.DiffLine{
+									{Op: git.DiffOpContext, Content: " ctx"},
+									{Op: git.DiffOpAdd, Content: " added"},
+								},
+							},
+						},
+						HunksFolded: []bool{false},
+					},
+				},
+			},
+		},
+	}
+
+	result, _ := update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
+	updated := result.(Model)
+
+	if updated.visualMode {
+		t.Error("expected visualMode=false when pressing v (lowercase) on diff line")
+	}
+	if updated.popup == nil {
+		t.Error("expected Revert popup to open when pressing v on diff line")
+	}
+}
+
+func TestVisualMode_KeyBinding_VisualMode(t *testing.T) {
+	// VisualMode binding must use 'V' key.
+	km := DefaultKeyMap()
+	keys := km.VisualMode.Keys()
+	if len(keys) == 0 {
+		t.Fatal("VisualMode binding has no keys")
+	}
+	found := false
+	for _, k := range keys {
+		if k == "V" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected VisualMode binding to include 'V', got %v", keys)
+	}
+}
+
+func TestVisualMode_KeyBinding_ExitVisualMode(t *testing.T) {
+	// ExitVisualMode binding must use 'esc' key.
+	km := DefaultKeyMap()
+	keys := km.ExitVisualMode.Keys()
+	if len(keys) == 0 {
+		t.Fatal("ExitVisualMode binding has no keys")
+	}
+	found := false
+	for _, k := range keys {
+		if k == "esc" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected ExitVisualMode binding to include 'esc', got %v", keys)
+	}
+}
+
+func TestVisualMode_MoveDown_ExtendsSelection(t *testing.T) {
+	// j in visual mode moves cursor down but keeps anchor fixed.
+	km := DefaultKeyMap()
+	hunk := git.Hunk{
+		OldStart: 1, OldCount: 5, NewStart: 1, NewCount: 6,
+		Lines: []git.DiffLine{
+			{Op: git.DiffOpContext, Content: "ctx"},
+			{Op: git.DiffOpAdd, Content: "line1"},
+			{Op: git.DiffOpAdd, Content: "line2"},
+			{Op: git.DiffOpAdd, Content: "line3"},
+			{Op: git.DiffOpContext, Content: "ctx2"},
+		},
+	}
+	m := Model{
+		keys:         km,
+		visualMode:   true,
+		visualAnchor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		cursor:       Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		sections: []Section{
+			{
+				Kind: SectionUnstaged,
+				Items: []Item{
+					{
+						Entry:    &git.StatusEntry{Path: "file.go"},
+						Expanded: true,
+						Hunks:    []git.Hunk{hunk},
+					},
+				},
+			},
+		},
+	}
+
+	result, _ := update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	updated := result.(Model)
+
+	// Cursor should move down
+	if updated.cursor.Line != 2 {
+		t.Errorf("expected cursor.Line=2, got %d", updated.cursor.Line)
+	}
+	// Anchor should stay fixed
+	if updated.visualAnchor.Line != 1 {
+		t.Errorf("expected visualAnchor.Line=1, got %d", updated.visualAnchor.Line)
+	}
+	// Visual mode should still be active
+	if !updated.visualMode {
+		t.Error("expected visualMode=true after j in visual mode")
+	}
+}
+
+func TestVisualMode_MoveUp_ExtendsSelection(t *testing.T) {
+	// k in visual mode moves cursor up but keeps anchor fixed.
+	km := DefaultKeyMap()
+	hunk := git.Hunk{
+		OldStart: 1, OldCount: 5, NewStart: 1, NewCount: 6,
+		Lines: []git.DiffLine{
+			{Op: git.DiffOpContext, Content: "ctx"},
+			{Op: git.DiffOpAdd, Content: "line1"},
+			{Op: git.DiffOpAdd, Content: "line2"},
+			{Op: git.DiffOpAdd, Content: "line3"},
+			{Op: git.DiffOpContext, Content: "ctx2"},
+		},
+	}
+	m := Model{
+		keys:         km,
+		visualMode:   true,
+		visualAnchor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 3},
+		cursor:       Cursor{Section: 0, Item: 0, Hunk: 0, Line: 3},
+		sections: []Section{
+			{
+				Kind: SectionUnstaged,
+				Items: []Item{
+					{
+						Entry:    &git.StatusEntry{Path: "file.go"},
+						Expanded: true,
+						Hunks:    []git.Hunk{hunk},
+					},
+				},
+			},
+		},
+	}
+
+	result, _ := update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	updated := result.(Model)
+
+	// Cursor should move up
+	if updated.cursor.Line != 2 {
+		t.Errorf("expected cursor.Line=2, got %d", updated.cursor.Line)
+	}
+	// Anchor should stay fixed
+	if updated.visualAnchor.Line != 3 {
+		t.Errorf("expected visualAnchor.Line=3, got %d", updated.visualAnchor.Line)
+	}
+	// Visual mode should still be active
+	if !updated.visualMode {
+		t.Error("expected visualMode=true after k in visual mode")
+	}
+}
+
+func TestVisualMode_Stage_ExitsVisualModeAndIssuescmd(t *testing.T) {
+	// Pressing 's' in visual mode should exit visual mode and issue a stage command.
+	km := DefaultKeyMap()
+	hunk := git.Hunk{
+		OldStart: 1, OldCount: 3, NewStart: 1, NewCount: 4,
+		Lines: []git.DiffLine{
+			{Op: git.DiffOpContext, Content: "ctx"},
+			{Op: git.DiffOpAdd, Content: "added"},
+			{Op: git.DiffOpContext, Content: "ctx2"},
+		},
+	}
+	m := Model{
+		keys:         km,
+		visualMode:   true,
+		visualAnchor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		cursor:       Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		sections: []Section{
+			{
+				Kind: SectionUnstaged,
+				Items: []Item{
+					{
+						Entry:    &git.StatusEntry{Path: "file.go"},
+						Expanded: true,
+						Hunks:    []git.Hunk{hunk},
+					},
+				},
+			},
+		},
+	}
+
+	result, cmd := update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	updated := result.(Model)
+
+	// Visual mode should be off after staging
+	if updated.visualMode {
+		t.Error("expected visualMode=false after staging")
+	}
+	// A command should have been issued
+	if cmd == nil {
+		t.Error("expected a non-nil tea.Cmd to be returned for stage operation")
+	}
+}
+
+func TestVisualMode_Unstage_ExitsVisualModeAndIssuesCmd(t *testing.T) {
+	// Pressing 'u' in visual mode on a staged hunk exits visual mode and issues an unstage command.
+	km := DefaultKeyMap()
+	hunk := git.Hunk{
+		OldStart: 1, OldCount: 4, NewStart: 1, NewCount: 3,
+		Lines: []git.DiffLine{
+			{Op: git.DiffOpContext, Content: "ctx"},
+			{Op: git.DiffOpDelete, Content: "removed"},
+			{Op: git.DiffOpContext, Content: "ctx2"},
+		},
+	}
+	m := Model{
+		keys:         km,
+		visualMode:   true,
+		visualAnchor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		cursor:       Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		sections: []Section{
+			{
+				Kind: SectionStaged,
+				Items: []Item{
+					{
+						Entry:    &git.StatusEntry{Path: "file.go"},
+						Expanded: true,
+						Hunks:    []git.Hunk{hunk},
+					},
+				},
+			},
+		},
+	}
+
+	result, cmd := update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}})
+	updated := result.(Model)
+
+	// Visual mode should be off after unstaging
+	if updated.visualMode {
+		t.Error("expected visualMode=false after unstaging")
+	}
+	// A command should have been issued
+	if cmd == nil {
+		t.Error("expected a non-nil tea.Cmd to be returned for unstage operation")
 	}
 }

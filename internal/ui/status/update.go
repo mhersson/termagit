@@ -336,6 +336,16 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return handleInputPromptKey(m, msg)
 	}
 
+	// Handle visual mode exit (Esc exits visual mode before any other handling)
+	if m.visualMode && key.Matches(msg, m.keys.ExitVisualMode) {
+		m.visualMode = false
+		m.visualAnchor = Cursor{}
+		if m.viewport.Width > 0 {
+			m.applyViewportWithCursor()
+		}
+		return m, nil
+	}
+
 	// Handle pending key sequences (e.g., "gg", "gp", "[c", "]c")
 	if m.pendingKey == "g" {
 		m.pendingKey = ""
@@ -495,6 +505,13 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.RevertPopup):
 		return handleOpenRevertPopup(m)
 
+	case key.Matches(msg, m.keys.VisualMode):
+		// 'V' on a diff line enters visual mode; elsewhere it's a no-op.
+		if m.cursor.Hunk >= 0 && m.cursor.Line >= 0 {
+			return handleEnterVisualMode(m)
+		}
+		return m, nil
+
 	case key.Matches(msg, m.keys.CherryPickPopup):
 		return handleOpenCherryPickPopup(m)
 
@@ -634,7 +651,13 @@ func executeConfirmedAction(m Model) (tea.Model, tea.Cmd) {
 }
 
 // handleStage stages the current file or hunk.
+// In visual mode it stages only the selected line range within the current hunk.
 func handleStage(m Model) (tea.Model, tea.Cmd) {
+	// Visual mode: stage only the selected line range.
+	if m.visualMode {
+		return handleStageLineRange(m)
+	}
+
 	item, sectionKind := getCurrentItem(m)
 	if item == nil || item.Entry == nil {
 		return m, nil
@@ -668,7 +691,13 @@ func handleStageAll(m Model) (tea.Model, tea.Cmd) {
 }
 
 // handleUnstage unstages the current file or hunk.
+// In visual mode it unstages only the selected line range within the current hunk.
 func handleUnstage(m Model) (tea.Model, tea.Cmd) {
+	// Visual mode: unstage only the selected line range.
+	if m.visualMode {
+		return handleUnstageLineRange(m)
+	}
+
 	item, sectionKind := getCurrentItem(m)
 	if item == nil || item.Entry == nil {
 		return m, nil
@@ -3891,4 +3920,117 @@ func yankValue(m Model, action string) string {
 	default:
 		return ""
 	}
+}
+
+// handleEnterVisualMode enters visual selection mode anchored at the current cursor position.
+// Called when 'v' is pressed while the cursor is on a diff line (Hunk >= 0 && Line >= 0).
+func handleEnterVisualMode(m Model) (tea.Model, tea.Cmd) {
+	m.visualMode = true
+	m.visualAnchor = m.cursor
+	if m.viewport.Width > 0 {
+		m.applyViewportWithCursor()
+	}
+	return m, nil
+}
+
+// visualLineRange returns the start and end line indices (0-based, inclusive) of
+// the current visual selection within the active hunk.
+// The anchor and cursor may be in either order; this normalises them.
+func visualLineRange(m Model) (startLine, endLine int) {
+	anchorLine := m.visualAnchor.Line
+	cursorLine := m.cursor.Line
+	if anchorLine <= cursorLine {
+		return anchorLine, cursorLine
+	}
+	return cursorLine, anchorLine
+}
+
+// handleStageLineRange stages the visually selected line range within the current hunk.
+// It exits visual mode after issuing the command.
+func handleStageLineRange(m Model) (tea.Model, tea.Cmd) {
+	item, sectionKind := getCurrentItem(m)
+	if item == nil || item.Entry == nil {
+		m.visualMode = false
+		m.visualAnchor = Cursor{}
+		return m, nil
+	}
+
+	// Only stage from untracked or unstaged sections
+	if sectionKind != SectionUntracked && sectionKind != SectionUnstaged {
+		m.visualMode = false
+		m.visualAnchor = Cursor{}
+		return m, nil
+	}
+
+	// Must be on a valid hunk with lines
+	if m.cursor.Hunk < 0 || m.cursor.Hunk >= len(item.Hunks) {
+		m.visualMode = false
+		m.visualAnchor = Cursor{}
+		return m, nil
+	}
+
+	hunk := item.Hunks[m.cursor.Hunk]
+	startLine, endLine := visualLineRange(m)
+
+	// Clamp to valid range
+	if startLine < 0 {
+		startLine = 0
+	}
+	if endLine >= len(hunk.Lines) {
+		endLine = len(hunk.Lines) - 1
+	}
+
+	// Exit visual mode
+	m.visualMode = false
+	m.visualAnchor = Cursor{}
+
+	// Save cursor context for restore after reload
+	m.pendingRestore = saveCursorContext(m)
+
+	return m, stageLineRangeCmd(m.repo, item.Entry.Path, hunk, startLine, endLine)
+}
+
+// handleUnstageLineRange unstages the visually selected line range within the current staged hunk.
+// It exits visual mode after issuing the command.
+func handleUnstageLineRange(m Model) (tea.Model, tea.Cmd) {
+	item, sectionKind := getCurrentItem(m)
+	if item == nil || item.Entry == nil {
+		m.visualMode = false
+		m.visualAnchor = Cursor{}
+		return m, nil
+	}
+
+	// Only unstage from staged section
+	if sectionKind != SectionStaged {
+		m.visualMode = false
+		m.visualAnchor = Cursor{}
+		return m, nil
+	}
+
+	// Must be on a valid hunk with lines
+	if m.cursor.Hunk < 0 || m.cursor.Hunk >= len(item.Hunks) {
+		m.visualMode = false
+		m.visualAnchor = Cursor{}
+		return m, nil
+	}
+
+	hunk := item.Hunks[m.cursor.Hunk]
+	startLine, endLine := visualLineRange(m)
+
+	// Clamp to valid range
+	if startLine < 0 {
+		startLine = 0
+	}
+	if endLine >= len(hunk.Lines) {
+		endLine = len(hunk.Lines) - 1
+	}
+
+	// Exit visual mode
+	m.visualMode = false
+	m.visualAnchor = Cursor{}
+
+	// Save cursor context for restore after reload
+	m.pendingRestore = saveCursorContext(m)
+
+	return m, unstageLineRangeCmd(m.repo, item.Entry.Path, hunk, startLine, endLine)
 }
