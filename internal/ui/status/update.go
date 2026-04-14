@@ -503,11 +503,14 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return handleOpenRebasePopup(m)
 
 	case key.Matches(msg, m.keys.RevertPopup):
-		// 'v' on a diff line enters visual mode; elsewhere it opens the Revert popup.
+		return handleOpenRevertPopup(m)
+
+	case key.Matches(msg, m.keys.VisualMode):
+		// 'V' on a diff line enters visual mode; elsewhere it's a no-op.
 		if m.cursor.Hunk >= 0 && m.cursor.Line >= 0 {
 			return handleEnterVisualMode(m)
 		}
-		return handleOpenRevertPopup(m)
+		return m, nil
 
 	case key.Matches(msg, m.keys.CherryPickPopup):
 		return handleOpenCherryPickPopup(m)

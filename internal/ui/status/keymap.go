@@ -76,10 +76,10 @@ type KeyMap struct {
 	MergePopup      key.Binding // m
 	PullPopup       key.Binding // p
 	RebasePopup     key.Binding // r
-	RevertPopup     key.Binding // v (when not on a diff line)
+	RevertPopup     key.Binding // v
 
 	// Visual mode
-	VisualMode     key.Binding // v (when on a diff line — enter visual selection)
+	VisualMode     key.Binding // V (when on a diff line — enter visual selection)
 	ExitVisualMode key.Binding // Esc — exit visual selection mode
 }
 
@@ -348,8 +348,8 @@ func DefaultKeyMap() KeyMap {
 
 		// Visual mode
 		VisualMode: key.NewBinding(
-			key.WithKeys("v"),
-			key.WithHelp("v", "visual select"),
+			key.WithKeys("V"),
+			key.WithHelp("V", "visual select"),
 		),
 		ExitVisualMode: key.NewBinding(
 			key.WithKeys("esc"),

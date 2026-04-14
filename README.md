@@ -30,7 +30,7 @@ any project. termagit is that.
   merge, rebase, stash, reset, revert, cherry-pick, tag, remote, diff, log,
   bisect, worktree, ignore, and more
 - **Inline diffs** - expand files and hunks directly in the status buffer
-- **Hunk-level staging** - stage, unstage, and discard individual hunks; use visual mode (`v`) on diff lines to stage or unstage a custom line range within a hunk
+- **Hunk-level staging** - stage, unstage, and discard individual hunks; use visual mode (`V`) on diff lines to stage or unstage a custom line range within a hunk
 - **Multiple views** - log, reflog, commit detail, refs, stash list, diff,
   command history
 - **Commit editor** with (a limited set of) vim keybindings and staged diff
@@ -163,7 +163,7 @@ termagit uses the same key bindings as Neogit. Here are the essentials:
 | `l`       | Log popup                       |
 | `d`       | Diff popup                      |
 | `X`       | Reset popup                     |
-| `v`       | Revert popup (or enter visual mode on a diff line — see below) |
+| `v`       | Revert popup                    |
 | `A`       | Cherry-pick popup               |
 | `B`       | Bisect popup                    |
 | `t`       | Tag popup                       |
@@ -176,15 +176,15 @@ termagit uses the same key bindings as Neogit. Here are the essentials:
 
 ### Visual Mode (partial hunk staging)
 
-When the cursor is on a diff line inside an expanded hunk, pressing `v` enters
-visual selection mode instead of opening the Revert popup. This lets you stage
-or unstage a custom subset of lines within a hunk.
+When the cursor is on a diff line inside an expanded hunk, pressing `V` enters
+visual selection mode. This lets you stage or unstage a custom subset of lines
+within a hunk.
 
 **How to use it:**
 
 1. Expand a file with `tab`, then expand a hunk (or navigate into hunk lines).
 2. Move the cursor onto a diff line (a `+` or `-` line inside the hunk).
-3. Press `v` to enter visual mode. The line under the cursor becomes the anchor.
+3. Press `V` to enter visual mode. The line under the cursor becomes the anchor.
 4. Press `j` / `k` to extend the selection up or down.
 5. Press `s` to stage only the selected lines, or `u` to unstage them.
 6. Press `Esc` to exit visual mode without performing any action.

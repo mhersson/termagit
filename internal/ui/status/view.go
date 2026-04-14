@@ -681,6 +681,12 @@ func (m *Model) ensureContent() {
 // computeCursorLine maps the cursor position to a visual line number
 // without rendering. Must match renderContent's line accounting exactly.
 func computeCursorLine(m Model) int {
+	return cursorToVisualLine(m, m.cursor)
+}
+
+// cursorToVisualLine maps an arbitrary cursor position to a visual line number
+// without rendering. Must match renderContent's line accounting exactly.
+func cursorToVisualLine(m Model, c Cursor) int {
 	lineNum := 0
 
 	// Hint bar (2 lines: hint text + blank line)
@@ -711,7 +717,7 @@ func computeCursorLine(m Model) int {
 		}
 
 		// Section header
-		if m.cursor.Section == i && m.cursor.Item == -1 {
+		if c.Section == i && c.Item == -1 {
 			return lineNum
 		}
 		lineNum++ // section header line
@@ -720,7 +726,7 @@ func computeCursorLine(m Model) int {
 		if !s.Folded {
 			for j, item := range s.Items {
 				// Item line
-				if m.cursor.Section == i && m.cursor.Item == j && m.cursor.Hunk == -1 {
+				if c.Section == i && c.Item == j && c.Hunk == -1 {
 					return lineNum
 				}
 
@@ -741,7 +747,7 @@ func computeCursorLine(m Model) int {
 				// Expanded hunks
 				if item.Expanded && len(item.Hunks) > 0 {
 					for h, hunk := range item.Hunks {
-						if m.cursor.Section == i && m.cursor.Item == j && m.cursor.Hunk == h && m.cursor.Line == -1 {
+						if c.Section == i && c.Item == j && c.Hunk == h && c.Line == -1 {
 							return lineNum
 						}
 						lineNum++ // hunk header
@@ -749,7 +755,7 @@ func computeCursorLine(m Model) int {
 						isFolded := len(item.HunksFolded) > h && item.HunksFolded[h]
 						if !isFolded {
 							for l := range hunk.Lines {
-								if m.cursor.Section == i && m.cursor.Item == j && m.cursor.Hunk == h && m.cursor.Line == l {
+								if c.Section == i && c.Item == j && c.Hunk == h && c.Line == l {
 									return lineNum
 								}
 								lineNum++
@@ -778,25 +784,58 @@ func renderWithBlockCursorNoNewline(tokens theme.Tokens, line string) string {
 	return tokens.CursorBlock.Render(string(firstRune)) + tokens.Cursor.Render(rest)
 }
 
+// renderWithBlockCursorSelectionNoNewline renders a line with block cursor on
+// the first character and selection highlighting on the rest. Used for the
+// cursor line within a visual selection.
+func renderWithBlockCursorSelectionNoNewline(tokens theme.Tokens, line string) string {
+	if len(line) == 0 {
+		return tokens.CursorBlock.Render(" ")
+	}
+	firstRune, size := utf8.DecodeRuneInString(line)
+	rest := line[size:]
+	if len(rest) == 0 {
+		return tokens.CursorBlock.Render(string(firstRune))
+	}
+	return tokens.CursorBlock.Render(string(firstRune)) + tokens.Selection.Render(rest)
+}
+
 // applyViewportWithCursor builds viewport content from cached base lines,
-// applying cursor styling to the cursor line, and updates the viewport.
+// applying cursor styling to the cursor line and visual selection highlighting
+// to selected lines, then updates the viewport.
 func (m *Model) applyViewportWithCursor() {
 	m.ensureContent()
 	cursorLine := computeCursorLine(*m)
 
-	// Build content with cursor styling applied
+	// Compute visual selection range if in visual mode.
+	selStart, selEnd := -1, -1
+	if m.visualMode {
+		anchorLine := cursorToVisualLine(*m, m.visualAnchor)
+		if anchorLine <= cursorLine {
+			selStart, selEnd = anchorLine, cursorLine
+		} else {
+			selStart, selEnd = cursorLine, anchorLine
+		}
+	}
+
+	// Build content with cursor and selection styling applied
 	var b strings.Builder
 	for i, line := range m.cachedBaseLines {
 		if i > 0 {
 			b.WriteByte('\n')
 		}
+		inSelection := selStart >= 0 && i >= selStart && i <= selEnd
 		if i == cursorLine {
 			stripped := ansi.Strip(line)
 			if m.popup != nil {
 				b.WriteString(m.tokens.Cursor.Render(stripped))
+			} else if inSelection {
+				b.WriteString(renderWithBlockCursorSelectionNoNewline(m.tokens, stripped))
 			} else {
 				b.WriteString(renderWithBlockCursorNoNewline(m.tokens, stripped))
 			}
+		} else if inSelection {
+			stripped := ansi.Strip(line)
+			b.WriteString(m.tokens.Selection.Render(stripped))
 		} else {
 			b.WriteString(line)
 		}
