@@ -491,3 +491,191 @@ func TestApplyPatch_DoesNotCorruptCallerSlice(t *testing.T) {
 	assert.Equal(t, "UNTOUCHED", backing[2],
 		"ApplyPatch must not overwrite caller's backing array")
 }
+
+// LineRangeToPatch tests
+
+// buildTestHunk builds a Hunk with the given lines for testing.
+// Each line is specified as "<op><content>" where op is '+', '-', or ' '.
+func buildTestHunk(header string, oldStart, oldCount, newStart, newCount int, rawLines []string) *Hunk {
+	hunk := &Hunk{
+		Header:   header,
+		OldStart: oldStart,
+		OldCount: oldCount,
+		NewStart: newStart,
+		NewCount: newCount,
+	}
+	for _, raw := range rawLines {
+		if len(raw) == 0 {
+			continue
+		}
+		op := raw[0]
+		content := raw[1:]
+		var dl DiffLine
+		switch op {
+		case '+':
+			dl = DiffLine{Op: DiffOpAdd, Content: content}
+		case '-':
+			dl = DiffLine{Op: DiffOpDelete, Content: content}
+		default:
+			dl = DiffLine{Op: DiffOpContext, Content: content}
+		}
+		hunk.Lines = append(hunk.Lines, dl)
+	}
+	hunk.Length = 1 + len(hunk.Lines)
+	return hunk
+}
+
+func TestLineRangeToPatch_AllLinesSelected_EqualsHunkToPatch(t *testing.T) {
+	// A hunk with context, delete, and add lines.
+	// Selecting all lines should produce the same result as HunkToPatch.
+	hunk := buildTestHunk(
+		"@@ -1,4 +1,4 @@",
+		1, 4, 1, 4,
+		[]string{" line1", "-oldLine2", "+newLine2", " line3", " line4"},
+	)
+
+	// All lines selected: indices 0..4 (inclusive)
+	got := LineRangeToPatch("file.txt", hunk, 0, len(hunk.Lines)-1, false)
+	want := HunkToPatch("file.txt", hunk, false)
+
+	assert.Equal(t, want, got)
+}
+
+func TestLineRangeToPatch_PartialAddSelection_DropsUnselectedAdds(t *testing.T) {
+	// Hunk: 2 context, 3 add lines.
+	// Select only the first add (index 2); the other two adds (indices 3,4) are dropped.
+	hunk := buildTestHunk(
+		"@@ -1,2 +1,5 @@",
+		1, 2, 1, 5,
+		[]string{" context1", " context2", "+add1", "+add2", "+add3"},
+	)
+
+	// Select only line index 2 (+add1)
+	got := LineRangeToPatch("file.txt", hunk, 2, 2, false)
+
+	// Expected: context1, context2, +add1 (add2 and add3 dropped)
+	// OldCount = 2 context = 2
+	// NewCount = 2 context + 1 selected add = 3
+	expected := "diff --git a/file.txt b/file.txt\n" +
+		"--- a/file.txt\n" +
+		"+++ b/file.txt\n" +
+		"@@ -1,2 +1,3 @@\n" +
+		" context1\n" +
+		" context2\n" +
+		"+add1\n"
+
+	assert.Equal(t, expected, got)
+}
+
+func TestLineRangeToPatch_PartialDeleteSelection_UnselectedBecomesContext(t *testing.T) {
+	// Hunk: 1 context, 3 delete lines, 1 context.
+	// Select only the second delete (index 2); others become context.
+	hunk := buildTestHunk(
+		"@@ -1,5 +1,2 @@",
+		1, 5, 1, 2,
+		[]string{" ctx1", "-del1", "-del2", "-del3", " ctx2"},
+	)
+
+	// Select only line index 2 (-del2)
+	got := LineRangeToPatch("file.txt", hunk, 2, 2, false)
+
+	// Expected: ctx1, -del1→context, -del2 (kept as delete), -del3→context, ctx2
+	// Output lines: " ctx1", " del1", "-del2", " del3", " ctx2"
+	// OldCount = ctx1 + del1(as context in old) + del2(delete in old) + del3(as context in old) + ctx2 = 5
+	// NewCount = ctx1 + del1(now context in new) + del3(now context in new) + ctx2 = 4
+	// (del2 is deleted so not in new)
+	expected := "diff --git a/file.txt b/file.txt\n" +
+		"--- a/file.txt\n" +
+		"+++ b/file.txt\n" +
+		"@@ -1,5 +1,4 @@\n" +
+		" ctx1\n" +
+		" del1\n" +
+		"-del2\n" +
+		" del3\n" +
+		" ctx2\n"
+
+	assert.Equal(t, expected, got)
+}
+
+func TestLineRangeToPatch_MixedSelection(t *testing.T) {
+	// Hunk: context, delete, add, delete, add, context
+	// Select indices 1..3 (first delete, add, second delete) but not second add (index 4)
+	hunk := buildTestHunk(
+		"@@ -1,4 +1,4 @@",
+		1, 4, 1, 4,
+		[]string{" ctx", "-del1", "+add1", "-del2", "+add2", " ctx2"},
+	)
+
+	// Select indices 1..3: -del1, +add1, -del2
+	// +add2 (index 4) is NOT selected → dropped
+	got := LineRangeToPatch("file.txt", hunk, 1, 3, false)
+
+	// Output lines: ctx, -del1, +add1, -del2, ctx2  (add2 dropped)
+	// OldCount = ctx + del1 + del2 + ctx2 = 4
+	// NewCount = ctx + add1 + ctx2 = 3  (add2 dropped, del2 removed)
+	expected := "diff --git a/file.txt b/file.txt\n" +
+		"--- a/file.txt\n" +
+		"+++ b/file.txt\n" +
+		"@@ -1,4 +1,3 @@\n" +
+		" ctx\n" +
+		"-del1\n" +
+		"+add1\n" +
+		"-del2\n" +
+		" ctx2\n"
+
+	assert.Equal(t, expected, got)
+}
+
+func TestLineRangeToPatch_ReverseMode(t *testing.T) {
+	// Reverse mode: ops are swapped and old/new counts swapped in header.
+	// Hunk: context, delete, add, context
+	hunk := buildTestHunk(
+		"@@ -1,3 +1,3 @@",
+		1, 3, 1, 3,
+		[]string{" ctx1", "-oldLine", "+newLine", " ctx2"},
+	)
+
+	// Select all lines (reverse=true)
+	got := LineRangeToPatch("file.txt", hunk, 0, len(hunk.Lines)-1, true)
+	want := HunkToPatch("file.txt", hunk, true)
+
+	assert.Equal(t, want, got)
+}
+
+func TestLineRangeToPatch_NilHunk_ReturnsEmpty(t *testing.T) {
+	got := LineRangeToPatch("file.txt", nil, 0, 0, false)
+	assert.Equal(t, "", got)
+}
+
+func TestLineRangeToPatch_PartialReverseUnstage(t *testing.T) {
+	// Unstaging a partial selection: reverse=true, select only one of two adds.
+	// Hunk (staged diff): context, +add1, +add2, context
+	hunk := buildTestHunk(
+		"@@ -1,2 +1,4 @@",
+		1, 2, 1, 4,
+		[]string{" ctx1", "+add1", "+add2", " ctx2"},
+	)
+
+	// Select only index 1 (+add1) with reverse=true to unstage just add1.
+	// In reverse: +add1 (selected) becomes -add1, +add2 (unselected) dropped.
+	// Output (reversed): ctx1, -add1, ctx2
+	// For unstage patch: old is the staged state (has add1, add2), new is partially unstaged.
+	// Reversed header: old↔new from the perspective of git apply -R --cached
+	// With reverse=true and only add1 selected:
+	//   - Forward OldCount = ctx1 + ctx2 = 2, NewCount = ctx1 + add1 + ctx2 = 3
+	//   - Reversed header: @@ -3 +2 @@ i.e. @@ -NewCount +OldCount @@
+	got := LineRangeToPatch("file.txt", hunk, 1, 1, true)
+
+	// Reversed: @@ -NewStart,NewCount +OldStart,OldCount @@
+	// Forward NewCount(selected) = 2 ctx + 1 add = 3, OldCount(selected) = 2 ctx
+	// Reversed header: @@ -1,3 +1,2 @@
+	expected := "diff --git a/file.txt b/file.txt\n" +
+		"--- a/file.txt\n" +
+		"+++ b/file.txt\n" +
+		"@@ -1,3 +1,2 @@\n" +
+		" ctx1\n" +
+		"-add1\n" +
+		" ctx2\n"
+
+	assert.Equal(t, expected, got)
+}

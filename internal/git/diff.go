@@ -396,6 +396,97 @@ func HunkToPatch(path string, hunk *Hunk, reverse bool) string {
 	return sb.String()
 }
 
+// LineRangeToPatch generates a unified diff patch from a subset of lines within
+// a hunk. startLine and endLine are 0-based inclusive indices into hunk.Lines.
+//
+// Selection rules:
+//   - Context lines are always included.
+//   - Selected delete (-) lines remain as deletions.
+//   - Unselected delete (-) lines are converted to context lines.
+//   - Selected add (+) lines remain as additions.
+//   - Unselected add (+) lines are dropped entirely.
+//
+// OldCount and NewCount are recomputed based on the lines that appear in the
+// output. When reverse is true, the patch is inverted (delete↔add, old↔new)
+// for use with unstage or discard operations.
+func LineRangeToPatch(path string, hunk *Hunk, startLine, endLine int, reverse bool) string {
+	if hunk == nil {
+		return ""
+	}
+
+	// Build the output lines and compute counts.
+	type outLine struct {
+		op      byte
+		content string
+	}
+	var lines []outLine
+	oldCount := 0
+	newCount := 0
+
+	for i, dl := range hunk.Lines {
+		selected := i >= startLine && i <= endLine
+
+		switch dl.Op {
+		case DiffOpContext:
+			lines = append(lines, outLine{' ', dl.Content})
+			oldCount++
+			newCount++
+		case DiffOpDelete:
+			if selected {
+				// Keep as deletion: exists in old, removed from new.
+				lines = append(lines, outLine{'-', dl.Content})
+				oldCount++
+			} else {
+				// Demote to context: kept in both old and new.
+				lines = append(lines, outLine{' ', dl.Content})
+				oldCount++
+				newCount++
+			}
+		case DiffOpAdd:
+			if selected {
+				// Keep as addition: new only.
+				lines = append(lines, outLine{'+', dl.Content})
+				newCount++
+			}
+			// Unselected add: dropped entirely.
+		}
+	}
+
+	var sb strings.Builder
+
+	// Write diff header.
+	fmt.Fprintf(&sb, "diff --git a/%s b/%s\n", path, path)
+	fmt.Fprintf(&sb, "--- a/%s\n", path)
+	fmt.Fprintf(&sb, "+++ b/%s\n", path)
+
+	// Write hunk header with recomputed counts.
+	if reverse {
+		fmt.Fprintf(&sb, "@@ -%d,%d +%d,%d @@\n",
+			hunk.NewStart, newCount, hunk.OldStart, oldCount)
+	} else {
+		fmt.Fprintf(&sb, "@@ -%d,%d +%d,%d @@\n",
+			hunk.OldStart, oldCount, hunk.NewStart, newCount)
+	}
+
+	// Write lines, reversing ops when needed.
+	for _, l := range lines {
+		op := l.op
+		if reverse {
+			switch op {
+			case '+':
+				op = '-'
+			case '-':
+				op = '+'
+			}
+		}
+		sb.WriteByte(op)
+		sb.WriteString(l.content)
+		sb.WriteByte('\n')
+	}
+
+	return sb.String()
+}
+
 // ApplyPatch applies a unified diff patch via `git apply`.
 // Extra args are passed directly (e.g. "--cached", "-R").
 func (r *Repository) ApplyPatch(ctx context.Context, patch string, extraArgs ...string) error {
