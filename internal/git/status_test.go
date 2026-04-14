@@ -314,3 +314,51 @@ func TestParsePorcelainV2_NewFile_UsesN(t *testing.T) {
 	// Per Neogit, new files use "N" for mode, not "A"
 	assert.Equal(t, FileStatusNew, entry.Staged)
 }
+
+func TestParseKind1_PathWithSpaces(t *testing.T) {
+	// Filenames containing spaces must be preserved in full.
+	// Format: 1 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <path>
+	line := "1 M. N... 100644 100644 100644 abc1234 def5678 Everforest Dark Medium"
+	entry, err := parsePorcelainLine(line)
+	require.NoError(t, err)
+	require.NotNil(t, entry)
+
+	assert.Equal(t, "Everforest Dark Medium", entry.Path)
+}
+
+func TestParseKind2_PathWithSpaces(t *testing.T) {
+	// Renamed files whose new name contains spaces must have the full path preserved.
+	// Format: 2 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <score> <path><TAB><origPath>
+	line := "2 R. N... 100644 100644 100644 abc1234 def5678 R100 Everforest Dark Medium\told.txt"
+	entry, err := parsePorcelainLine(line)
+	require.NoError(t, err)
+	require.NotNil(t, entry)
+
+	assert.Equal(t, "Everforest Dark Medium", entry.Path)
+	assert.Equal(t, "old.txt", entry.OrigPath)
+}
+
+func TestParseKindU_PathWithSpaces(t *testing.T) {
+	// Unmerged files whose path contains spaces must have the full path preserved.
+	// Format: u <XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>
+	line := "u UU N... 100644 100644 100644 100644 abc1234 def5678 ghi9012 Everforest Dark Medium"
+	entry, err := parsePorcelainLine(line)
+	require.NoError(t, err)
+	require.NotNil(t, entry)
+
+	assert.Equal(t, "Everforest Dark Medium", entry.Path)
+	assert.Equal(t, "UU", entry.UnmergedMode)
+}
+
+func TestParseKind2_OrigPathWithSpaces(t *testing.T) {
+	// The origPath (source of rename) may also contain spaces and must be preserved in full.
+	// Format: 2 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <score> <path><TAB><origPath>
+	line := "2 R. N... 100644 100644 100644 abc1234 def5678 R100 new.txt\tMy Old File.txt"
+	entry, err := parsePorcelainLine(line)
+	require.NoError(t, err)
+	require.NotNil(t, entry)
+
+	assert.Equal(t, "new.txt", entry.Path)
+	assert.Equal(t, "My Old File.txt", entry.OrigPath)
+	assert.Equal(t, FileStatusRenamed, entry.Staged)
+}

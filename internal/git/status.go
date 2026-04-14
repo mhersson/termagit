@@ -262,7 +262,7 @@ func parseKind1(rest string) (*StatusEntry, error) {
 	mW := parts[4]
 	hH := parts[5]
 	// hI := parts[6] // not used directly
-	path := parts[7]
+	path := strings.Join(parts[7:], " ")
 
 	entry := &StatusEntry{
 		Path: path,
@@ -312,7 +312,7 @@ func parseKind2(rest string) (*StatusEntry, error) {
 	// hH := parts[5]
 	// hI := parts[6]
 	// score := parts[7]
-	path := parts[8]
+	path := strings.Join(parts[8:], " ")
 
 	entry := &StatusEntry{
 		Path:     path,
@@ -347,7 +347,7 @@ func parseKindU(rest string) (*StatusEntry, error) {
 	xy := parts[0]
 	// sub := parts[1]
 	// Modes and hashes: parts[2:9]
-	path := parts[9]
+	path := strings.Join(parts[9:], " ")
 
 	return &StatusEntry{
 		Path:         path,
