@@ -984,6 +984,18 @@ func renderHunkWithLineTracking(m Model, sectionIdx, itemIdx, hunkIdx int, hunk 
 	}
 	lineNum++
 
+	// Compute visual selection range once (for this hunk, if active)
+	visualSelStart, visualSelEnd := -1, -1
+	if m.visualMode &&
+		m.cursor.Section == sectionIdx &&
+		m.cursor.Item == itemIdx &&
+		m.cursor.Hunk == hunkIdx &&
+		m.visualAnchor.Section == sectionIdx &&
+		m.visualAnchor.Item == itemIdx &&
+		m.visualAnchor.Hunk == hunkIdx {
+		visualSelStart, visualSelEnd = visualSelectionRange(m.visualAnchor, m.cursor)
+	}
+
 	// Diff lines (only if not folded)
 	if !folded {
 		for lineIdx, line := range hunk.Lines {
@@ -996,32 +1008,38 @@ func renderHunkWithLineTracking(m Model, sectionIdx, itemIdx, hunkIdx int, hunk 
 				*cursorLine = lineNum
 			}
 
+			// A line is within the visual selection when visual mode is active and
+			// lineIdx falls within [visualSelStart, visualSelEnd].
+			inSelection := visualSelStart >= 0 &&
+				lineIdx >= visualSelStart &&
+				lineIdx <= visualSelEnd
+
 			var lineStr string
 			switch line.Op {
 			case git.DiffOpAdd:
 				lineStr = "      +" + line.Content
-				if onLine {
-					b.WriteString(renderCursorLine(m, lineStr))
-				} else {
-					b.WriteString(m.tokens.DiffAdd.Render(lineStr))
-					b.WriteString("\n")
-				}
 			case git.DiffOpDelete:
 				lineStr = "      -" + line.Content
-				if onLine {
-					b.WriteString(renderCursorLine(m, lineStr))
-				} else {
-					b.WriteString(m.tokens.DiffDelete.Render(lineStr))
-					b.WriteString("\n")
-				}
 			case git.DiffOpContext:
 				lineStr = "       " + line.Content
-				if onLine {
-					b.WriteString(renderCursorLine(m, lineStr))
-				} else {
+			}
+
+			switch {
+			case onLine:
+				b.WriteString(renderCursorLine(m, lineStr))
+			case inSelection:
+				b.WriteString(m.tokens.Selection.Render(lineStr))
+				b.WriteString("\n")
+			default:
+				switch line.Op {
+				case git.DiffOpAdd:
+					b.WriteString(m.tokens.DiffAdd.Render(lineStr))
+				case git.DiffOpDelete:
+					b.WriteString(m.tokens.DiffDelete.Render(lineStr))
+				case git.DiffOpContext:
 					b.WriteString(m.tokens.DiffContext.Render(lineStr))
-					b.WriteString("\n")
 				}
+				b.WriteString("\n")
 			}
 			lineNum++
 		}
@@ -1048,4 +1066,16 @@ func preserveScreenPosition(m *Model, newCursorLine int, screenRow int) {
 	if m.viewport.YOffset < 0 {
 		m.viewport.YOffset = 0
 	}
+}
+
+// visualSelectionRange returns the (startLine, endLine) hunk line indices
+// of the visual selection, normalised so that startLine <= endLine.
+// Both anchor and cursor must be within the same hunk (same Section/Item/Hunk).
+// Only the Line field is used for computing the range.
+func visualSelectionRange(anchor, cursor Cursor) (startLine, endLine int) {
+	a, c := anchor.Line, cursor.Line
+	if a <= c {
+		return a, c
+	}
+	return c, a
 }

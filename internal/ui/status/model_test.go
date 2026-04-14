@@ -3369,3 +3369,143 @@ func TestOpenPopupByName_ViaCommitViewMsg(t *testing.T) {
 		t.Errorf("expected PopupCommit, got %d", updated.popupKind)
 	}
 }
+
+// === Visual Mode Tests ===
+
+func TestModel_VisualModeFields(t *testing.T) {
+	// Model must have visualMode and visualAnchor fields.
+	m := New(nil, nil, theme.Tokens{}, KeyMap{})
+
+	// Visual mode starts as false
+	if m.visualMode {
+		t.Error("expected visualMode=false on init")
+	}
+
+	// visualAnchor starts as zero Cursor
+	expected := Cursor{Section: 0, Item: 0, Hunk: 0, Line: 0}
+	_ = expected
+	// Just ensure the field exists and has a zero value
+	var zeroAnchor Cursor
+	if m.visualAnchor != zeroAnchor {
+		t.Errorf("expected visualAnchor=zero, got %+v", m.visualAnchor)
+	}
+}
+
+func TestVisualMode_EnterOnDiffLine(t *testing.T) {
+	// Pressing 'v' when cursor is on a diff line (Hunk>=0, Line>=0) enters visual mode.
+	km := DefaultKeyMap()
+	m := Model{
+		keys: km,
+		cursor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		sections: []Section{
+			{
+				Kind:  SectionUnstaged,
+				Title: "Unstaged changes",
+				Items: []Item{
+					{
+						Entry:    &git.StatusEntry{Path: "file.go", Unstaged: git.FileStatusModified},
+						Expanded: true,
+						Hunks: []git.Hunk{
+							{
+								Header: "@@ -1,3 +1,4 @@",
+								Lines: []git.DiffLine{
+									{Op: git.DiffOpContext, Content: " ctx"},
+									{Op: git.DiffOpAdd, Content: " added"},
+								},
+							},
+						},
+						HunksFolded: []bool{false},
+					},
+				},
+			},
+		},
+	}
+
+	result, _ := update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
+	updated := result.(Model)
+
+	if !updated.visualMode {
+		t.Error("expected visualMode=true after pressing v on diff line")
+	}
+	if updated.visualAnchor != m.cursor {
+		t.Errorf("expected visualAnchor=%+v, got %+v", m.cursor, updated.visualAnchor)
+	}
+}
+
+func TestVisualMode_ExitOnEsc(t *testing.T) {
+	// Pressing Esc exits visual mode.
+	km := DefaultKeyMap()
+	m := Model{
+		keys:        km,
+		visualMode:  true,
+		visualAnchor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
+		cursor:      Cursor{Section: 0, Item: 0, Hunk: 0, Line: 2},
+	}
+
+	result, _ := update(m, tea.KeyMsg{Type: tea.KeyEsc})
+	updated := result.(Model)
+
+	if updated.visualMode {
+		t.Error("expected visualMode=false after pressing Esc")
+	}
+}
+
+func TestVisualMode_vOnNonDiffLine_OpensRevertPopup(t *testing.T) {
+	// Pressing 'v' when NOT on a diff line should open the Revert popup (existing behaviour).
+	km := DefaultKeyMap()
+	m := Model{
+		keys:   km,
+		cursor: Cursor{Section: 0, Item: -1, Hunk: -1, Line: -1},
+		sections: []Section{
+			{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{}},
+		},
+	}
+
+	result, _ := update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
+	updated := result.(Model)
+
+	if updated.visualMode {
+		t.Error("expected visualMode=false when pressing v on non-diff line")
+	}
+	if updated.popup == nil {
+		t.Error("expected Revert popup to open when pressing v on non-diff line")
+	}
+}
+
+func TestVisualMode_KeyBinding_VisualMode(t *testing.T) {
+	// VisualMode binding must use 'v' key.
+	km := DefaultKeyMap()
+	keys := km.VisualMode.Keys()
+	if len(keys) == 0 {
+		t.Fatal("VisualMode binding has no keys")
+	}
+	found := false
+	for _, k := range keys {
+		if k == "v" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected VisualMode binding to include 'v', got %v", keys)
+	}
+}
+
+func TestVisualMode_KeyBinding_ExitVisualMode(t *testing.T) {
+	// ExitVisualMode binding must use 'esc' key.
+	km := DefaultKeyMap()
+	keys := km.ExitVisualMode.Keys()
+	if len(keys) == 0 {
+		t.Fatal("ExitVisualMode binding has no keys")
+	}
+	found := false
+	for _, k := range keys {
+		if k == "esc" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected ExitVisualMode binding to include 'esc', got %v", keys)
+	}
+}

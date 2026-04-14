@@ -397,6 +397,10 @@ type Model struct {
 
 	err error
 
+	// Visual mode (v key on diff lines — select a range of hunk lines)
+	visualMode   bool   // true when in visual selection mode
+	visualAnchor Cursor // anchor position when visual mode was entered
+
 	// Render cache — base content without cursor styling
 	cachedBaseContent string   // rendered content with no cursor highlighting
 	cachedBaseLines   []string // pre-split lines of cachedBaseContent

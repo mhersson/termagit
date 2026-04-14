@@ -336,6 +336,16 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return handleInputPromptKey(m, msg)
 	}
 
+	// Handle visual mode exit (Esc exits visual mode before any other handling)
+	if m.visualMode && key.Matches(msg, m.keys.ExitVisualMode) {
+		m.visualMode = false
+		m.visualAnchor = Cursor{}
+		if m.viewport.Width > 0 {
+			m.applyViewportWithCursor()
+		}
+		return m, nil
+	}
+
 	// Handle pending key sequences (e.g., "gg", "gp", "[c", "]c")
 	if m.pendingKey == "g" {
 		m.pendingKey = ""
@@ -493,6 +503,10 @@ func handleKeyMsg(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return handleOpenRebasePopup(m)
 
 	case key.Matches(msg, m.keys.RevertPopup):
+		// 'v' on a diff line enters visual mode; elsewhere it opens the Revert popup.
+		if m.cursor.Hunk >= 0 && m.cursor.Line >= 0 {
+			return handleEnterVisualMode(m)
+		}
 		return handleOpenRevertPopup(m)
 
 	case key.Matches(msg, m.keys.CherryPickPopup):
@@ -3891,4 +3905,15 @@ func yankValue(m Model, action string) string {
 	default:
 		return ""
 	}
+}
+
+// handleEnterVisualMode enters visual selection mode anchored at the current cursor position.
+// Called when 'v' is pressed while the cursor is on a diff line (Hunk >= 0 && Line >= 0).
+func handleEnterVisualMode(m Model) (tea.Model, tea.Cmd) {
+	m.visualMode = true
+	m.visualAnchor = m.cursor
+	if m.viewport.Width > 0 {
+		m.applyViewportWithCursor()
+	}
+	return m, nil
 }
