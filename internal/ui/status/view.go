@@ -2,6 +2,7 @@ package status
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -870,15 +871,15 @@ func renderSectionWithLineTracking(m Model, sectionIdx int, s *Section, startLin
 	if onHeader {
 		var header string
 		if isBisectDetails {
-			header = fmt.Sprintf("%s %s %s", sign, s.Title, s.Items[0].BisectDetail.AbbreviatedHash)
+			header = sign + " " + s.Title + " " + s.Items[0].BisectDetail.AbbreviatedHash
 		} else if len(s.Items) > 0 {
-			header = fmt.Sprintf("%s %s (%d)", sign, s.Title, len(s.Items))
+			header = sign + " " + s.Title + " (" + strconv.Itoa(len(s.Items)) + ")"
 		} else {
-			header = fmt.Sprintf("%s %s", sign, s.Title)
+			header = sign + " " + s.Title
 		}
 		b.WriteString(renderCursorLine(m, header))
 	} else {
-		b.WriteString(style.Render(fmt.Sprintf("%s %s", sign, s.Title)))
+		b.WriteString(style.Render(sign + " " + s.Title))
 		if isBisectDetails {
 			b.WriteString(" ")
 			b.WriteString(m.tokens.Hash.Render(s.Items[0].BisectDetail.AbbreviatedHash))

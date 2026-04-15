@@ -463,7 +463,7 @@ func Build(commits []CommitInput) ([]Row, error) {
 	// Split each line into individual rune cells
 	var rows []Row
 	for _, line := range out {
-		var row Row
+		row := make(Row, 0, len(line.text))
 		for _, r := range line.text {
 			row = append(row, Cell{
 				Text:  string(r),

@@ -2,7 +2,9 @@ package git
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -25,9 +27,10 @@ func (r *Repository) ListStashes(ctx context.Context) ([]StashEntry, error) {
 	// %s = subject (the stash message)
 	out, err := r.runGit(ctx, "stash", "list", "--format=%gd:%H:%s")
 	if err != nil {
-		// Empty stash list returns exit code 0 but empty output
-		// Some git versions might return error on empty, handle gracefully
-		if strings.Contains(err.Error(), "exit status") {
+		// Some git versions return a non-zero exit on an empty stash list.
+		// Treat any ExitError as "no stashes" rather than a hard failure.
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("list stashes: %w", err)
