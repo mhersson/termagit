@@ -1885,6 +1885,39 @@ func TestRestoreCursor_ClampsItemIndex(t *testing.T) {
 	}
 }
 
+func TestStatusLoadedMsg_HunkRestore_BoundsCheckOnSection(t *testing.T) {
+	// When a statusLoadedMsg arrives with pendingRestore active and a hunk
+	// restore target, the code accesses m.sections[m.cursor.Section]. If the
+	// sections slice is empty (or cursor.Section is out of bounds), this must
+	// not panic.
+	m := Model{
+		loading: true,
+		pendingRestore: cursorRestore{
+			active:      true,
+			path:        "gone.txt",
+			sectionKind: SectionUnstaged,
+			itemIndex:   0,
+			hunk:        1, // triggers the hunk-restore path
+		},
+	}
+
+	msg := statusLoadedMsg{
+		sections: []Section{}, // empty — no sections at all
+	}
+
+	// Must not panic
+	result, _ := update(m, msg)
+	resultModel := result.(Model)
+
+	// Cursor should fall back to a safe position
+	if resultModel.cursor.Section != 0 {
+		t.Errorf("expected fallback Section=0, got %d", resultModel.cursor.Section)
+	}
+	if resultModel.cursor.Item != -1 {
+		t.Errorf("expected fallback Item=-1, got %d", resultModel.cursor.Item)
+	}
+}
+
 func TestHandleStage_SetsPendingRestore(t *testing.T) {
 	entry := makeEntry("test.go")
 	m := Model{
