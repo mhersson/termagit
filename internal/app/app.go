@@ -186,8 +186,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case watcher.RepoChangedMsg:
-		// Refresh the status buffer on repo changes
-		return m, m.status.Init()
+		// Refresh the status buffer on repo changes, unless a multi-step
+		// git operation is running (e.g. instant fixup commit + autosquash
+		// rebase). In that case suppress the reload to avoid racing with
+		// the in-flight operation for the git index lock.
+		return m, m.status.MaybeInit()
 
 	// Notification system
 	case notification.NotifyMsg:

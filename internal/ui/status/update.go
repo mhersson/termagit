@@ -163,6 +163,7 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case operationDoneMsg:
+		m.opInProgress = false
 		cmds := []tea.Cmd{loadStatusCmd(m.repo, m.cfg)}
 		if msg.err != nil {
 			errMsg := msg.err.Error()
@@ -1992,10 +1993,12 @@ func handleCommitSelected(m Model, msg commitselect.SelectedMsg) (tea.Model, tea
 	case commitSpecialInstantFixup:
 		opts.Fixup = msg.Hash
 		opts.NoEdit = true
+		m.opInProgress = true
 		return m, commitAndAutosquashCmd(m.repo, opts, msg.FullHash)
 	case commitSpecialInstantSquash:
 		opts.Squash = msg.Hash
 		opts.NoEdit = true
+		m.opInProgress = true
 		return m, commitAndAutosquashCmd(m.repo, opts, msg.FullHash)
 	default:
 		return m, nil
