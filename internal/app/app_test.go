@@ -162,6 +162,37 @@ func TestApp_WindowSizeMsg_PropagatedToStatus(t *testing.T) {
 	assert.Equal(t, 40, app.height)
 }
 
+func TestUpdate_NilPointerScreen_FallsBackToStatus(t *testing.T) {
+	// If active screen is a pointer-type (lazy-init) view but the pointer is
+	// nil, Update should reset to ScreenStatus as a safety fallback rather
+	// than silently dropping messages.
+	screens := []Screen{
+		ScreenCmdHistory,
+		ScreenLog,
+		ScreenReflog,
+		ScreenCommitView,
+		ScreenRefsView,
+		ScreenStashList,
+		ScreenDiffView,
+	}
+
+	for _, screen := range screens {
+		m := Model{
+			active: screen,
+			width:  80,
+			height: 24,
+		}
+
+		// Send a generic key message
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
+		newModel, _ := m.Update(msg)
+		app := newModel.(Model)
+
+		assert.Equal(t, ScreenStatus, app.active,
+			"screen %d should fall back to ScreenStatus when pointer is nil", screen)
+	}
+}
+
 func testTokens() theme.Tokens {
 	return theme.Compile(theme.Fallback().Raw())
 }

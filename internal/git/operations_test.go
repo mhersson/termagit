@@ -422,3 +422,31 @@ func TestRenameFile_RenamesInIndex(t *testing.T) {
 	// Verify something is staged (either rename or delete+add)
 	assert.NotEmpty(t, status.Staged, "should have staged changes after rename")
 }
+
+func TestStageHunk_ErrorIncludesPath(t *testing.T) {
+	r := newMemRepo(t)
+	ctx := context.Background()
+
+	// Pass an empty hunk — ApplyPatch will fail, and the error should include the path.
+	err := r.StageHunk(ctx, "target.go", Hunk{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target.go", "error should include the file path")
+}
+
+func TestUnstageHunk_ErrorIncludesPath(t *testing.T) {
+	r := newMemRepo(t)
+	ctx := context.Background()
+
+	err := r.UnstageHunk(ctx, "other.go", Hunk{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "other.go", "error should include the file path")
+}
+
+func TestDiscardHunk_ErrorIncludesPath(t *testing.T) {
+	r := newMemRepo(t)
+	ctx := context.Background()
+
+	err := r.DiscardHunk(ctx, "discard.go", Hunk{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "discard.go", "error should include the file path")
+}

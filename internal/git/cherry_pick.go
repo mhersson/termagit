@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // CherryPickOpts configures a cherry-pick operation.
@@ -102,6 +103,13 @@ func (r *Repository) CherryPickApply(ctx context.Context, hashes []string, opts 
 // from the source branch. This is the "donate" operation from Neogit.
 // Flow: checkout dst → cherry-pick → checkout src → rebase to drop donated commits.
 func (r *Repository) CherryPickDonate(ctx context.Context, hashes []string, src, dst string, opts CherryPickOpts) error {
+	// Save source branch HEAD so we can roll back if the rebase fails.
+	srcHead, err := r.runGit(ctx, "rev-parse", src)
+	if err != nil {
+		return fmt.Errorf("resolve %s HEAD: %w", src, err)
+	}
+	srcHead = strings.TrimSpace(srcHead)
+
 	// Step 1: Checkout destination branch
 	if _, err := r.runGit(ctx, "checkout", dst); err != nil {
 		return fmt.Errorf("checkout %s: %w", dst, err)
@@ -126,7 +134,10 @@ func (r *Repository) CherryPickDonate(ctx context.Context, hashes []string, src,
 	parentRef := hashes[0] + "^"
 	lastHash := hashes[len(hashes)-1]
 	if _, err := r.runGit(ctx, "rebase", "--onto", parentRef, lastHash); err != nil {
-		return fmt.Errorf("rebase to drop commits: %w", err)
+		// Rollback: abort the failed rebase and restore src to its original state
+		_, _ = r.runGit(ctx, "rebase", "--abort")
+		_, _ = r.runGit(ctx, "reset", "--hard", srcHead)
+		return fmt.Errorf("rebase to drop commits (rolled back): %w", err)
 	}
 
 	return nil

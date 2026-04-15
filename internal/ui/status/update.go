@@ -199,6 +199,7 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle close from the overlay commit view - don't bubble up to app
 		if m.commitView != nil {
 			m.commitView = nil
+			m.invalidateContent()
 		}
 		return m, nil
 
@@ -653,6 +654,7 @@ func handleCommitViewKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	if cvModel.Done() {
 		m.commitView = nil
+		m.invalidateContent()
 		// Don't return the CloseCommitViewMsg command - we handle the close internally
 		return m, nil
 	}
@@ -670,6 +672,7 @@ func handlePopupKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		kind := m.popupKind
 		m.popup = nil
 		m.popupKind = PopupNone
+		m.invalidateContent()
 
 		// Handle popup result
 		if result.Action != "" {

@@ -105,18 +105,27 @@ func (r *Repository) RenameFile(ctx context.Context, oldPath, newPath string) er
 // StageHunk stages a specific hunk of a file.
 func (r *Repository) StageHunk(ctx context.Context, path string, hunk Hunk) error {
 	patch := HunkToPatch(path, &hunk, false)
-	return r.ApplyPatch(ctx, patch, "--cached")
+	if err := r.ApplyPatch(ctx, patch, "--cached"); err != nil {
+		return fmt.Errorf("stage hunk in %s: %w", path, err)
+	}
+	return nil
 }
 
 // UnstageHunk unstages a specific hunk from the index.
 func (r *Repository) UnstageHunk(ctx context.Context, path string, hunk Hunk) error {
 	patch := HunkToPatch(path, &hunk, true)
-	return r.ApplyPatch(ctx, patch, "--cached")
+	if err := r.ApplyPatch(ctx, patch, "--cached"); err != nil {
+		return fmt.Errorf("unstage hunk in %s: %w", path, err)
+	}
+	return nil
 }
 
 // DiscardHunk discards a specific hunk from the working tree.
 func (r *Repository) DiscardHunk(ctx context.Context, path string, hunk Hunk) error {
 	patch := HunkToPatch(path, &hunk, true)
-	return r.ApplyPatch(ctx, patch)
+	if err := r.ApplyPatch(ctx, patch); err != nil {
+		return fmt.Errorf("discard hunk in %s: %w", path, err)
+	}
+	return nil
 }
 

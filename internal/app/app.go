@@ -399,6 +399,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cmdHistory = &ch
 			return m, cmd
 		}
+		m.active = ScreenStatus
 	case ScreenLog:
 		if m.logView != nil {
 			newLogView, cmd := m.logView.Update(msg)
@@ -406,6 +407,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.logView = &lv
 			return m, cmd
 		}
+		m.active = ScreenStatus
 	case ScreenReflog:
 		if m.reflogView != nil {
 			newReflogView, cmd := m.reflogView.Update(msg)
@@ -413,6 +415,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.reflogView = &rv
 			return m, cmd
 		}
+		m.active = ScreenStatus
 	case ScreenCommitView:
 		if m.commitView != nil {
 			newCommitView, cmd := m.commitView.Update(msg)
@@ -420,6 +423,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.commitView = &cv
 			return m, cmd
 		}
+		m.active = ScreenStatus
 	case ScreenRefsView:
 		if m.refsView != nil {
 			newRefsView, cmd := m.refsView.Update(msg)
@@ -427,6 +431,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.refsView = &rv
 			return m, cmd
 		}
+		m.active = ScreenStatus
 	case ScreenStashList:
 		if m.stashList != nil {
 			newStashList, cmd := m.stashList.Update(msg)
@@ -434,6 +439,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.stashList = &sl
 			return m, cmd
 		}
+		m.active = ScreenStatus
 	case ScreenDiffView:
 		if m.diffView != nil {
 			newDiffView, cmd := m.diffView.Update(msg)
@@ -441,6 +447,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.diffView = &dv
 			return m, cmd
 		}
+		m.active = ScreenStatus
 	}
 
 	return m, nil

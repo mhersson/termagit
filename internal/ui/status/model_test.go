@@ -1885,6 +1885,82 @@ func TestRestoreCursor_ClampsItemIndex(t *testing.T) {
 	}
 }
 
+func TestRestoreCursor_ClampedIndexDifferentFile_StaysNearby(t *testing.T) {
+	// When a file is gone, cursor should clamp to the same index position
+	// to keep the user in the same visual area of the section.
+	sections := []Section{
+		{Kind: SectionUnstaged, Title: "Unstaged changes", Items: []Item{
+			{Entry: makeEntry("a.txt")},
+			{Entry: makeEntry("b.txt")},
+		}},
+	}
+
+	restore := cursorRestore{
+		active:      true,
+		path:        "c.txt",       // file no longer in section
+		sectionKind: SectionUnstaged,
+		itemIndex:   1, // clamps to index 1 = b.txt (nearest neighbor)
+		hunk:        -1,
+	}
+
+	cur := restoreCursor(sections, restore)
+
+	if cur.Section != 0 {
+		t.Errorf("expected Section=0, got %d", cur.Section)
+	}
+	// Should clamp to nearby item to keep cursor in same area
+	if cur.Item != 1 {
+		t.Errorf("expected Item=1 (clamped to nearby item), got %d", cur.Item)
+	}
+}
+
+func TestCommitViewClose_InvalidatesCache(t *testing.T) {
+	// When a commit view overlay closes, the render cache must be invalidated
+	// to prevent stale content from being displayed.
+	m := Model{
+		contentDirty: false, // cache is warm
+		commitView:   &commitview.Model{},
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Untracked"},
+		},
+	}
+
+	result, _ := update(m, commitview.CloseCommitViewMsg{})
+	resultModel := result.(Model)
+
+	if resultModel.commitView != nil {
+		t.Error("expected commitView to be nil after close")
+	}
+	if !resultModel.contentDirty {
+		t.Error("expected contentDirty=true after commit view close")
+	}
+}
+
+func TestPopupClose_InvalidatesCache(t *testing.T) {
+	// When a popup closes (with no action), the render cache must be invalidated.
+	p := popup.NewHelpPopup(theme.Tokens{}, popup.HelpKeys{})
+	m := Model{
+		contentDirty: false, // cache is warm
+		popup:        &p,
+		popupKind:    PopupHelp,
+		sections: []Section{
+			{Kind: SectionUntracked, Title: "Untracked"},
+		},
+	}
+
+	// Send Escape to close the popup
+	msg := tea.KeyMsg{Type: tea.KeyEscape}
+	result, _ := update(m, msg)
+	resultModel := result.(Model)
+
+	if resultModel.popup != nil {
+		t.Error("expected popup to be nil after Escape")
+	}
+	if !resultModel.contentDirty {
+		t.Error("expected contentDirty=true after popup close")
+	}
+}
+
 func TestStatusLoadedMsg_HunkRestore_BoundsCheckOnSection(t *testing.T) {
 	// When a statusLoadedMsg arrives with pendingRestore active and a hunk
 	// restore target, the code accesses m.sections[m.cursor.Section]. If the

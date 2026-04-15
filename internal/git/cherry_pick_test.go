@@ -192,3 +192,42 @@ func TestCherryPickDonate_MovesCommit(t *testing.T) {
 	_, err = os.Stat(filepath.Join(r.path, "donate.txt"))
 	assert.NoError(t, err, "donate.txt should exist on target after donate")
 }
+
+func TestCherryPickDonate_RebaseFailure_RollsBack(t *testing.T) {
+	skipInShort(t)
+	r := newTempRepo(t)
+	ctx := context.Background()
+
+	// Create initial commit on master
+	addAndCommitDisk(t, r, "base.txt", "base", "Base commit")
+
+	// Create target branch
+	_, err := r.runGit(ctx, "branch", "target")
+	require.NoError(t, err)
+
+	// Add a commit on master that we'll donate
+	addAndCommitDisk(t, r, "donate.txt", "donated content", "Commit to donate")
+	donateHash, err := r.runGit(ctx, "rev-parse", "HEAD")
+	require.NoError(t, err)
+	donateHash = strings.TrimSpace(donateHash)
+
+	// Add another commit on master that will conflict with the rebase
+	// by modifying the same file that was donated
+	addAndCommitDisk(t, r, "donate.txt", "conflicting content on master", "Conflicting commit")
+
+	// Donate should fail at the rebase step (conflict) but should roll back
+	err = r.CherryPickDonate(ctx, []string{donateHash}, "master", "target", CherryPickOpts{})
+	require.Error(t, err, "donate should fail due to rebase conflict")
+	assert.Contains(t, err.Error(), "rolled back")
+
+	// We should still be on master
+	currentBranch, err := r.runGit(ctx, "symbolic-ref", "--short", "HEAD")
+	require.NoError(t, err)
+	assert.Equal(t, "master", strings.TrimSpace(currentBranch))
+
+	// Master should NOT be in a rebase state
+	_, rebaseErr := os.Stat(filepath.Join(r.gitDir, "rebase-merge"))
+	assert.True(t, os.IsNotExist(rebaseErr), "should not be in rebase state after rollback")
+	_, rebaseApplyErr := os.Stat(filepath.Join(r.gitDir, "rebase-apply"))
+	assert.True(t, os.IsNotExist(rebaseApplyErr), "should not be in rebase-apply state after rollback")
+}
