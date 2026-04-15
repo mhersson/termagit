@@ -326,6 +326,11 @@ type Model struct {
 
 	loading bool
 
+	// opInProgress is true when a multi-step git operation (e.g. instant fixup/squash)
+	// is running. While true, MaybeInit suppresses watcher-triggered status reloads
+	// to prevent competing git index access.
+	opInProgress bool
+
 	// Active popup (nil = none)
 	popup     *popup.Popup
 	popupKind PopupKind
@@ -431,6 +436,17 @@ func (m Model) Init() tea.Cmd {
 		return nil
 	}
 	return loadStatusCmd(m.repo, m.cfg)
+}
+
+// MaybeInit returns loadStatusCmd when no git operation is running, or nil
+// when opInProgress is true. Use this for watcher-triggered reloads so that
+// intermediate index writes from multi-step operations (e.g. instant fixup)
+// do not race with an in-flight rebase.
+func (m Model) MaybeInit() tea.Cmd {
+	if m.opInProgress {
+		return nil
+	}
+	return m.Init()
 }
 
 // Update handles messages - implementation in update.go.
