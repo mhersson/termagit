@@ -170,6 +170,9 @@ func addAndCommitMsg(t *testing.T, r *Repository, name, content, message string)
 	_, err = wt.Add(name)
 	require.NoError(t, err)
 
-	_, err = wt.Commit(message, &gogit.CommitOptions{})
+	_, err = wt.Commit(message, &gogit.CommitOptions{
+		Author:    testSignature(),
+		Committer: testSignature(),
+	})
 	require.NoError(t, err)
 }
