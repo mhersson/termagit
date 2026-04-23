@@ -33,7 +33,7 @@ type Model struct {
 	fileIdx int
 	hunkIdx int // -1 = none highlighted
 
-	header string             // e.g. "Staged changes"
+	header string              // e.g. "Staged changes"
 	stats  *git.CommitOverview // stat block (nil for staged/unstaged)
 
 	cursorLine   int
@@ -47,7 +47,6 @@ type Model struct {
 	height int
 	err    error
 	done   bool
-
 }
 
 // New creates a new diff view model.

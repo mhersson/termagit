@@ -3,6 +3,7 @@ package nav
 import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/mhersson/termagit/internal/ui/shared"
 )
 

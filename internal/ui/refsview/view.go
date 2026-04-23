@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/ui/notification"
 	"github.com/mhersson/termagit/internal/ui/shared"

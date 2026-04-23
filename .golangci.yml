@@ -1,0 +1,52 @@
+version: "2"
+
+run:
+  timeout: 5m
+  # Exclude generated/binary output and vendored paths
+  exclude-dirs:
+    - bin
+    - vendor
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - revive
+    - misspell
+    - unconvert
+    - unparam
+    - nilerr
+    - bodyclose
+    - errorlint
+  settings:
+    revive:
+      rules:
+        # Suppress "exported X should have comment" — doc comments are not the focus here
+        - name: exported
+          disabled: true
+        # Suppress stutter warnings — renaming public API is a separate concern
+        - name: var-naming
+          disabled: true
+    goimports:
+      local-prefixes:
+        - github.com/mhersson/termagit
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/mhersson/termagit
+
+issues:
+  exclude-rules:
+    # Test helpers often fix parameters for interface compatibility or test signatures
+    - path: "_test\\.go"
+      linters:
+        - unparam

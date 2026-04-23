@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/platform"
 	"github.com/mhersson/termagit/internal/ui/branchselect"
@@ -682,7 +683,7 @@ func isInSequencer(sections []Section, action string) bool {
 }
 
 // getBisectState returns whether bisect is in progress and if it's finished.
-func getBisectState(sections []Section) (inProgress, finished bool) {
+func getBisectState(sections []Section) (inProgress, finished bool) { //nolint:unparam // finished reserved for when bisect completion detection is implemented
 	for _, s := range sections {
 		if s.Kind == SectionBisect && len(s.Items) > 0 {
 			inProgress = true

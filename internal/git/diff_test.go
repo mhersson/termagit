@@ -496,7 +496,7 @@ func TestApplyPatch_DoesNotCorruptCallerSlice(t *testing.T) {
 
 // buildTestHunk builds a Hunk with the given lines for testing.
 // Each line is specified as "<op><content>" where op is '+', '-', or ' '.
-func buildTestHunk(header string, oldStart, oldCount, newStart, newCount int, rawLines []string) *Hunk {
+func buildTestHunk(header string, oldStart, oldCount, newStart, newCount int, rawLines []string) *Hunk { //nolint:unparam // oldStart kept generic for future test cases
 	hunk := &Hunk{
 		Header:   header,
 		OldStart: oldStart,

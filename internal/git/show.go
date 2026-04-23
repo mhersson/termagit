@@ -9,7 +9,7 @@ import (
 
 // CommitOverview contains file statistics from git show --stat.
 type CommitOverview struct {
-	Summary string              // "3 files changed, 12 insertions(+), 2 deletions(-)"
+	Summary string // "3 files changed, 12 insertions(+), 2 deletions(-)"
 	Files   []CommitOverviewFile
 }
 

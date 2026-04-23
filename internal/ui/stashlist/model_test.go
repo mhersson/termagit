@@ -4,11 +4,12 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/theme"
 	"github.com/mhersson/termagit/internal/ui/shared"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func testTokens() theme.Tokens {

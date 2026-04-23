@@ -142,4 +142,3 @@ func (r *Repository) CherryPickDonate(ctx context.Context, hashes []string, src,
 
 	return nil
 }
-

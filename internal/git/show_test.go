@@ -92,7 +92,7 @@ func TestCommitOverview_HandlesBinaryFiles(t *testing.T) {
 
 	// Create a binary file (PNG header)
 	binaryData := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00}
-	if err := os.WriteFile(filepath.Join(dir, "image.png"), binaryData, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "image.png"), binaryData, 0o644); err != nil {
 		t.Fatalf("failed to write binary file: %v", err)
 	}
 	runCmd(t, dir, "git", "add", ".")
@@ -164,7 +164,7 @@ func TestVerifyCommit_ReturnsSignatureInfo(t *testing.T) {
 }
 
 // Helper functions
-func runCmd(t *testing.T, dir string, name string, args ...string) {
+func runCmd(t *testing.T, dir string, name string, args ...string) { //nolint:unparam // name kept as parameter for generality
 	t.Helper()
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
@@ -177,7 +177,7 @@ func runCmd(t *testing.T, dir string, name string, args ...string) {
 
 func writeFile(t *testing.T, dir, name, content string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write %s: %v", name, err)
 	}
 }

@@ -41,7 +41,7 @@ func (r *Repository) ListSubmodules(ctx context.Context) ([]string, error) {
 func (r *Repository) ParentRepo(ctx context.Context) (string, error) {
 	out, err := r.runGit(ctx, "rev-parse", "--show-superproject-working-tree")
 	if err != nil {
-		return "", nil
+		return "", nil //nolint:nilerr // non-zero exit when not a submodule; empty result is correct
 	}
 
 	return strings.TrimSpace(out), nil

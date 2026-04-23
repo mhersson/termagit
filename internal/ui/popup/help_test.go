@@ -135,12 +135,12 @@ func DefaultHelpKeys() HelpKeys {
 		Discard: "x",
 
 		// Navigation
-		MoveDown:     "j",
-		MoveUp:       "k",
-		Close:        "q",
-		Refresh:      "C-r",
-		NextSection:  "C-n",
-		PrevSection:  "C-p",
-		ToggleFold:   "tab",
+		MoveDown:    "j",
+		MoveUp:      "k",
+		Close:       "q",
+		Refresh:     "C-r",
+		NextSection: "C-n",
+		PrevSection: "C-p",
+		ToggleFold:  "tab",
 	}
 }

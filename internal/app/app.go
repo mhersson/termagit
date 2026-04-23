@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 
-
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/mhersson/termagit/internal/cmdlog"
@@ -454,7 +453,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // openCmdHistory switches to the command history screen.
-func (m Model) openCmdHistory() (Model, tea.Cmd) {
+func (m Model) openCmdHistory() (Model, tea.Cmd) { //nolint:unparam // tea.Cmd reserved for future async init
 	entries := m.logger.Entries()
 	ch := cmdhistory.New(entries, m.tokens, m.width, m.height)
 	m.cmdHistory = &ch
@@ -463,7 +462,7 @@ func (m Model) openCmdHistory() (Model, tea.Cmd) {
 }
 
 // openLogView switches to the log view screen.
-func (m Model) openLogView(commits []git.LogEntry, hasMore bool, branch string, opts *git.LogOpts) (Model, tea.Cmd) {
+func (m Model) openLogView(commits []git.LogEntry, hasMore bool, branch string, opts *git.LogOpts) (Model, tea.Cmd) { //nolint:unparam // tea.Cmd reserved for future async init
 	lv := logview.New(commits, m.repo, m.tokens, opts, hasMore, branch)
 	lv.SetSize(m.width, m.height)
 	m.logView = &lv
@@ -472,7 +471,7 @@ func (m Model) openLogView(commits []git.LogEntry, hasMore bool, branch string, 
 }
 
 // openReflogView switches to the reflog view screen.
-func (m Model) openReflogView(entries []git.ReflogEntry, ref string) (Model, tea.Cmd) {
+func (m Model) openReflogView(entries []git.ReflogEntry, ref string) (Model, tea.Cmd) { //nolint:unparam // tea.Cmd reserved for future async init
 	rv := reflogview.New(entries, m.tokens, ref)
 	rv.SetSize(m.width, m.height)
 	m.reflogView = &rv
@@ -498,7 +497,7 @@ func (m Model) openCommitView(commitID string, filter []string) (Model, tea.Cmd)
 }
 
 // openRefsView switches to the refs view screen.
-func (m Model) openRefsView(refs *git.RefsResult, remotes []git.Remote) (Model, tea.Cmd) {
+func (m Model) openRefsView(refs *git.RefsResult, remotes []git.Remote) (Model, tea.Cmd) { //nolint:unparam // tea.Cmd reserved for future async init
 	rv := refsview.New(refs, remotes, m.repo, m.tokens)
 	rv.SetSize(m.width, m.height)
 	m.refsView = &rv
@@ -507,7 +506,7 @@ func (m Model) openRefsView(refs *git.RefsResult, remotes []git.Remote) (Model, 
 }
 
 // openStashList switches to the stash list view screen.
-func (m Model) openStashList(stashes []git.StashEntry) (Model, tea.Cmd) {
+func (m Model) openStashList(stashes []git.StashEntry) (Model, tea.Cmd) { //nolint:unparam // tea.Cmd reserved for future async init
 	sl := stashlist.New(stashes, m.repo, m.tokens)
 	sl.SetSize(m.width, m.height)
 	m.stashList = &sl

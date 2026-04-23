@@ -71,7 +71,7 @@ func (r *Repository) ListRefs(ctx context.Context) (*RefsResult, error) {
 			Subject:        fields[7],
 		}
 
-		refName := fields[3]  // e.g., "refs/heads/main"
+		refName := fields[3]   // e.g., "refs/heads/main"
 		shortName := fields[4] // e.g., "main"
 
 		switch {

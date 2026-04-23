@@ -27,12 +27,12 @@ type RawTokens struct {
 	SectionHeader string `toml:"section_header"`
 
 	// Diff colors
-	DiffAdd        string `toml:"diff_add"`
-	DiffAddBg      string `toml:"diff_add_bg"`
-	DiffDelete     string `toml:"diff_delete"`
-	DiffDeleteBg   string `toml:"diff_delete_bg"`
-	DiffContext    string `toml:"diff_context"`
-	DiffContextBg  string `toml:"diff_context_bg"`
+	DiffAdd          string `toml:"diff_add"`
+	DiffAddBg        string `toml:"diff_add_bg"`
+	DiffDelete       string `toml:"diff_delete"`
+	DiffDeleteBg     string `toml:"diff_delete_bg"`
+	DiffContext      string `toml:"diff_context"`
+	DiffContextBg    string `toml:"diff_context_bg"`
 	DiffHunkHeader   string `toml:"diff_hunk_header"`
 	DiffHunkHeaderBg string `toml:"diff_hunk_header_bg"`
 
@@ -52,8 +52,8 @@ type RawTokens struct {
 	// Popup
 	PopupBorder  string `toml:"popup_border"`
 	PopupTitle   string `toml:"popup_title"`
-	PopupKey    string `toml:"popup_key"`
-	PopupSwitch string `toml:"popup_switch"`
+	PopupKey     string `toml:"popup_key"`
+	PopupSwitch  string `toml:"popup_switch"`
 	PopupOption  string `toml:"popup_option"`
 	PopupAction  string `toml:"popup_action"`
 	PopupSection string `toml:"popup_section"`
@@ -106,9 +106,9 @@ type RawTokens struct {
 	Number             string `toml:"number"`                // numbers in stat
 
 	// Diff view
-	DiffHeader   string `toml:"diff_header"`    // NeogitDiffHeader bg (bg3)
-	DiffHeaderFg string `toml:"diff_header_fg"` // NeogitDiffHeader fg (blue)
-	FloatHeader  string `toml:"float_header"`   // NeogitFloatHeaderHighlight bg (bg2)
+	DiffHeader    string `toml:"diff_header"`     // NeogitDiffHeader bg (bg3)
+	DiffHeaderFg  string `toml:"diff_header_fg"`  // NeogitDiffHeader fg (blue)
+	FloatHeader   string `toml:"float_header"`    // NeogitFloatHeaderHighlight bg (bg2)
 	FloatHeaderFg string `toml:"float_header_fg"` // NeogitFloatHeaderHighlight fg (cyan)
 }
 
@@ -185,13 +185,13 @@ type Tokens struct {
 	Selection   lipgloss.Style
 
 	// Graph/sequencer styles
-	GraphOrange lipgloss.Style
-	GraphGreen  lipgloss.Style
-	GraphRed    lipgloss.Style
-	GraphBlue   lipgloss.Style
-	GraphYellow lipgloss.Style
-	GraphCyan   lipgloss.Style
-	GraphPurple lipgloss.Style
+	GraphOrange     lipgloss.Style
+	GraphGreen      lipgloss.Style
+	GraphRed        lipgloss.Style
+	GraphBlue       lipgloss.Style
+	GraphYellow     lipgloss.Style
+	GraphCyan       lipgloss.Style
+	GraphPurple     lipgloss.Style
 	GraphGray       lipgloss.Style
 	GraphWhite      lipgloss.Style
 	GraphBoldPurple lipgloss.Style // NeogitGraphBoldPurple: bold variant for @ indicator
@@ -279,23 +279,23 @@ func Compile(r RawTokens) Tokens {
 		NotificationBorderWarn:    lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(r.NotificationWarn)).Padding(0, 1),
 		NotificationBorderError:   lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(r.NotificationError)).Padding(0, 1),
 
-		ConfirmBorder: lipgloss.NewStyle().Foreground(lipgloss.Color(r.ConfirmBorder)),
-		ConfirmText:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.ConfirmText)),
-		ConfirmKey:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.ConfirmKey)).Bold(true),
+		ConfirmBorder:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.ConfirmBorder)),
+		ConfirmText:      lipgloss.NewStyle().Foreground(lipgloss.Color(r.ConfirmText)),
+		ConfirmKey:       lipgloss.NewStyle().Foreground(lipgloss.Color(r.ConfirmKey)).Bold(true),
 		ConfirmBoxBorder: lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(r.ConfirmBorder)).Padding(0, 1),
 
 		Cursor:      lipgloss.NewStyle().Background(lipgloss.Color(r.CursorBg)),
 		CursorBlock: lipgloss.NewStyle().Reverse(true),
 		Selection:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.Selection)).Background(lipgloss.Color(r.SelectBg)),
 
-		GraphOrange: lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphOrange)),
-		GraphGreen:  lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphGreen)),
-		GraphRed:    lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphRed)),
-		GraphBlue:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphBlue)),
-		GraphYellow: lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphYellow)),
-		GraphCyan:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphCyan)),
-		GraphPurple: lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphPurple)),
-		GraphGray:   lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphGray)),
+		GraphOrange:     lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphOrange)),
+		GraphGreen:      lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphGreen)),
+		GraphRed:        lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphRed)),
+		GraphBlue:       lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphBlue)),
+		GraphYellow:     lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphYellow)),
+		GraphCyan:       lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphCyan)),
+		GraphPurple:     lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphPurple)),
+		GraphGray:       lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphGray)),
 		GraphWhite:      lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphWhite)),
 		GraphBoldPurple: lipgloss.NewStyle().Foreground(lipgloss.Color(r.GraphPurple)).Bold(true),
 

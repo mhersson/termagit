@@ -16,7 +16,7 @@ import (
 type confirmMode int
 
 const (
-	confirmNone     confirmMode = iota
+	confirmNone confirmMode = iota
 	confirmDropStash
 )
 

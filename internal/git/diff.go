@@ -320,7 +320,7 @@ func parseHunkHeader(line string) *Hunk {
 }
 
 // parseDiffLine parses a single diff line.
-func parseDiffLine(line string, hunk *Hunk) *DiffLine {
+func parseDiffLine(line string, _ *Hunk) *DiffLine {
 	if len(line) == 0 {
 		return nil
 	}

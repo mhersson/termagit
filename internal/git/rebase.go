@@ -41,12 +41,12 @@ type TodoEntry struct {
 
 // RebaseState represents the current state of an interactive rebase.
 type RebaseState struct {
-	Branch   string      // Branch being rebased
-	Onto     string      // Base commit (what we're rebasing onto)
-	OntoRef  string      // Reference name of onto (if available)
-	Entries  []TodoEntry // All entries (done + pending)
-	Current  int         // Index of current entry in Entries
-	Total    int         // Total number of entries
+	Branch  string      // Branch being rebased
+	Onto    string      // Base commit (what we're rebasing onto)
+	OntoRef string      // Reference name of onto (if available)
+	Entries []TodoEntry // All entries (done + pending)
+	Current int         // Index of current entry in Entries
+	Total   int         // Total number of entries
 }
 
 // ReadRebaseTodo reads the current rebase state from .git/rebase-merge or .git/rebase-apply.
@@ -339,7 +339,7 @@ func (r *Repository) RebaseWithTodo(ctx context.Context, base string, entries []
 	args = append(args, "-i", base)
 
 	env := []string{"GIT_SEQUENCE_EDITOR=" + seqEditor}
-	_, err = r.runGitWithEnv(ctx, env, args...)
+	err = r.runGitWithEnv(ctx, env, args...)
 	return err
 }
 

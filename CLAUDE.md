@@ -141,6 +141,20 @@ make run    # must start without crashing (from Phase 3 onward)
 **NEVER** commit code that has not had a manual approval from the user. No
 exceptions.
 
+## CI / Quality Gates
+
+GitHub Actions enforces the same gates on every push and pull request to `main`:
+
+- **build** — `make build` (Go version pinned to `go.mod`, `ubuntu-latest`)
+- **test** — `make test` (short tests + race detector)
+- **lint** — `golangci/golangci-lint-action` using `.golangci.yml`
+- **security** — `govulncheck`, `gosec` (SARIF upload), and CodeQL; runs on
+  push/PR and weekly (Mon 06:00 UTC)
+
+Workflow files live in `.github/workflows/` (`ci.yml`, `security.yml`). Lint
+rules are in `.golangci.yml` at the repo root. Dependabot keeps Go modules and
+Actions dependencies current (weekly, minor+patch grouped).
+
 Use conventional commits:
 
 ```

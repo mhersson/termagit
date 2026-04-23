@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/mhersson/termagit/internal/theme"
 )
 
@@ -723,7 +724,7 @@ func testTokens() theme.Tokens {
 		PopupBorder:  "#888888",
 		PopupTitle:   "#ffffff",
 		PopupKey:     "#ff00ff",
-		PopupSwitch: "#00ff00",
+		PopupSwitch:  "#00ff00",
 		PopupOption:  "#ffff00",
 		PopupAction:  "#00ffff",
 		PopupSection: "#ff8800",

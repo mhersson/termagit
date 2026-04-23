@@ -22,8 +22,7 @@ HEAD abc1234567890123456789012345678901234abcd
 branch refs/heads/main
 
 `
-	wts, err := parseWorktreePorcelain(output)
-	require.NoError(t, err)
+	wts := parseWorktreePorcelain(output)
 	require.Len(t, wts, 1)
 
 	wt := wts[0]
@@ -45,8 +44,7 @@ branch refs/heads/feature
 locked
 
 `
-	wts, err := parseWorktreePorcelain(output)
-	require.NoError(t, err)
+	wts := parseWorktreePorcelain(output)
 	require.Len(t, wts, 2)
 
 	require.Equal(t, "/home/user/project", wts[0].Path)
@@ -64,8 +62,7 @@ HEAD abc1234567890123456789012345678901234abcd
 bare
 
 `
-	wts, err := parseWorktreePorcelain(output)
-	require.NoError(t, err)
+	wts := parseWorktreePorcelain(output)
 	require.Len(t, wts, 1)
 	require.True(t, wts[0].IsBare)
 }

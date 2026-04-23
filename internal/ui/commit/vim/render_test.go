@@ -321,7 +321,7 @@ func TestRender_HorizontalTruncation(t *testing.T) {
 	view := e.View()
 	// With xOffset=0 and width=10, should show first 10 chars
 	assert.Contains(t, view, "A")
-	assert.Contains(t, view, "J") // 10th char (index 9)
+	assert.Contains(t, view, "J")    // 10th char (index 9)
 	assert.NotContains(t, view, "K") // 11th char should be truncated
 
 	// Now scroll right by moving cursor

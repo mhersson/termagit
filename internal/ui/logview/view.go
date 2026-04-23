@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/graph"
 	"github.com/mhersson/termagit/internal/ui/shared"
@@ -184,9 +185,9 @@ func (m Model) renderCommitRow(c git.LogEntry, isCursor bool, graphCells graph.R
 	// Author/time are always at fixed positions from right edge
 
 	// Fixed widths
-	hashWidth := 8        // 7 chars + space
-	authorColWidth := 16  // author column
-	timeColWidth := 12    // time column (e.g., "10 hours", "2 days")
+	hashWidth := 8       // 7 chars + space
+	authorColWidth := 16 // author column
+	timeColWidth := 12   // time column (e.g., "10 hours", "2 days")
 	minSubjectWidth := 15
 
 	// Hash (7 chars)
@@ -345,7 +346,6 @@ func (m Model) renderRefsFlat(refs []git.Ref) string {
 
 	return strings.Join(parts, " ")
 }
-
 
 // pluralizeTime formats a count and unit as "N unit" or "N units".
 func pluralizeTime(n int, unit string) string {

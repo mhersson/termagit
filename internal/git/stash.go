@@ -214,8 +214,8 @@ func parseStashLine(line string) (StashEntry, error) {
 		return StashEntry{}, fmt.Errorf("invalid stash line: %s", line)
 	}
 
-	name := parts[0]   // stash@{N}
-	hash := parts[1]   // commit hash
+	name := parts[0]    // stash@{N}
+	hash := parts[1]    // commit hash
 	message := parts[2] // stash message
 
 	// Parse index from name (e.g., "stash@{0}" -> 0)

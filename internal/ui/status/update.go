@@ -5,6 +5,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/ui/branchselect"
 	"github.com/mhersson/termagit/internal/ui/commit"

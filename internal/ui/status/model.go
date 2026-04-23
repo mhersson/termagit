@@ -4,6 +4,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/mhersson/termagit/internal/config"
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/theme"
@@ -27,18 +28,18 @@ const (
 type SectionKind int
 
 const (
-	SectionSequencer        SectionKind = iota // cherry-pick / revert in progress
-	SectionRebase                              // rebase in progress
-	SectionBisect                              // bisect in progress
-	SectionUntracked                           // untracked files
-	SectionUnstaged                            // unstaged changes
-	SectionStaged                              // staged changes
-	SectionStashes                             // stashes
-	SectionUnmergedUpstream                    // "Unmerged into"
-	SectionUnpushedPushRemote                  // "Unpushed to"
-	SectionRecentCommits                       // "Recent Commits"
-	SectionUnpulledUpstream                    // "Unpulled from" (upstream)
-	SectionUnpulledPushRemote                  // "Unpulled from" (push remote)
+	SectionSequencer          SectionKind = iota // cherry-pick / revert in progress
+	SectionRebase                                // rebase in progress
+	SectionBisect                                // bisect in progress
+	SectionUntracked                             // untracked files
+	SectionUnstaged                              // unstaged changes
+	SectionStaged                                // staged changes
+	SectionStashes                               // stashes
+	SectionUnmergedUpstream                      // "Unmerged into"
+	SectionUnpushedPushRemote                    // "Unpushed to"
+	SectionRecentCommits                         // "Recent Commits"
+	SectionUnpulledUpstream                      // "Unpulled from" (upstream)
+	SectionUnpulledPushRemote                    // "Unpulled from" (push remote)
 )
 
 // HeadState holds everything needed to render the HEAD bar.
@@ -141,14 +142,14 @@ const (
 type commitSpecialKind int
 
 const (
-	commitSpecialNone         commitSpecialKind = iota
-	commitSpecialFixup                          // f: --fixup=<sha>, no editor
-	commitSpecialSquash                         // s: --squash=<sha>, no editor
-	commitSpecialAugment                        // n: --squash=<sha>, with editor
-	commitSpecialAlter                          // A: --fixup=amend:<sha>, with editor
-	commitSpecialRevise                         // W: --fixup=reword:<sha>, with editor
-	commitSpecialInstantFixup                   // F: --fixup=<sha> + autosquash
-	commitSpecialInstantSquash                  // S: --squash=<sha> + autosquash
+	commitSpecialNone          commitSpecialKind = iota
+	commitSpecialFixup                           // f: --fixup=<sha>, no editor
+	commitSpecialSquash                          // s: --squash=<sha>, no editor
+	commitSpecialAugment                         // n: --squash=<sha>, with editor
+	commitSpecialAlter                           // A: --fixup=amend:<sha>, with editor
+	commitSpecialRevise                          // W: --fixup=reword:<sha>, with editor
+	commitSpecialInstantFixup                    // F: --fixup=<sha> + autosquash
+	commitSpecialInstantSquash                   // S: --squash=<sha> + autosquash
 )
 
 // rebaseSpecialKind identifies which rebase action is pending commit selection.
@@ -167,58 +168,58 @@ const (
 type branchActionKind int
 
 const (
-	branchActionNone          branchActionKind = iota
-	branchActionCheckout                       // b: checkout branch/revision
-	branchActionCheckoutLocal                  // l: checkout local branch
-	branchActionCheckoutRecent                 // r: checkout recent branch
-	branchActionDelete                         // D: delete branch
-	branchActionPushElsewhere                  // Push popup: e
-	branchActionPushOther                      // Push popup: o (source branch)
-	branchActionRebaseElsewhere                // Rebase popup: e
-	branchActionLogOtherBranch                 // Log popup: o
-	branchActionBranchConfigure                // Branch popup: C (select branch to configure)
-	branchActionMergeBranch                    // Merge popup: m/e/n/a/s/i (select branch to merge)
-	branchActionWorktreeCheckout               // Worktree popup: w (select branch for worktree checkout)
-	branchActionDonate                         // Cherry-pick popup: d (select branch to donate to)
-	branchActionMergePreview                   // Merge popup: p (preview merge with selected branch)
-	branchActionDiffRangeFrom                  // Diff popup: r (first ref for range)
-	branchActionDiffRangeTo                    // Diff popup: r (second ref for range)
+	branchActionNone             branchActionKind = iota
+	branchActionCheckout                          // b: checkout branch/revision
+	branchActionCheckoutLocal                     // l: checkout local branch
+	branchActionCheckoutRecent                    // r: checkout recent branch
+	branchActionDelete                            // D: delete branch
+	branchActionPushElsewhere                     // Push popup: e
+	branchActionPushOther                         // Push popup: o (source branch)
+	branchActionRebaseElsewhere                   // Rebase popup: e
+	branchActionLogOtherBranch                    // Log popup: o
+	branchActionBranchConfigure                   // Branch popup: C (select branch to configure)
+	branchActionMergeBranch                       // Merge popup: m/e/n/a/s/i (select branch to merge)
+	branchActionWorktreeCheckout                  // Worktree popup: w (select branch for worktree checkout)
+	branchActionDonate                            // Cherry-pick popup: d (select branch to donate to)
+	branchActionMergePreview                      // Merge popup: p (preview merge with selected branch)
+	branchActionDiffRangeFrom                     // Diff popup: r (first ref for range)
+	branchActionDiffRangeTo                       // Diff popup: r (second ref for range)
 )
 
 // inputPromptKind identifies which action is pending text input.
 type inputPromptKind int
 
 const (
-	inputPromptNone             inputPromptKind = iota
-	inputPromptNewBranchCheckout                // c: new branch + checkout
-	inputPromptNewBranch                        // n: new branch no checkout
-	inputPromptSpinOff                          // s: spin-off
-	inputPromptSpinOut                          // S: spin-out
-	inputPromptRename                           // m: rename current branch
-	inputPromptRenameFile                       // R: rename file
-	inputPromptPushRefspec                      // Push: explicit refspec
-	inputPromptPushTag                          // Push: tag name
-	inputPromptReflogRef                        // Log: other reflog ref
-	inputPromptWorktreePath                     // Branch: worktree path
-	inputPromptTagName                          // Tag: name for new tag
-	inputPromptTagRelease                       // Tag: release tag name
-	inputPromptTagDelete                        // Tag: tag name to delete
-	inputPromptRemoteName                       // Remote: name for new remote
-	inputPromptRemoteURL                        // Remote: URL for new remote
-	inputPromptRemoteRename                     // Remote: new name for rename
-	inputPromptRemoteRemove                     // Remote: name to remove
-	inputPromptRemotePrune                      // Remote: name to prune
-	inputPromptRemoteConfigure                  // Remote: name to configure
-	inputPromptWorktreeCreate                   // Worktree: create path
-	inputPromptWorktreeMove                     // Worktree: move destination
-	inputPromptWorktreeDelete                   // Worktree: delete path
-	inputPromptBisectScript                     // Bisect: script path
-	inputPromptRemoteSetHead                    // Remote: set default branch
-	inputPromptStashMessage                     // Stash: push with message
-	inputPromptStashRename                      // Stash: rename
-	inputPromptStashBranch                      // Stash: branch name
-	inputPromptCherryPickSpinout                // Cherry-pick: spinout branch name
-	inputPromptCherryPickSpinoff                // Cherry-pick: spinoff branch name
+	inputPromptNone              inputPromptKind = iota
+	inputPromptNewBranchCheckout                 // c: new branch + checkout
+	inputPromptNewBranch                         // n: new branch no checkout
+	inputPromptSpinOff                           // s: spin-off
+	inputPromptSpinOut                           // S: spin-out
+	inputPromptRename                            // m: rename current branch
+	inputPromptRenameFile                        // R: rename file
+	inputPromptPushRefspec                       // Push: explicit refspec
+	inputPromptPushTag                           // Push: tag name
+	inputPromptReflogRef                         // Log: other reflog ref
+	inputPromptWorktreePath                      // Branch: worktree path
+	inputPromptTagName                           // Tag: name for new tag
+	inputPromptTagRelease                        // Tag: release tag name
+	inputPromptTagDelete                         // Tag: tag name to delete
+	inputPromptRemoteName                        // Remote: name for new remote
+	inputPromptRemoteURL                         // Remote: URL for new remote
+	inputPromptRemoteRename                      // Remote: new name for rename
+	inputPromptRemoteRemove                      // Remote: name to remove
+	inputPromptRemotePrune                       // Remote: name to prune
+	inputPromptRemoteConfigure                   // Remote: name to configure
+	inputPromptWorktreeCreate                    // Worktree: create path
+	inputPromptWorktreeMove                      // Worktree: move destination
+	inputPromptWorktreeDelete                    // Worktree: delete path
+	inputPromptBisectScript                      // Bisect: script path
+	inputPromptRemoteSetHead                     // Remote: set default branch
+	inputPromptStashMessage                      // Stash: push with message
+	inputPromptStashRename                       // Stash: rename
+	inputPromptStashBranch                       // Stash: branch name
+	inputPromptCherryPickSpinout                 // Cherry-pick: spinout branch name
+	inputPromptCherryPickSpinoff                 // Cherry-pick: spinoff branch name
 )
 
 // cherryPickActionKind identifies which cherry-pick action is pending commit selection.
@@ -248,8 +249,8 @@ const (
 type resetActionKind int
 
 const (
-	resetActionNone resetActionKind = iota
-	resetActionBranch               // b: reset branch to commit
+	resetActionNone   resetActionKind = iota
+	resetActionBranch                 // b: reset branch to commit
 )
 
 // mergeActionKind identifies which merge action variant is active.
@@ -360,17 +361,17 @@ type Model struct {
 	commitView *commitview.Model
 
 	// Pending commit special action (waiting for commit select result)
-	commitSpecialOpts  git.CommitOpts    // popup switches captured before commit select
-	commitSpecialKind  commitSpecialKind // which special action initiated the select
+	commitSpecialOpts git.CommitOpts    // popup switches captured before commit select
+	commitSpecialKind commitSpecialKind // which special action initiated the select
 
 	// Pending rebase special action (waiting for commit select result)
 	rebaseSpecialKind rebaseSpecialKind // which rebase action initiated the select
 	rebaseSpecialOpts git.RebaseOpts    // popup switches captured before commit select
 
 	// Pending branch action (waiting for branch select result)
-	branchActionKind  branchActionKind
-	mergeActionKind   mergeActionKind   // which merge variant is pending branch select
-	mergeOpts         git.MergeOpts     // merge opts captured before branch select
+	branchActionKind branchActionKind
+	mergeActionKind  mergeActionKind // which merge variant is pending branch select
+	mergeOpts        git.MergeOpts   // merge opts captured before branch select
 
 	// Pending cherry-pick action (waiting for commit select result)
 	cherryPickActionKind cherryPickActionKind

@@ -84,8 +84,8 @@ func TestCycler_Prev_ClampsAtOldest(t *testing.T) {
 func TestCycler_Next_ReturnsTowardCurrent(t *testing.T) {
 	c := NewCycler([]string{"third", "second", "first"})
 
-	_ = c.Prev("current")  // idx=0 -> "third"
-	_ = c.Prev("third")    // idx=1 -> "second"
+	_ = c.Prev("current") // idx=0 -> "third"
+	_ = c.Prev("third")   // idx=1 -> "second"
 
 	msg := c.Next()
 	assert.Equal(t, "third", msg) // back to idx=0
@@ -94,7 +94,7 @@ func TestCycler_Next_ReturnsTowardCurrent(t *testing.T) {
 func TestCycler_Next_AtStart_RestoresOriginal(t *testing.T) {
 	c := NewCycler([]string{"third", "second", "first"})
 
-	_ = c.Prev("my draft")  // idx=0
+	_ = c.Prev("my draft") // idx=0
 
 	msg := c.Next()
 	assert.Equal(t, "my draft", msg) // back to original

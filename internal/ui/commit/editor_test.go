@@ -7,12 +7,13 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/mhersson/termagit/internal/config"
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/theme"
 	"github.com/mhersson/termagit/internal/ui/commit/vim"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestEditorModel_Init_LoadsCommitHistory(t *testing.T) {
@@ -261,12 +262,12 @@ func TestEditorModel_View_ModeBeforeTitle(t *testing.T) {
 
 func TestEditorModel_View_TitleForEachAction(t *testing.T) {
 	actions := map[string]string{
-		"commit":  "Create Commit",
-		"amend":   "Amend Commit",
-		"reword":  "Reword Commit",
-		"extend":  "Extend Commit",
-		"fixup":   "Fixup Commit",
-		"squash":  "Squash Commit",
+		"commit": "Create Commit",
+		"amend":  "Amend Commit",
+		"reword": "Reword Commit",
+		"extend": "Extend Commit",
+		"fixup":  "Fixup Commit",
+		"squash": "Squash Commit",
 	}
 
 	for action, expectedTitle := range actions {

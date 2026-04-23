@@ -308,7 +308,7 @@ func (m Model) getFileHeaderLines() []int {
 		lines = append(lines, lineNum) // file header line
 		lineNum++                      // file header
 		for _, hunk := range diff.Hunks {
-			lineNum++              // hunk header
+			lineNum++                  // hunk header
 			lineNum += len(hunk.Lines) // hunk content
 		}
 	}

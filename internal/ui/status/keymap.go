@@ -33,28 +33,28 @@ type KeyMap struct {
 	GoToBottom   key.Binding // G
 
 	// Actions
-	Stage         key.Binding // s
-	StageUnstaged key.Binding // S
-	StageAll      key.Binding // <c-s>
-	Unstage       key.Binding // u
-	UnstageStaged key.Binding // U
-	Discard       key.Binding // x
-	Untrack       key.Binding // K
-	Rename        key.Binding // R
-	GoToFile      key.Binding // <cr>
-	PeekFile      key.Binding // <s-cr>
-	VSplitOpen    key.Binding // <c-v>
-	SplitOpen     key.Binding // <c-x>
-	TabOpen       key.Binding // <c-t>
-	OpenTree      key.Binding // o
+	Stage          key.Binding // s
+	StageUnstaged  key.Binding // S
+	StageAll       key.Binding // <c-s>
+	Unstage        key.Binding // u
+	UnstageStaged  key.Binding // U
+	Discard        key.Binding // x
+	Untrack        key.Binding // K
+	Rename         key.Binding // R
+	GoToFile       key.Binding // <cr>
+	PeekFile       key.Binding // <s-cr>
+	VSplitOpen     key.Binding // <c-v>
+	SplitOpen      key.Binding // <c-x>
+	TabOpen        key.Binding // <c-t>
+	OpenTree       key.Binding // o
 	GoToParentRepo key.Binding // gp
-	YankSelected  key.Binding // Y
-	ShowRefs      key.Binding // y
+	YankSelected   key.Binding // Y
+	ShowRefs       key.Binding // y
 	CommandHistory key.Binding // $
-	RefreshBuffer key.Binding // <c-r>
-	InitRepo      key.Binding // I
-	Close         key.Binding // q
-	Command       key.Binding // Q
+	RefreshBuffer  key.Binding // <c-r>
+	InitRepo       key.Binding // I
+	Close          key.Binding // q
+	Command        key.Binding // Q
 
 	// Popup keys (from config.lua popup mappings)
 	HelpPopup       key.Binding // ?

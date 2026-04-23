@@ -4,11 +4,12 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/theme"
 	"github.com/mhersson/termagit/internal/ui/shared"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func testTokens() theme.Tokens {
@@ -22,13 +23,13 @@ func testRefs() *git.RefsResult {
 				Name: "main", UnambiguousName: "main",
 				Type: git.RefTypeLocalBranch, Head: true,
 				Oid: "abc123def456", AbbrevOid: "abc123d",
-				Subject: "Initial commit",
+				Subject:      "Initial commit",
 				UpstreamName: "origin/main", UpstreamStatus: "=",
 			},
 			{
 				Name: "feature/x", UnambiguousName: "feature/x",
 				Type: git.RefTypeLocalBranch,
-				Oid: "def456abc123", AbbrevOid: "def456a",
+				Oid:  "def456abc123", AbbrevOid: "def456a",
 				Subject: "Add feature x",
 			},
 		},
@@ -46,7 +47,7 @@ func testRefs() *git.RefsResult {
 			{
 				Name: "v1.0", UnambiguousName: "tags/v1.0",
 				Type: git.RefTypeTag,
-				Oid: "ghi789abc123", AbbrevOid: "ghi789a",
+				Oid:  "ghi789abc123", AbbrevOid: "ghi789a",
 				Subject: "Release v1.0",
 			},
 		},
@@ -205,8 +206,8 @@ func TestRefsView_SectionHeaders_FoldableWithSigns(t *testing.T) {
 	view := m.View()
 
 	// Section headers should show counts
-	assert.Contains(t, view, "(2)")  // Branches has 2 items
-	assert.Contains(t, view, "(1)")  // Remote origin and Tags each have 1 item
+	assert.Contains(t, view, "(2)") // Branches has 2 items
+	assert.Contains(t, view, "(1)") // Remote origin and Tags each have 1 item
 }
 
 func TestRefsView_RemoteSection_ShowsURL(t *testing.T) {

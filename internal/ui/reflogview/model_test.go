@@ -7,12 +7,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/mhersson/termagit/internal/git"
-	"github.com/mhersson/termagit/internal/theme"
-	"github.com/mhersson/termagit/internal/ui/shared"
 	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mhersson/termagit/internal/git"
+	"github.com/mhersson/termagit/internal/theme"
+	"github.com/mhersson/termagit/internal/ui/shared"
 )
 
 func testTokens() theme.Tokens {

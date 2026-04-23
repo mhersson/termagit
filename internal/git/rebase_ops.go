@@ -82,8 +82,7 @@ func (r *Repository) Rebase(ctx context.Context, opts RebaseOpts) error {
 
 	if opts.Interactive {
 		// Use GIT_SEQUENCE_EDITOR=true to accept the default todo and pause
-		_, err := r.runGitWithEnv(ctx, []string{"GIT_SEQUENCE_EDITOR=true"}, args...)
-		if err != nil {
+		if err := r.runGitWithEnv(ctx, []string{"GIT_SEQUENCE_EDITOR=true"}, args...); err != nil {
 			return fmt.Errorf("rebase interactive: %w", err)
 		}
 		return nil
@@ -130,8 +129,7 @@ func (r *Repository) RebaseOnto(ctx context.Context, onto, from string, opts Reb
 	args = append(args, "--onto", onto, from)
 
 	if opts.Interactive {
-		_, err := r.runGitWithEnv(ctx, []string{"GIT_SEQUENCE_EDITOR=true"}, args...)
-		if err != nil {
+		if err := r.runGitWithEnv(ctx, []string{"GIT_SEQUENCE_EDITOR=true"}, args...); err != nil {
 			return fmt.Errorf("rebase onto %s: %w", onto, err)
 		}
 		return nil
@@ -169,8 +167,7 @@ func (r *Repository) RewordCommit(ctx context.Context, hash, message string) err
 
 	// Start interactive rebase from the commit's parent
 	args := []string{"rebase", "-i", hash + "^"}
-	_, err := r.runGitWithEnv(ctx, env, args...)
-	if err != nil {
+	if err := r.runGitWithEnv(ctx, env, args...); err != nil {
 		return fmt.Errorf("reword commit %s: %w", hash, err)
 	}
 
@@ -190,8 +187,7 @@ func (r *Repository) ModifyCommit(ctx context.Context, hash string) error {
 	}
 
 	args := []string{"rebase", "-i", hash + "^"}
-	_, err := r.runGitWithEnv(ctx, env, args...)
-	if err != nil && !r.RebaseInProgress() {
+	if err := r.runGitWithEnv(ctx, env, args...); err != nil && !r.RebaseInProgress() {
 		return fmt.Errorf("modify commit %s: %w", hash, err)
 	}
 
@@ -211,8 +207,7 @@ func (r *Repository) Autosquash(ctx context.Context, opts RebaseOpts) error {
 	args := append([]string{"rebase", "-i", "--autosquash"}, rebaseArgs(opts)...)
 	args = append(args, target)
 
-	_, err = r.runGitWithEnv(ctx, []string{"GIT_SEQUENCE_EDITOR=true"}, args...)
-	if err != nil {
+	if err = r.runGitWithEnv(ctx, []string{"GIT_SEQUENCE_EDITOR=true"}, args...); err != nil {
 		return fmt.Errorf("autosquash: %w", err)
 	}
 	return nil

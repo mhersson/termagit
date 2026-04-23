@@ -128,4 +128,3 @@ func (r *Repository) DiscardHunk(ctx context.Context, path string, hunk Hunk) er
 	}
 	return nil
 }
-
