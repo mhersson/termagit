@@ -1,0 +1,48 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - revive
+    - misspell
+    - unconvert
+    - unparam
+    - nilerr
+    - bodyclose
+    - errorlint
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+        - name: var-naming
+          disabled: true
+  exclusions:
+    paths:
+      - bin
+      - vendor
+    rules:
+      - path: "_test\\.go"
+        linters:
+          - unparam
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/mhersson/termagit
+  exclusions:
+    paths:
+      - bin
+      - vendor

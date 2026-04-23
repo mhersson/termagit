@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mhersson/termagit/internal/git"
-	"github.com/mhersson/termagit/internal/theme"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mhersson/termagit/internal/git"
+	"github.com/mhersson/termagit/internal/theme"
 )
 
 func testMergeCommits() []git.LogEntry {
@@ -96,7 +97,7 @@ func TestLogModel_CursorDown_MovesToNextCommit(t *testing.T) {
 func TestLogModel_CursorUp_MovesToPreviousCommit(t *testing.T) {
 	commits := testCommits()
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.cursor.Pos =2
+	m.cursor.Pos = 2
 
 	// Press k to move up
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
@@ -107,7 +108,7 @@ func TestLogModel_CursorUp_MovesToPreviousCommit(t *testing.T) {
 func TestLogModel_CursorDown_StopsAtBottom(t *testing.T) {
 	commits := testCommits()
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.cursor.Pos =2 // last commit
+	m.cursor.Pos = 2 // last commit
 
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 
@@ -117,7 +118,7 @@ func TestLogModel_CursorDown_StopsAtBottom(t *testing.T) {
 func TestLogModel_CursorUp_StopsAtTop(t *testing.T) {
 	commits := testCommits()
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.cursor.Pos =0
+	m.cursor.Pos = 0
 
 	m, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 
@@ -254,7 +255,7 @@ func TestLogView_LastRow_ShowsLoadMoreHint(t *testing.T) {
 func TestLogModel_YankHash_CopiesHash(t *testing.T) {
 	commits := testCommits()
 	m := New(commits, nil, testTokens(), nil, false, "main")
-	m.cursor.Pos =0
+	m.cursor.Pos = 0
 
 	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'Y'}})
 

@@ -15,8 +15,8 @@ import (
 // Switch represents a toggleable boolean flag in a popup.
 type Switch struct {
 	Key          string
-	KeyPrefix    string   // prefix key to toggle (default "-", some use "=")
-	Label        string   // CLI flag name (e.g., "all", "verbose")
+	KeyPrefix    string // prefix key to toggle (default "-", some use "=")
+	Label        string // CLI flag name (e.g., "all", "verbose")
 	Description  string
 	Enabled      bool
 	Persisted    bool     // whether to persist across sessions (default true)
@@ -26,8 +26,8 @@ type Switch struct {
 // Option represents a key=value setting in a popup.
 type Option struct {
 	Key         string
-	KeyPrefix   string   // prefix key to edit (default "=", some use "-")
-	Label       string   // CLI flag name
+	KeyPrefix   string // prefix key to edit (default "=", some use "-")
+	Label       string // CLI flag name
 	Description string
 	Value       string
 	Persisted   bool     // whether to persist across sessions (default true)
@@ -73,10 +73,10 @@ type configSection struct {
 
 // Popup is the base model for all popups.
 type Popup struct {
-	title   string
-	tokens  theme.Tokens
-	width   int
-	height  int
+	title  string
+	tokens theme.Tokens
+	width  int
+	height int
 
 	config         []Config
 	configSections []configSection
@@ -91,8 +91,8 @@ type Popup struct {
 	pendingKey string
 
 	// option/config value editing
-	editingOption int  // index into options, -1 when not editing
-	editingConfig int  // index into config, -1 when not editing
+	editingOption int // index into options, -1 when not editing
+	editingConfig int // index into config, -1 when not editing
 	optionInput   textinput.Model
 
 	done   bool
@@ -624,8 +624,8 @@ func (p Popup) renderActionsGrid() string {
 	// Build columns: each group is a column
 	// Column[i] = []string of lines (header + actions)
 	type columnLine struct {
-		text    string // raw text for width calculation
-		styled  string // styled text for rendering
+		text     string // raw text for width calculation
+		styled   string // styled text for rendering
 		isSpacer bool
 	}
 

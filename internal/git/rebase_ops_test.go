@@ -11,8 +11,7 @@ import (
 )
 
 // addAndCommitDisk creates a file on-disk, stages, and commits.
-// Returns the abbreviated hash (7 chars).
-func addAndCommitDisk(t *testing.T, r *Repository, path, content, msg string) string {
+func addAndCommitDisk(t *testing.T, r *Repository, path, content, msg string) {
 	t.Helper()
 	ctx := context.Background()
 
@@ -27,11 +26,6 @@ func addAndCommitDisk(t *testing.T, r *Repository, path, content, msg string) st
 		"--author", "Test User <test@example.com>",
 		"--date", "2024-01-15T10:30:00+00:00")
 	require.NoError(t, err, "commit failed: %s", out)
-
-	hash, err := r.runGit(ctx, "rev-parse", "--short", "HEAD")
-	require.NoError(t, err)
-
-	return trimOutput(hash)
 }
 
 // trimOutput trims whitespace from git command output.

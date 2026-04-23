@@ -1,5 +1,8 @@
 # termagit
 
+[![CI](https://github.com/mhersson/termagit/actions/workflows/ci.yml/badge.svg)](https://github.com/mhersson/termagit/actions/workflows/ci.yml)
+[![Security](https://github.com/mhersson/termagit/actions/workflows/security.yml/badge.svg)](https://github.com/mhersson/termagit/actions/workflows/security.yml)
+
 A standalone terminal Git UI - a port of
 [Neogit](https://github.com/NeogitOrg/neogit). Built with
 [Bubble Tea](https://github.com/charmbracelet/bubbletea) and

@@ -24,10 +24,7 @@ func (r *Repository) ListWorktrees(ctx context.Context) ([]GitWorktree, error) {
 		return nil, fmt.Errorf("list worktrees: %w", err)
 	}
 
-	wts, err := parseWorktreePorcelain(out)
-	if err != nil {
-		return nil, err
-	}
+	wts := parseWorktreePorcelain(out)
 
 	// Mark the first worktree as main
 	if len(wts) > 0 {
@@ -111,7 +108,7 @@ func (r *Repository) GotoWorktree(_ context.Context, _ string) error {
 
 // parseWorktreePorcelain parses the output of `git worktree list --porcelain`.
 // Each worktree block is separated by a blank line.
-func parseWorktreePorcelain(output string) ([]GitWorktree, error) {
+func parseWorktreePorcelain(output string) []GitWorktree {
 	var worktrees []GitWorktree
 	var current *GitWorktree
 
@@ -151,5 +148,5 @@ func parseWorktreePorcelain(output string) ([]GitWorktree, error) {
 		worktrees = append(worktrees, *current)
 	}
 
-	return worktrees, nil
+	return worktrees
 }

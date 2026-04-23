@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/graph"
 	"github.com/mhersson/termagit/internal/theme"
@@ -42,7 +43,7 @@ type Model struct {
 	popKeys nav.PopupKeys
 	keys    KeyMap
 	opts    git.LogOpts
-	header string
+	header  string
 
 	commits     []git.LogEntry
 	searchCache []commitSearchEntry // pre-lowered fields for filtering
@@ -77,13 +78,13 @@ func New(commits []git.LogEntry, repo *git.Repository, tokens theme.Tokens, opts
 	cache := buildSearchCache(commits)
 
 	m := Model{
-		repo:         repo,
-		tokens:       tokens,
-		navKeys:      nav.DefaultNavigationKeys(),
-		popKeys:      nav.DefaultPopupKeys(),
+		repo:    repo,
+		tokens:  tokens,
+		navKeys: nav.DefaultNavigationKeys(),
+		popKeys: nav.DefaultPopupKeys(),
 		keys: KeyMap{
-			LoadMore: key.NewBinding(key.WithKeys("+"), key.WithHelp("+", "load more")),
-			Filter:   key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
+			LoadMore:     key.NewBinding(key.WithKeys("+"), key.WithHelp("+", "load more")),
+			Filter:       key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 			ToggleDetail: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "toggle details")),
 		},
 		opts:         logOpts,
@@ -464,4 +465,3 @@ func (m Model) loadMoreCmd() tea.Cmd {
 func (m *Model) SetSize(width, height int) {
 	m.cursor.SetSize(width, height)
 }
-

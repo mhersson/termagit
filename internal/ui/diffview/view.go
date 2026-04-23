@@ -327,7 +327,6 @@ func (m Model) renderCursorLine(line string) string {
 	return result.String()
 }
 
-
 // padLeft pads a string to the given width with leading spaces.
 func padLeft(s string, width int) string {
 	if len(s) >= width {
@@ -343,4 +342,3 @@ func (m Model) applyHorizontalScroll(line string) string {
 	}
 	return ansi.Truncate(ansi.TruncateLeft(line, m.xOffset, ""), m.width, "")
 }
-

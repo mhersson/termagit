@@ -2,6 +2,7 @@ package commitview
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/mhersson/termagit/internal/git"
 )
 

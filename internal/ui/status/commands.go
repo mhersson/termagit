@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/mhersson/termagit/internal/config"
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/platform"
@@ -444,7 +445,6 @@ func getPushRemoteRef(repo *git.Repository) string {
 	return remote + "/" + branch
 }
 
-
 // loadHunksCmd loads diff hunks for a file.
 func loadHunksCmd(repo *git.Repository, sIdx, iIdx int, entry *git.StatusEntry, kind git.DiffKind) tea.Cmd {
 	return func() tea.Msg {
@@ -678,7 +678,6 @@ func untrackFileCmd(repo *git.Repository, path string) tea.Cmd {
 }
 
 // renameFileCmd renames a file (git mv).
-//
 func renameFileCmd(repo *git.Repository, oldPath, newPath string) tea.Cmd {
 	return func() tea.Msg {
 		err := repo.RenameFile(context.Background(), oldPath, newPath)
@@ -1441,7 +1440,7 @@ func resetFileCmd(repo *git.Repository, path string) tea.Cmd {
 // --- Tag commands ---
 
 // tagCreateCmd creates a command that creates a tag.
-func tagCreateCmd(repo *git.Repository, name, hash string, opts git.TagOpts) tea.Cmd {
+func tagCreateCmd(repo *git.Repository, name, hash string, opts git.TagOpts) tea.Cmd { //nolint:unparam // hash param reserved for non-HEAD targets
 	return func() tea.Msg {
 		if repo == nil {
 			return operationDoneMsg{err: fmt.Errorf("no repository"), op: "Tag create"}

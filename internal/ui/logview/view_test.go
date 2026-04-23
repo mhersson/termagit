@@ -3,10 +3,11 @@ package logview
 import (
 	"testing"
 
-	"github.com/mhersson/termagit/internal/git"
-	"github.com/mhersson/termagit/internal/theme"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mhersson/termagit/internal/git"
+	"github.com/mhersson/termagit/internal/theme"
 )
 
 func TestPluralizeTime_Singular(t *testing.T) {

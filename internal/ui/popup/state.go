@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
+
 	"github.com/mhersson/termagit/internal/config"
 )
 

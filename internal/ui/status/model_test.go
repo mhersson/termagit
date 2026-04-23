@@ -22,17 +22,17 @@ import (
 func TestSectionKind_AllTwelveValues(t *testing.T) {
 	// All 12 Neogit sections must be defined
 	expectedKinds := []SectionKind{
-		SectionSequencer,        // cherry-pick / revert
-		SectionRebase,           // rebase in progress
-		SectionBisect,           // bisect in progress
-		SectionUntracked,        // untracked files
-		SectionUnstaged,         // unstaged changes
-		SectionStaged,           // staged changes
-		SectionStashes,          // stashes
-		SectionUnmergedUpstream, // "Unmerged into"
+		SectionSequencer,          // cherry-pick / revert
+		SectionRebase,             // rebase in progress
+		SectionBisect,             // bisect in progress
+		SectionUntracked,          // untracked files
+		SectionUnstaged,           // unstaged changes
+		SectionStaged,             // staged changes
+		SectionStashes,            // stashes
+		SectionUnmergedUpstream,   // "Unmerged into"
 		SectionUnpushedPushRemote, // "Unpushed to"
-		SectionRecentCommits,    // "Recent Commits"
-		SectionUnpulledUpstream, // "Unpulled from" (upstream)
+		SectionRecentCommits,      // "Recent Commits"
+		SectionUnpulledUpstream,   // "Unpulled from" (upstream)
 		SectionUnpulledPushRemote, // "Unpulled from" (push remote)
 	}
 
@@ -935,15 +935,15 @@ func TestModel_BisectDetailsSection_ShowsCurrentCommit(t *testing.T) {
 				Title: "Bisecting at",
 				Items: []Item{
 					{BisectDetail: &git.LogEntry{
-						Hash:           "abc1234def5678901234567890abcdef12345678",
+						Hash:            "abc1234def5678901234567890abcdef12345678",
 						AbbreviatedHash: "abc1234",
-						AuthorName:     "Test Author",
-						AuthorEmail:    "test@example.com",
-						AuthorDate:     "2024-01-15",
-						CommitterName:  "Test Committer",
-						CommitterEmail: "committer@example.com",
-						CommitterDate:  "2024-01-15",
-						Subject:        "Test bisect commit",
+						AuthorName:      "Test Author",
+						AuthorEmail:     "test@example.com",
+						AuthorDate:      "2024-01-15",
+						CommitterName:   "Test Committer",
+						CommitterEmail:  "committer@example.com",
+						CommitterDate:   "2024-01-15",
+						Subject:         "Test bisect commit",
 					}},
 				},
 			},
@@ -1868,9 +1868,9 @@ func TestRestoreCursor_ClampsItemIndex(t *testing.T) {
 
 	restore := cursorRestore{
 		active:      true,
-		path:        "c.txt",            // no longer in unstaged
+		path:        "c.txt", // no longer in unstaged
 		sectionKind: SectionUnstaged,
-		itemIndex:   2,                  // was at index 2
+		itemIndex:   2, // was at index 2
 		hunk:        -1,
 	}
 
@@ -1897,7 +1897,7 @@ func TestRestoreCursor_ClampedIndexDifferentFile_StaysNearby(t *testing.T) {
 
 	restore := cursorRestore{
 		active:      true,
-		path:        "c.txt",       // file no longer in section
+		path:        "c.txt", // file no longer in section
 		sectionKind: SectionUnstaged,
 		itemIndex:   1, // clamps to index 1 = b.txt (nearest neighbor)
 		hunk:        -1,
@@ -3740,7 +3740,7 @@ func TestVisualMode_EnterOnDiffLine(t *testing.T) {
 	// Pressing 'V' when cursor is on a diff line (Hunk>=0, Line>=0) enters visual mode.
 	km := DefaultKeyMap()
 	m := Model{
-		keys: km,
+		keys:   km,
 		cursor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
 		sections: []Section{
 			{
@@ -3781,10 +3781,10 @@ func TestVisualMode_ExitOnEsc(t *testing.T) {
 	// Pressing Esc exits visual mode.
 	km := DefaultKeyMap()
 	m := Model{
-		keys:        km,
-		visualMode:  true,
+		keys:         km,
+		visualMode:   true,
 		visualAnchor: Cursor{Section: 0, Item: 0, Hunk: 0, Line: 1},
-		cursor:      Cursor{Section: 0, Item: 0, Hunk: 0, Line: 2},
+		cursor:       Cursor{Section: 0, Item: 0, Hunk: 0, Line: 2},
 	}
 
 	result, _ := update(m, tea.KeyMsg{Type: tea.KeyEsc})

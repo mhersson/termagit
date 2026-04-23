@@ -36,7 +36,7 @@ type LogEntry struct {
 	CommitterName   string
 	CommitterEmail  string
 	CommitterDate   string
-	Refs            []Ref    // Branches/tags pointing at this commit
+	Refs            []Ref     // Branches/tags pointing at this commit
 	When            time.Time // Parsed from AuthorDate
 	RefName         string    // Raw decoration string from git
 	ParentHashes    string    // Space-separated parent commit hashes

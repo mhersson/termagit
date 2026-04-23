@@ -19,7 +19,7 @@ func Load() (*Config, error) {
 
 	path, err := ConfigFile()
 	if err != nil {
-		return cfg, nil
+		return cfg, nil //nolint:nilerr // config dir unavailable → use defaults, not an error for the caller
 	}
 
 	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {

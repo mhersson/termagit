@@ -52,7 +52,6 @@ func TestState_LoadMissingFile(t *testing.T) {
 
 	state := NewState()
 	err := state.Load()
-
 	// Should not error on missing file
 	if err != nil {
 		t.Fatalf("Load should not error on missing file: %v", err)

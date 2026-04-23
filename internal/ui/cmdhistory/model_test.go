@@ -6,10 +6,11 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mhersson/termagit/internal/cmdlog"
-	"github.com/mhersson/termagit/internal/theme"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mhersson/termagit/internal/cmdlog"
+	"github.com/mhersson/termagit/internal/theme"
 )
 
 func testTokens() theme.Tokens {

@@ -3,6 +3,7 @@ package cmdhistory
 import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/mhersson/termagit/internal/cmdlog"
 	"github.com/mhersson/termagit/internal/theme"
 	"github.com/mhersson/termagit/internal/ui/nav"

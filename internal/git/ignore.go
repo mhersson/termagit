@@ -56,8 +56,7 @@ func (r *Repository) AddIgnoreRule(ctx context.Context, pattern string, scope Ig
 func (r *Repository) GlobalIgnoreFile(ctx context.Context) (string, error) {
 	out, err := r.runGit(ctx, "config", "--global", "core.excludesFile")
 	if err != nil {
-		// Not configured is not an error
-		return "", nil
+		return "", nil //nolint:nilerr // git config --get exits non-zero when key is absent; that is not an error
 	}
 	return strings.TrimSpace(out), nil
 }

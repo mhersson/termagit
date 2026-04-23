@@ -171,9 +171,9 @@ func TestCleanupTerminal(t *testing.T) {
 	got := buf.String()
 
 	sequences := []string{
-		"\x1b[<u",    // pop kitty keyboard level
-		"\033[?1l",   // reset cursor keys mode
-		"\033[?25h",  // show cursor
+		"\x1b[<u",     // pop kitty keyboard level
+		"\033[?1l",    // reset cursor keys mode
+		"\033[?25h",   // show cursor
 		"\033[?2004l", // disable bracketed paste
 	}
 

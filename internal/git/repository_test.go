@@ -10,9 +10,10 @@ import (
 	"time"
 
 	gogit "github.com/go-git/go-git/v5"
-	"github.com/mhersson/termagit/internal/cmdlog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mhersson/termagit/internal/cmdlog"
 )
 
 func TestOpen_FindsGitRepository(t *testing.T) {
@@ -292,9 +293,9 @@ func TestReadMergeState_ActiveMerge_ReturnsState(t *testing.T) {
 	// Now check merge state
 	head, subject, branch, err := r.ReadMergeState()
 	require.NoError(t, err)
-	require.NotEmpty(t, head)          // MERGE_HEAD should exist
+	require.NotEmpty(t, head)               // MERGE_HEAD should exist
 	require.Contains(t, subject, "feature") // Subject from MERGE_MSG
-	require.Equal(t, "feature", branch) // Branch being merged
+	require.Equal(t, "feature", branch)     // Branch being merged
 }
 
 func TestBisectState_NoBisect_ReturnsEmpty(t *testing.T) {

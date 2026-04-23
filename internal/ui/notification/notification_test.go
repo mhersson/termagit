@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/mhersson/termagit/internal/theme"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mhersson/termagit/internal/theme"
 )
 
 func testTokens() theme.Tokens {

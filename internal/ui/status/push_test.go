@@ -3,9 +3,10 @@ package status
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/mhersson/termagit/internal/git"
 	"github.com/mhersson/termagit/internal/ui/popup"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestBuildPushOpts_DefaultSwitches(t *testing.T) {

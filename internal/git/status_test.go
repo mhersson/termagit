@@ -6,9 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mhersson/termagit/internal/cmdlog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mhersson/termagit/internal/cmdlog"
 )
 
 // ModeText tests - must match Neogit exactly

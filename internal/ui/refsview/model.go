@@ -26,7 +26,7 @@ const (
 type RefsSectionKind int
 
 const (
-	RefsSectionLocal  RefsSectionKind = iota
+	RefsSectionLocal RefsSectionKind = iota
 	RefsSectionRemote
 	RefsSectionTags
 )
@@ -44,7 +44,7 @@ type RefsSection struct {
 // flatRow represents a single navigable row in the flattened view.
 type flatRow struct {
 	sectionIdx int
-	itemIdx    int  // -1 for section headers
+	itemIdx    int // -1 for section headers
 	isHeader   bool
 }
 

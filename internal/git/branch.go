@@ -162,7 +162,7 @@ func (r *Repository) CurrentUpstream(ctx context.Context) (remote, branch string
 
 	cfg, err := r.raw.Config()
 	if err != nil {
-		return "", "", nil
+		return "", "", nil //nolint:nilerr // config unreadable → treat as no upstream configured
 	}
 
 	branchName := head.Name().Short()
@@ -189,7 +189,7 @@ func (r *Repository) CurrentPushRemote(ctx context.Context) (remote, branch stri
 
 	cfg, err := r.raw.Config()
 	if err != nil {
-		return "", "", nil
+		return "", "", nil //nolint:nilerr // config unreadable → treat as no push remote configured
 	}
 
 	// go-git doesn't directly expose pushRemote, so check raw config sections
@@ -359,4 +359,3 @@ func (r *Repository) PullRequestURL(ctx context.Context, branch string) (string,
 
 	return webURL + "/compare/" + url.PathEscape(branch) + "?expand=1", nil
 }
-

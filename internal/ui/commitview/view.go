@@ -424,7 +424,6 @@ func (m Model) applyHorizontalScroll(line string) string {
 	return ansi.Truncate(ansi.TruncateLeft(line, m.xOffset, ""), m.width, "")
 }
 
-
 // renderFileDiff renders a single file diff.
 func (m Model) renderFileDiff(b *strings.Builder, diff *git.FileDiff) {
 	// File header

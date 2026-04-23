@@ -16,6 +16,7 @@ import (
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+
 	"github.com/mhersson/termagit/internal/cmdlog"
 )
 
@@ -199,7 +200,7 @@ func (r *Repository) AheadBehind(ctx context.Context) (ahead, behind int, err er
 	// Get current branch
 	head, err := r.raw.Head()
 	if err != nil {
-		return 0, 0, nil // No HEAD means no tracking
+		return 0, 0, nil //nolint:nilerr // no HEAD (empty repo) → no tracking info
 	}
 
 	if !head.Name().IsBranch() {
@@ -209,7 +210,7 @@ func (r *Repository) AheadBehind(ctx context.Context) (ahead, behind int, err er
 	// Try to get the upstream reference
 	cfg, err := r.raw.Config()
 	if err != nil {
-		return 0, 0, nil
+		return 0, 0, nil //nolint:nilerr // config unreadable → treat as no upstream
 	}
 
 	branchName := head.Name().Short()
@@ -224,13 +225,13 @@ func (r *Repository) AheadBehind(ctx context.Context) (ahead, behind int, err er
 
 	upstream, err := r.raw.Reference(upstreamRef, true)
 	if err != nil {
-		return 0, 0, nil // Upstream doesn't exist locally
+		return 0, 0, nil //nolint:nilerr // upstream ref not fetched locally → 0,0 is correct
 	}
 
 	// Use git rev-list for accurate ahead/behind counting
 	aheadCount, behindCount, err := r.countAheadBehind(ctx, head.Hash().String(), upstream.Hash().String())
 	if err != nil {
-		return 0, 0, nil
+		return 0, 0, nil //nolint:nilerr // rev-list failure → fall back to 0,0
 	}
 
 	return aheadCount, behindCount, nil
@@ -533,7 +534,7 @@ func (r *Repository) SequencerState(ctx context.Context) (SequencerState, error)
 
 		headData, err := readGitFile(headPath)
 		if err != nil {
-			return state, nil
+			return state, nil //nolint:nilerr // HEAD file missing mid-operation → return partial state without commit hash
 		}
 
 		hash := strings.TrimSpace(string(headData))
@@ -602,7 +603,7 @@ func (r *Repository) runGit(ctx context.Context, args ...string) (string, error)
 }
 
 // runGitWithEnv executes a git command with extra environment variables.
-func (r *Repository) runGitWithEnv(ctx context.Context, env []string, args ...string) (string, error) {
+func (r *Repository) runGitWithEnv(ctx context.Context, env []string, args ...string) error {
 	start := time.Now()
 
 	cmd := exec.CommandContext(ctx, "git", args...)
@@ -621,10 +622,10 @@ func (r *Repository) runGitWithEnv(ctx context.Context, env []string, args ...st
 	r.logGitCmd(start, args, stdout, stderr, cmdErr)
 
 	if cmdErr != nil {
-		return stdout, fmt.Errorf("git %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(stderr), cmdErr)
+		return fmt.Errorf("git %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(stderr), cmdErr)
 	}
 
-	return stdout, nil
+	return nil
 }
 
 // runGitFull executes a git command and returns stdout, stderr, and error.
@@ -730,7 +731,7 @@ func (r *Repository) logGitCmd(start time.Time, args []string, stdout, stderr st
 
 // logOp wraps a go-git operation with logging.
 // equiv is the equivalent git command for logging purposes.
-func (r *Repository) logOp(ctx context.Context, equiv string, fn func() (string, string, error)) (string, string, error) {
+func (r *Repository) logOp(_ context.Context, equiv string, fn func() (string, string, error)) (string, string, error) {
 	start := time.Now()
 	result1, result2, err := fn()
 	duration := time.Since(start)
@@ -770,9 +771,7 @@ func (r *Repository) logOpSingle(ctx context.Context, equiv string, fn func() (s
 func (r *Repository) GetConfigValue(ctx context.Context, key string) (string, error) {
 	out, err := r.runGit(ctx, "config", "--get", key)
 	if err != nil {
-		// git config --get returns exit code 1 for missing keys
-		// This is not an error condition for us
-		return "", nil
+		return "", nil //nolint:nilerr // git config --get exits 1 for absent keys; treat as empty, not error
 	}
 	return strings.TrimSpace(out), nil
 }
@@ -782,7 +781,7 @@ func (r *Repository) GetConfigValue(ctx context.Context, key string) (string, er
 func (r *Repository) GetGlobalConfigValue(ctx context.Context, key string) (string, error) {
 	out, err := r.runGit(ctx, "config", "--global", "--get", key)
 	if err != nil {
-		return "", nil
+		return "", nil //nolint:nilerr // git config --get exits 1 for absent keys; treat as empty, not error
 	}
 	return strings.TrimSpace(out), nil
 }

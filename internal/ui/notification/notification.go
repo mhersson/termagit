@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+
 	"github.com/mhersson/termagit/internal/theme"
 )
 
@@ -331,4 +332,3 @@ func (d InputDialog) View(tokens theme.Tokens, maxWidth int) string {
 
 	return box.Render(content)
 }
-

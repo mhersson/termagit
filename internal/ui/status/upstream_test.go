@@ -5,9 +5,10 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/mhersson/termagit/internal/git"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mhersson/termagit/internal/git"
 )
 
 // initTestRepo creates a real git repo in a temp dir with an initial commit.

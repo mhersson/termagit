@@ -35,7 +35,6 @@ func (r *Repository) CommitHistory(ctx context.Context, n int) ([]string, error)
 			count++
 			return nil
 		})
-
 		if err != nil {
 			return "", "", fmt.Errorf("iterate commits: %w", err)
 		}
@@ -129,7 +128,6 @@ func (r *Repository) CommitMessagesForCycling(ctx context.Context, n int) ([]str
 			count++
 			return nil
 		})
-
 		if err != nil {
 			return "", "", fmt.Errorf("iterate commits: %w", err)
 		}

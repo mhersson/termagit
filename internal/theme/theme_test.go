@@ -247,9 +247,9 @@ lavender  = "#b57edc"
 	assertNoEmptyFields(t, raw, "palette-test")
 
 	// Verify palette mapping
-	assert.Equal(t, "#eeeeee", raw.Normal)  // fg1
-	assert.Equal(t, "#0000ff", raw.Branch)  // blue
-	assert.Equal(t, "#00ff00", raw.Staged)  // green
+	assert.Equal(t, "#eeeeee", raw.Normal)   // fg1
+	assert.Equal(t, "#0000ff", raw.Branch)   // blue
+	assert.Equal(t, "#00ff00", raw.Staged)   // green
 	assert.Equal(t, "#ff0000", raw.Conflict) // red
 }
 

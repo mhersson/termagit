@@ -5,13 +5,14 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/mhersson/termagit/internal/theme"
 	"github.com/mhersson/termagit/internal/ui/cmdhistory"
 	"github.com/mhersson/termagit/internal/ui/notification"
 	"github.com/mhersson/termagit/internal/ui/status"
 	"github.com/mhersson/termagit/internal/watcher"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestApp_NotifyMsg_AddsToStack(t *testing.T) {

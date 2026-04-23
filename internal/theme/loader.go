@@ -14,8 +14,8 @@ import (
 // themeFile is the TOML structure for external theme files.
 // It supports both palette-based and token-based definitions.
 type themeFile struct {
-	Pal Palette   `toml:"palette"`
-	RawTokens              // anonymous embed — token fields decode at top level
+	Pal       Palette `toml:"palette"`
+	RawTokens         // anonymous embed — token fields decode at top level
 }
 
 // LoadDir loads all *.toml theme files from the given directory.
