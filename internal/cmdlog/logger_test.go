@@ -66,7 +66,7 @@ func TestAppend_ThreadSafe_NoConcurrentRace(t *testing.T) {
 	defer func() { _ = logger.Close() }()
 
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
@@ -99,7 +99,7 @@ func TestAppend_RotatesWhenMaxSizeExceeded(t *testing.T) {
 	require.NoError(t, err)
 
 	// Write enough data to exceed maxBytes
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		entry := Entry{
 			Timestamp: time.Now(),
 			Command:   "git status --long-option-to-make-it-bigger",
@@ -125,7 +125,7 @@ func TestRotate_KeepsMaxCopies(t *testing.T) {
 	require.NoError(t, err)
 
 	// Write many entries to trigger multiple rotations
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		entry := Entry{
 			Timestamp: time.Now(),
 			Command:   "git status --long-option",
@@ -197,7 +197,7 @@ func TestReadRecent_LimitsToN(t *testing.T) {
 	logger, err := New(path, 1024*1024, 3)
 	require.NoError(t, err)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		_ = logger.Append(Entry{Timestamp: time.Now(), Command: "cmd"})
 	}
 	_ = logger.Close()
@@ -367,7 +367,7 @@ func TestLogger_RotatedFilePermissions_0600(t *testing.T) {
 	logger, err := New(path, 50, 3)
 	require.NoError(t, err)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		_ = logger.Append(Entry{
 			Timestamp: time.Now(),
 			Command:   "git status --long-option-to-make-it-bigger",

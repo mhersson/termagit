@@ -28,7 +28,7 @@ func PadToHeight(s string, height int) string {
 // MaxVisibleWidth returns the maximum visible width across all lines in content.
 func MaxVisibleWidth(content string) int {
 	maxW := 0
-	for _, line := range strings.Split(content, "\n") {
+	for line := range strings.SplitSeq(content, "\n") {
 		w := ansi.StringWidth(line)
 		if w > maxW {
 			maxW = w

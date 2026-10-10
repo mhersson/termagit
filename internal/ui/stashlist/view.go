@@ -25,10 +25,7 @@ func (m Model) View() string {
 
 	// Stash entries
 	vis := m.cursor.VisibleLines()
-	end := m.cursor.Offset + vis
-	if end > len(m.stashes) {
-		end = len(m.stashes)
-	}
+	end := min(m.cursor.Offset+vis, len(m.stashes))
 
 	for i := m.cursor.Offset; i < end; i++ {
 		isCursor := i == m.cursor.Pos

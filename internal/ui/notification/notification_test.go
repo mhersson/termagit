@@ -195,7 +195,7 @@ func TestConfirmDialog_View_HasIcon(t *testing.T) {
 func TestCenterOverlay_PlacesCentered(t *testing.T) {
 	// 10 lines x 40 cols base
 	var lines []string
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		lines = append(lines, strings.Repeat(".", 40))
 	}
 	base := strings.Join(lines, "\n")
@@ -225,7 +225,7 @@ func TestCenterOverlay_EmptyOverlay_ReturnsBase(t *testing.T) {
 
 func TestCenterOverlay_MultilineOverlay(t *testing.T) {
 	var lines []string
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		lines = append(lines, strings.Repeat(".", 40))
 	}
 	base := strings.Join(lines, "\n")
@@ -241,7 +241,7 @@ func TestNotification_New_SequentialUniqueIDs(t *testing.T) {
 	// Bubble Tea is single-threaded, so IDs only need to be unique sequentially.
 	const count = 100
 	seen := make(map[int64]bool, count)
-	for i := 0; i < count; i++ {
+	for range count {
 		n := New("test", Info, time.Second)
 		assert.False(t, seen[n.id], "duplicate notification ID: %d", n.id)
 		seen[n.id] = true
@@ -271,8 +271,8 @@ func TestConfirmDialog_View_CapsAtMaxWidth(t *testing.T) {
 	// maxWidth too small for content — output should be truncated to maxWidth
 	v := d.View(tokens, 40)
 
-	lines := strings.Split(v, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(v, "\n")
+	for line := range lines {
 		assert.LessOrEqual(t, lipgloss.Width(line), 40, "line should not exceed maxWidth")
 	}
 	// Full path should NOT be visible since it's truncated

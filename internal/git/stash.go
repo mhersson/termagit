@@ -29,8 +29,7 @@ func (r *Repository) ListStashes(ctx context.Context) ([]StashEntry, error) {
 	if err != nil {
 		// Some git versions return a non-zero exit on an empty stash list.
 		// Treat any ExitError as "no stashes" rather than a hard failure.
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if _, ok := errors.AsType[*exec.ExitError](err); ok {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("list stashes: %w", err)
@@ -41,8 +40,8 @@ func (r *Repository) ListStashes(ctx context.Context) ([]StashEntry, error) {
 	}
 
 	var entries []StashEntry
-	lines := strings.Split(strings.TrimSpace(out), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(strings.TrimSpace(out), "\n")
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -230,13 +229,13 @@ func parseStashLine(line string) (StashEntry, error) {
 	// Extract branch from message if present
 	// Format: "WIP on branch: hash message" or "On branch: message"
 	branch := ""
-	if strings.HasPrefix(message, "WIP on ") {
-		rest := strings.TrimPrefix(message, "WIP on ")
+	if after, ok := strings.CutPrefix(message, "WIP on "); ok {
+		rest := after
 		if colonIdx := strings.Index(rest, ":"); colonIdx > 0 {
 			branch = rest[:colonIdx]
 		}
-	} else if strings.HasPrefix(message, "On ") {
-		rest := strings.TrimPrefix(message, "On ")
+	} else if after, ok := strings.CutPrefix(message, "On "); ok {
+		rest := after
 		if colonIdx := strings.Index(rest, ":"); colonIdx > 0 {
 			branch = rest[:colonIdx]
 		}

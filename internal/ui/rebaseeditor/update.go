@@ -312,10 +312,7 @@ func (m Model) handleExecInput(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // insertAfterCursor inserts an entry after the current cursor position.
 func (m Model) insertAfterCursor(entry git.TodoEntry) Model {
-	pos := m.cursor + 1
-	if pos > len(m.entries) {
-		pos = len(m.entries)
-	}
+	pos := min(m.cursor+1, len(m.entries))
 	m.entries = append(m.entries[:pos], append([]git.TodoEntry{entry}, m.entries[pos:]...)...)
 	m.cursor = pos
 	return m

@@ -339,15 +339,15 @@ func remoteURLToWeb(rawURL string) string {
 	url := rawURL
 
 	// Handle SSH URLs: git@github.com:user/repo.git
-	if strings.HasPrefix(url, "git@") {
-		url = strings.TrimPrefix(url, "git@")
+	if after, ok := strings.CutPrefix(url, "git@"); ok {
+		url = after
 		url = strings.Replace(url, ":", "/", 1)
 		url = "https://" + url
 	}
 
 	// Handle ssh:// URLs
-	if strings.HasPrefix(url, "ssh://") {
-		url = strings.TrimPrefix(url, "ssh://")
+	if after, ok := strings.CutPrefix(url, "ssh://"); ok {
+		url = after
 		// Remove user@ if present
 		if at := strings.Index(url, "@"); at >= 0 {
 			url = url[at+1:]

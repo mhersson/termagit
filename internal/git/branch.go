@@ -334,7 +334,7 @@ func (r *Repository) RecentBranches(ctx context.Context) ([]Branch, error) {
 	}
 
 	var branches []Branch
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue

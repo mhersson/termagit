@@ -22,10 +22,7 @@ func (e *Editor) View() string {
 
 	// Calculate visible line range
 	startLine := e.viewportTop
-	endLine := e.viewportTop + e.height
-	if endLine > lineCount {
-		endLine = lineCount
-	}
+	endLine := min(e.viewportTop+e.height, lineCount)
 
 	for i := startLine; i < endLine; i++ {
 		line := e.buffer.Line(i)

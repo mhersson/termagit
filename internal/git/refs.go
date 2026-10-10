@@ -51,8 +51,8 @@ func (r *Repository) ListRefs(ctx context.Context) (*RefsResult, error) {
 		RemoteBranches: make(map[string][]RefEntry),
 	}
 
-	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(strings.TrimRight(out, "\n"), "\n")
+	for line := range lines {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}

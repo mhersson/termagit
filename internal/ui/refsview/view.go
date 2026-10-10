@@ -21,10 +21,7 @@ func (m Model) View() string {
 	var b strings.Builder
 
 	vis := m.cursor.VisibleLines()
-	end := m.cursor.Offset + vis
-	if end > len(m.flatRows) {
-		end = len(m.flatRows)
-	}
+	end := min(m.cursor.Offset+vis, len(m.flatRows))
 
 	for i := m.cursor.Offset; i < end; i++ {
 		row := m.flatRows[i]

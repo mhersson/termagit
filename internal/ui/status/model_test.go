@@ -1,6 +1,7 @@
 package status
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -202,13 +203,7 @@ func TestDefaultKeyMap_AllBindingsSet(t *testing.T) {
 				return
 			}
 			// Check that the first expected key is present
-			found := false
-			for _, k := range keys {
-				if k == tt.keys[0] {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(keys, tt.keys[0])
 			if !found {
 				t.Errorf("%s: expected key %q, got %v", tt.name, tt.keys[0], keys)
 			}
@@ -1262,13 +1257,7 @@ func TestDefaultKeyMap_ScrollBindings(t *testing.T) {
 				t.Errorf("%s: expected keys to be set", tt.name)
 				return
 			}
-			found := false
-			for _, k := range keys {
-				if k == tt.keys[0] {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(keys, tt.keys[0])
 			if !found {
 				t.Errorf("%s: expected key %q, got %v", tt.name, tt.keys[0], keys)
 			}
@@ -3862,13 +3851,7 @@ func TestVisualMode_KeyBinding_VisualMode(t *testing.T) {
 	if len(keys) == 0 {
 		t.Fatal("VisualMode binding has no keys")
 	}
-	found := false
-	for _, k := range keys {
-		if k == "V" {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(keys, "V")
 	if !found {
 		t.Errorf("expected VisualMode binding to include 'V', got %v", keys)
 	}
@@ -3881,13 +3864,7 @@ func TestVisualMode_KeyBinding_ExitVisualMode(t *testing.T) {
 	if len(keys) == 0 {
 		t.Fatal("ExitVisualMode binding has no keys")
 	}
-	found := false
-	for _, k := range keys {
-		if k == "esc" {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(keys, "esc")
 	if !found {
 		t.Errorf("expected ExitVisualMode binding to include 'esc', got %v", keys)
 	}

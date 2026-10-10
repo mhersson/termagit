@@ -151,8 +151,8 @@ func (m Model) renderContentWithCursor() string {
 		lineNum++
 
 		// Body lines
-		bodyLines := strings.Split(m.info.Body, "\n")
-		for _, bodyLine := range bodyLines {
+		bodyLines := strings.SplitSeq(m.info.Body, "\n")
+		for bodyLine := range bodyLines {
 			if lineNum == m.cursorLine {
 				b.WriteString(m.renderCursorLine(bodyLine))
 			} else {
@@ -233,12 +233,9 @@ func (m Model) renderCursorLine(line string) string {
 	}
 
 	runes := []rune(stripped)
-	col := m.cursorCol
-
-	// Clamp col to valid range
-	if col < 0 {
-		col = 0
-	}
+	col := max(
+		// Clamp col to valid range
+		m.cursorCol, 0)
 	if col >= len(runes) {
 		col = len(runes) - 1
 	}

@@ -30,7 +30,7 @@ func (r *Repository) CommitHistory(ctx context.Context, n int) ([]string, error)
 			if count >= n {
 				return storer.ErrStop
 			}
-			subject := strings.Split(c.Message, "\n")[0]
+			subject, _, _ := strings.Cut(c.Message, "\n")
 			subjects = append(subjects, subject)
 			count++
 			return nil

@@ -46,10 +46,7 @@ func view(m Model) string {
 
 		// Apply viewport-like scrolling
 		startLine := m.viewport.YOffset
-		endLine := startLine + m.viewport.Height
-		if endLine > len(lines) {
-			endLine = len(lines)
-		}
+		endLine := min(startLine+m.viewport.Height, len(lines))
 		if startLine > len(lines) {
 			startLine = len(lines)
 		}
@@ -60,10 +57,7 @@ func view(m Model) string {
 			endLine = startLine + m.viewport.Height
 		} else if cursorLine >= endLine {
 			endLine = cursorLine + 1
-			startLine = endLine - m.viewport.Height
-			if startLine < 0 {
-				startLine = 0
-			}
+			startLine = max(endLine-m.viewport.Height, 0)
 		}
 
 		// Build visible content with strings.Builder instead of Join
@@ -109,10 +103,7 @@ func renderPopupOverlay(m Model, statusContent string) string {
 	statusHeight := m.height
 
 	// Position popup at bottom, render status above it
-	startLine := statusHeight - popupHeight
-	if startLine < 0 {
-		startLine = 0
-	}
+	startLine := max(statusHeight-popupHeight, 0)
 
 	var b strings.Builder
 
@@ -138,10 +129,7 @@ func renderCommitViewOverlay(m Model, statusContent string) string {
 
 	// Commit view gets 60% of screen height (matches SetSize in update.go)
 	cvHeight := m.height * 60 / 100
-	maxStatusLines := m.height - cvHeight
-	if maxStatusLines < 0 {
-		maxStatusLines = 0
-	}
+	maxStatusLines := max(m.height-cvHeight, 0)
 
 	var b strings.Builder
 
@@ -154,7 +142,7 @@ func renderCommitViewOverlay(m Model, statusContent string) string {
 	}
 
 	// Render commit view content, padding to fill cvHeight
-	for i := 0; i < cvHeight; i++ {
+	for i := range cvHeight {
 		if i < len(cvLines) {
 			b.WriteString(cvLines[i])
 		}
@@ -474,7 +462,7 @@ func renderBisectDetailItem(m Model, entry *git.LogEntry, onItem bool) string {
 	// Blank line + description
 	if entry.Body != "" {
 		b.WriteString("\n")
-		for _, line := range strings.Split(entry.Body, "\n") {
+		for line := range strings.SplitSeq(entry.Body, "\n") {
 			if line != "" {
 				b.WriteString("  ")
 				b.WriteString(line)
@@ -1102,10 +1090,7 @@ func ensureCursorVisible(m *Model, cursorLine int) {
 // Call this when expanding content (diff toggle) to prevent jarring jumps.
 // screenRow is the cursor's position relative to viewport top (cursorLine - yOffset).
 func preserveScreenPosition(m *Model, newCursorLine int, screenRow int) {
-	m.viewport.YOffset = newCursorLine - screenRow
-	if m.viewport.YOffset < 0 {
-		m.viewport.YOffset = 0
-	}
+	m.viewport.YOffset = max(newCursorLine-screenRow, 0)
 }
 
 // visualSelectionRange returns the (startLine, endLine) hunk line indices

@@ -142,8 +142,8 @@ func (r *Repository) readRebaseApplyState(dir string) (RebaseState, error) {
 func parseTodoEntries(content string, done bool, stoppedSha string) []TodoEntry {
 	var entries []TodoEntry
 
-	lines := strings.Split(content, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(content, "\n")
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -291,7 +291,7 @@ func (r *Repository) GenerateRebaseTodo(ctx context.Context, base string) ([]Tod
 	}
 
 	var entries []TodoEntry
-	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSpace(out), "\n") {
 		if line == "" {
 			continue
 		}

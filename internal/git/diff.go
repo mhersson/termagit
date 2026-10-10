@@ -223,10 +223,10 @@ func parseFileDiff(diff string) *FileDiff {
 			fd.IsNew = true
 		} else if strings.HasPrefix(line, "deleted file") {
 			fd.IsDelete = true
-		} else if strings.HasPrefix(line, "rename from ") {
-			fd.OldPath = strings.TrimPrefix(line, "rename from ")
-		} else if strings.HasPrefix(line, "rename to ") {
-			fd.Path = strings.TrimPrefix(line, "rename to ")
+		} else if after, ok := strings.CutPrefix(line, "rename from "); ok {
+			fd.OldPath = after
+		} else if after, ok := strings.CutPrefix(line, "rename to "); ok {
+			fd.Path = after
 		} else if strings.HasPrefix(line, "Binary files") {
 			fd.IsBinary = true
 			return fd
@@ -260,9 +260,9 @@ func parseHunks(diff string) []Hunk {
 	var hunks []Hunk
 	var currentHunk *Hunk
 
-	lines := strings.Split(diff, "\n")
+	lines := strings.SplitSeq(diff, "\n")
 
-	for _, line := range lines {
+	for line := range lines {
 		if strings.HasPrefix(line, "@@") {
 			// Start of a new hunk
 			if currentHunk != nil {

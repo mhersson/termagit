@@ -284,10 +284,9 @@ func (e *Editor) pageDown() {
 	if e.height == 0 {
 		return
 	}
-	lines := e.height - 1 // Leave one line overlap for context
-	if lines < 1 {
-		lines = 1
-	}
+	lines := max(
+		// Leave one line overlap for context
+		e.height-1, 1)
 	e.cursor.Line += lines
 	lineCount := e.buffer.LineCount()
 	if e.cursor.Line >= lineCount {
@@ -304,10 +303,9 @@ func (e *Editor) pageUp() {
 	if e.height == 0 {
 		return
 	}
-	lines := e.height - 1 // Leave one line overlap for context
-	if lines < 1 {
-		lines = 1
-	}
+	lines := max(
+		// Leave one line overlap for context
+		e.height-1, 1)
 	e.cursor.Line -= lines
 	if e.cursor.Line < 0 {
 		e.cursor.Line = 0
@@ -320,10 +318,7 @@ func (e *Editor) halfPageDown() {
 	if e.height == 0 {
 		return
 	}
-	lines := e.height / 2
-	if lines < 1 {
-		lines = 1
-	}
+	lines := max(e.height/2, 1)
 	e.cursor.Line += lines
 	lineCount := e.buffer.LineCount()
 	if e.cursor.Line >= lineCount {
@@ -340,10 +335,7 @@ func (e *Editor) halfPageUp() {
 	if e.height == 0 {
 		return
 	}
-	lines := e.height / 2
-	if lines < 1 {
-		lines = 1
-	}
+	lines := max(e.height/2, 1)
 	e.cursor.Line -= lines
 	if e.cursor.Line < 0 {
 		e.cursor.Line = 0

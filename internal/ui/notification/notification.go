@@ -225,10 +225,7 @@ func Overlay(base, overlay string, width int) string {
 		olLen := ansi.StringWidth(ol)
 		baseLen := ansi.StringWidth(baseLines[i])
 
-		startCol := width - olLen
-		if startCol < 0 {
-			startCol = 0
-		}
+		startCol := max(width-olLen, 0)
 
 		if baseLen < startCol {
 			// Pad the base line to reach startCol
@@ -254,10 +251,7 @@ func CenterOverlay(base, overlay string, width, height int) string {
 	overlayLines := strings.Split(overlay, "\n")
 
 	// Vertical centering
-	startRow := (height - len(overlayLines)) / 2
-	if startRow < 0 {
-		startRow = 0
-	}
+	startRow := max((height-len(overlayLines))/2, 0)
 
 	for i, ol := range overlayLines {
 		row := startRow + i
@@ -268,10 +262,7 @@ func CenterOverlay(base, overlay string, width, height int) string {
 		olLen := ansi.StringWidth(ol)
 
 		// Horizontal centering
-		startCol := (width - olLen) / 2
-		if startCol < 0 {
-			startCol = 0
-		}
+		startCol := max((width-olLen)/2, 0)
 
 		baseLen := ansi.StringWidth(baseLines[row])
 

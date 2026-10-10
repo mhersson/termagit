@@ -90,7 +90,7 @@ func (m Model) View() string {
 		if !m.folded[i] {
 			output := entry.Stdout + entry.Stderr
 			if output != "" {
-				for _, line := range strings.Split(strings.TrimRight(output, "\n"), "\n") {
+				for line := range strings.SplitSeq(strings.TrimRight(output, "\n"), "\n") {
 					if linesUsed >= maxLines {
 						break
 					}
@@ -100,7 +100,7 @@ func (m Model) View() string {
 				}
 			}
 			if entry.Error != "" {
-				for _, line := range strings.Split(strings.TrimRight(entry.Error, "\n"), "\n") {
+				for line := range strings.SplitSeq(strings.TrimRight(entry.Error, "\n"), "\n") {
 					if linesUsed >= maxLines {
 						break
 					}

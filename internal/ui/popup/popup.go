@@ -689,10 +689,7 @@ func (p Popup) renderActionsGrid() string {
 			}
 
 			// Pad to column width based on raw text length
-			padding := colWidths[colIdx] - len(cell.text)
-			if padding < 0 {
-				padding = 0
-			}
+			padding := max(colWidths[colIdx]-len(cell.text), 0)
 
 			// For first row (headers), build plain text for cursor rendering
 			// For other rows, use styled content

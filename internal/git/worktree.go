@@ -112,8 +112,8 @@ func parseWorktreePorcelain(output string) []GitWorktree {
 	var worktrees []GitWorktree
 	var current *GitWorktree
 
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(output, "\n")
+	for line := range lines {
 		if line == "" {
 			if current != nil {
 				worktrees = append(worktrees, *current)
@@ -122,9 +122,9 @@ func parseWorktreePorcelain(output string) []GitWorktree {
 			continue
 		}
 
-		if strings.HasPrefix(line, "worktree ") {
+		if after, ok := strings.CutPrefix(line, "worktree "); ok {
 			current = &GitWorktree{
-				Path: strings.TrimPrefix(line, "worktree "),
+				Path: after,
 			}
 		} else if current != nil {
 			switch {

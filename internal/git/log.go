@@ -258,7 +258,7 @@ func (r *Repository) listRemotes(ctx context.Context) ([]string, error) {
 	}
 
 	var remotes []string
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		line = strings.TrimSpace(line)
 		if line != "" {
 			remotes = append(remotes, line)
@@ -276,8 +276,8 @@ func parseLogOutput(output string, remotes []string) []LogEntry {
 	var entries []LogEntry
 
 	// Split by NUL character
-	records := strings.Split(output, "\x00")
-	for _, record := range records {
+	records := strings.SplitSeq(output, "\x00")
+	for record := range records {
 		record = strings.TrimSpace(record)
 		if record == "" {
 			continue
@@ -371,8 +371,8 @@ func parseRefs(decoration string, remotes []string) []Ref {
 	var refs []Ref
 
 	// Split by comma
-	parts := strings.Split(decoration, ", ")
-	for _, part := range parts {
+	parts := strings.SplitSeq(decoration, ", ")
+	for part := range parts {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
@@ -390,8 +390,8 @@ func parseRefs(decoration string, remotes []string) []Ref {
 		}
 
 		// Check for tag
-		if strings.HasPrefix(part, "tag: ") {
-			tagName := strings.TrimPrefix(part, "tag: ")
+		if after, ok := strings.CutPrefix(part, "tag: "); ok {
+			tagName := after
 			refs = append(refs, Ref{Name: tagName, Kind: RefKindTag})
 			continue
 		}
@@ -400,8 +400,8 @@ func parseRefs(decoration string, remotes []string) []Ref {
 		isRemote := false
 		for _, remote := range remotes {
 			prefix := remote + "/"
-			if strings.HasPrefix(part, prefix) {
-				branchName := strings.TrimPrefix(part, prefix)
+			if after, ok := strings.CutPrefix(part, prefix); ok {
+				branchName := after
 				refs = append(refs, Ref{Name: branchName, Kind: RefKindRemote, Remote: remote})
 				isRemote = true
 				break

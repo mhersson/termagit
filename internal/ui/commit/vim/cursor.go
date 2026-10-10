@@ -80,10 +80,7 @@ func (c *Cursor) BufferStart(b *Buffer) {
 
 // BufferEnd moves the cursor to the last line (G).
 func (c *Cursor) BufferEnd(b *Buffer) {
-	c.Line = b.LineCount() - 1
-	if c.Line < 0 {
-		c.Line = 0
-	}
+	c.Line = max(b.LineCount()-1, 0)
 	c.Col = 0
 }
 

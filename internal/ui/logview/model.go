@@ -1,6 +1,7 @@
 package logview
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -445,8 +446,8 @@ func (m Model) maxCursor() int {
 		return len(m.filtered) - 1
 	}
 	if m.graphEnabled && len(m.displayRows) > 0 {
-		for i := len(m.displayRows) - 1; i >= 0; i-- {
-			if m.displayRows[i].commitIdx >= 0 {
+		for i, v := range slices.Backward(m.displayRows) {
+			if v.commitIdx >= 0 {
 				return i
 			}
 		}

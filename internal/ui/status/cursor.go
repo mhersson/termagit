@@ -1,6 +1,8 @@
 package status
 
 import (
+	"slices"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -497,10 +499,7 @@ func handlePageUp(m Model) (tea.Model, tea.Cmd) {
 
 // handlePageDown scrolls the viewport down by a full page.
 func handlePageDown(m Model) (tea.Model, tea.Cmd) {
-	maxOffset := m.viewport.TotalLineCount() - m.viewport.Height
-	if maxOffset < 0 {
-		maxOffset = 0
-	}
+	maxOffset := max(m.viewport.TotalLineCount()-m.viewport.Height, 0)
 
 	m.viewport.YOffset += m.viewport.Height
 	if m.viewport.YOffset > maxOffset {
@@ -540,10 +539,7 @@ func handleHalfPageUp(m Model) (tea.Model, tea.Cmd) {
 
 // handleHalfPageDown scrolls the viewport down by half a page.
 func handleHalfPageDown(m Model) (tea.Model, tea.Cmd) {
-	maxOffset := m.viewport.TotalLineCount() - m.viewport.Height
-	if maxOffset < 0 {
-		maxOffset = 0
-	}
+	maxOffset := max(m.viewport.TotalLineCount()-m.viewport.Height, 0)
 
 	m.viewport.YOffset += m.viewport.Height / 2
 	if m.viewport.YOffset > maxOffset {
@@ -587,12 +583,12 @@ func handleGoToBottom(m Model) (tea.Model, tea.Cmd) {
 	}
 
 	// Start from last visible section and find last item
-	for i := len(visible) - 1; i >= 0; i-- {
-		s := &m.sections[visible[i]]
+	for i, v := range slices.Backward(visible) {
+		s := &m.sections[v]
 		if !s.Folded && len(s.Items) > 0 {
 			// Go to last item in this section
 			m.cursor = Cursor{
-				Section: visible[i],
+				Section: v,
 				Item:    len(s.Items) - 1,
 				Hunk:    -1,
 				Line:    -1,

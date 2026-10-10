@@ -24,10 +24,7 @@ func (m Model) View() string {
 
 	// Entries list
 	vis := m.cursor.VisibleLines()
-	end := m.cursor.Offset + vis
-	if end > len(m.entries) {
-		end = len(m.entries)
-	}
+	end := min(m.cursor.Offset+vis, len(m.entries))
 
 	// Calculate max index width for alignment
 	maxIdx := len(m.entries) - 1
@@ -110,9 +107,9 @@ func (m Model) styleForType(typ string) lipgloss.Style {
 // extractSubject removes the type prefix from a reflog subject.
 // e.g., "commit: add feature" -> "add feature"
 func extractSubject(subject string) string {
-	colonIdx := strings.Index(subject, ": ")
-	if colonIdx >= 0 {
-		return strings.TrimSpace(subject[colonIdx+2:])
+	_, after, ok := strings.Cut(subject, ": ")
+	if ok {
+		return strings.TrimSpace(after)
 	}
 	return subject
 }

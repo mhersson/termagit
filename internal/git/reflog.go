@@ -62,8 +62,8 @@ func parseReflogOutput(output string) []ReflogEntry {
 	var entries []ReflogEntry
 
 	// Split by NUL character
-	records := strings.Split(output, "\x00")
-	for _, record := range records {
+	records := strings.SplitSeq(output, "\x00")
+	for record := range records {
 		record = strings.TrimSpace(record)
 		if record == "" {
 			continue
@@ -154,12 +154,12 @@ func parseReflogType(subject string) string {
 	}
 
 	// Standard format: "type: message" or "type word: message"
-	colonIdx := strings.Index(subject, ":")
-	if colonIdx == -1 {
+	before, _, ok := strings.Cut(subject, ":")
+	if !ok {
 		return "other"
 	}
 
-	prefix := strings.TrimSpace(subject[:colonIdx])
+	prefix := strings.TrimSpace(before)
 
 	// Handle "merge origin/main" -> "merge"
 	if strings.HasPrefix(prefix, "merge ") || prefix == "merge" {

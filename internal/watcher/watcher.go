@@ -2,6 +2,7 @@ package watcher
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -141,10 +142,8 @@ func (w *Watcher) isRelevant(path string) bool {
 	name := filepath.Base(path)
 
 	// Check watched files
-	for _, f := range watchedFiles {
-		if name == f {
-			return true
-		}
+	if slices.Contains(watchedFiles, name) {
+		return true
 	}
 
 	// Check if it's inside rebase-merge/ or rebase-apply/

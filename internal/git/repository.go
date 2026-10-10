@@ -305,8 +305,8 @@ func (r *Repository) SequencerOperation() string {
 	}
 
 	// First line contains the operation
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(string(data), "\n")
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -357,8 +357,8 @@ func (r *Repository) ReadMergeState() (head, subject, branch string, err error) 
 
 	// Extract branch name from subject
 	// Format: "Merge branch 'feature'" or "Merge branch 'feature' into main"
-	if strings.HasPrefix(subject, "Merge branch '") {
-		rest := strings.TrimPrefix(subject, "Merge branch '")
+	if after, ok := strings.CutPrefix(subject, "Merge branch '"); ok {
+		rest := after
 		if idx := strings.Index(rest, "'"); idx > 0 {
 			branch = rest[:idx]
 		}
@@ -380,9 +380,9 @@ func (r *Repository) BisectState(ctx context.Context) (BisectState, error) {
 	}
 
 	state := BisectState{}
-	lines := strings.Split(string(data), "\n")
+	lines := strings.SplitSeq(string(data), "\n")
 
-	for _, line := range lines {
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -555,8 +555,8 @@ func (r *Repository) SequencerState(ctx context.Context) (SequencerState, error)
 	}
 
 	// Parse sequencer/todo
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(string(data), "\n")
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -710,8 +710,7 @@ func (r *Repository) logGitCmd(start time.Time, args []string, stdout, stderr st
 	var errMsg string
 	if cmdErr != nil {
 		errMsg = cmdErr.Error()
-		var exitErr *exec.ExitError
-		if errors.As(cmdErr, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](cmdErr); ok {
 			exitCode = exitErr.ExitCode()
 		} else {
 			exitCode = -1

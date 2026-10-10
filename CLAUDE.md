@@ -26,7 +26,7 @@ Run a single test:
 go test -run TestName ./internal/ui/status/
 ```
 
-Requires Go 1.26+.
+Requires Go 1.27+.
 
 ## Architecture
 

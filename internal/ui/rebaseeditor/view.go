@@ -59,19 +59,13 @@ func (m Model) renderTopBar() string {
 
 	titleWidth := len(title)
 	centerPos := (m.width - titleWidth) / 2
-	gapAfterBadge := centerPos - badgeWidth
-	if gapAfterBadge < 1 {
-		gapAfterBadge = 1
-	}
+	gapAfterBadge := max(centerPos-badgeWidth, 1)
 
 	titleStyle := m.tokens.Bold.Background(m.tokens.EditorBar.GetBackground())
 	styledTitle := titleStyle.Render(title)
 
 	gap := m.tokens.EditorBar.Render(strings.Repeat(" ", gapAfterBadge))
-	rightFill := m.width - badgeWidth - gapAfterBadge - titleWidth
-	if rightFill < 0 {
-		rightFill = 0
-	}
+	rightFill := max(m.width-badgeWidth-gapAfterBadge-titleWidth, 0)
 	fill := m.tokens.EditorBar.Render(strings.Repeat(" ", rightFill))
 
 	return badge + gap + styledTitle + fill

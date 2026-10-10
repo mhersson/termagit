@@ -139,7 +139,7 @@ func TestRender_ViewportShowsTopAfterSetContent(t *testing.T) {
 
 	// Create content with many lines
 	var lines []string
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		lines = append(lines, "line content")
 	}
 	content := strings.Join(lines, "\n")

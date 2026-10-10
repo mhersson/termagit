@@ -171,7 +171,7 @@ func (r *Repository) statusFromGit(ctx context.Context) (*StatusResult, error) {
 
 	result := &StatusResult{}
 
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		if line == "" {
 			continue
 		}
@@ -290,13 +290,13 @@ func parseKind1(rest string) (*StatusEntry, error) {
 // Note: The path is the last space-separated field before the tab.
 func parseKind2(rest string) (*StatusEntry, error) {
 	// Find the tab separator between path and origPath
-	tabIdx := strings.Index(rest, "\t")
-	if tabIdx == -1 {
+	before, after, ok := strings.Cut(rest, "\t")
+	if !ok {
 		return nil, fmt.Errorf("invalid kind 2 line, no tab: %s", rest)
 	}
 
-	beforeTab := rest[:tabIdx]
-	origPath := rest[tabIdx+1:]
+	beforeTab := before
+	origPath := after
 
 	// Parse the fields before the tab (space-separated)
 	parts := strings.Fields(beforeTab)

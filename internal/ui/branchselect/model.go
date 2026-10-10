@@ -240,10 +240,7 @@ func (m Model) View() string {
 
 	items := m.visibleBranches()
 	vis := m.visibleLines()
-	end := m.offset + vis
-	if end > len(items) {
-		end = len(items)
-	}
+	end := min(m.offset+vis, len(items))
 
 	for i := m.offset; i < end; i++ {
 		branch := items[i]

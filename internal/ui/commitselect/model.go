@@ -343,10 +343,7 @@ func (m Model) View() string {
 	b.WriteString("\n\n")
 
 	vis := m.visibleLines()
-	end := m.offset + vis
-	if end > len(m.commits) {
-		end = len(m.commits)
-	}
+	end := min(m.offset+vis, len(m.commits))
 
 	for i := m.offset; i < end; i++ {
 		c := m.commits[i]

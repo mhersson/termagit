@@ -237,7 +237,7 @@ func TestVimEditor_CtrlF_PageDown(t *testing.T) {
 	e := NewEditor(testTokens(), ModeNormal)
 	// Create 20 lines
 	var lines []string
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		lines = append(lines, "line")
 	}
 	e.SetContent(strings.Join(lines, "\n"))
@@ -254,7 +254,7 @@ func TestVimEditor_CtrlF_PageDown(t *testing.T) {
 func TestVimEditor_CtrlB_PageUp(t *testing.T) {
 	e := NewEditor(testTokens(), ModeNormal)
 	var lines []string
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		lines = append(lines, "line")
 	}
 	e.SetContent(strings.Join(lines, "\n"))
@@ -271,7 +271,7 @@ func TestVimEditor_CtrlB_PageUp(t *testing.T) {
 func TestVimEditor_CtrlD_HalfPageDown(t *testing.T) {
 	e := NewEditor(testTokens(), ModeNormal)
 	var lines []string
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		lines = append(lines, "line")
 	}
 	e.SetContent(strings.Join(lines, "\n"))
@@ -288,7 +288,7 @@ func TestVimEditor_CtrlD_HalfPageDown(t *testing.T) {
 func TestVimEditor_CtrlU_HalfPageUp(t *testing.T) {
 	e := NewEditor(testTokens(), ModeNormal)
 	var lines []string
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		lines = append(lines, "line")
 	}
 	e.SetContent(strings.Join(lines, "\n"))

@@ -523,7 +523,7 @@ func TestDiffModel_CursorColScrollsViewport(t *testing.T) {
 	m.SetSize(10, 24) // Narrow viewport - set after loading
 
 	// Move cursor past viewport width
-	for i := 0; i < 15; i++ {
+	for range 15 {
 		keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}}
 		newM, _ := m.Update(keyMsg)
 		m = newM.(Model)
@@ -558,7 +558,7 @@ func TestDiffView_StatBlock_RendersWhenPresent(t *testing.T) {
 func testLargeDiffs() []git.FileDiff {
 	// Create hunks with many lines to exceed viewport height
 	var lines []git.DiffLine
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		lines = append(lines, git.DiffLine{Op: git.DiffOpContext, Content: "line content"})
 	}
 	return []git.FileDiff{

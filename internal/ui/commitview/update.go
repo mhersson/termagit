@@ -1,6 +1,7 @@
 package commitview
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -305,9 +306,9 @@ func (m Model) findNextHunkHeader(from int) int {
 // findPrevHunkHeader finds the previous hunk header line before the current cursor position.
 func (m Model) findPrevHunkHeader(from int) int {
 	hunkLines := m.getHunkHeaderLines()
-	for i := len(hunkLines) - 1; i >= 0; i-- {
-		if hunkLines[i] < from {
-			return hunkLines[i]
+	for _, hunkLine := range slices.Backward(hunkLines) {
+		if hunkLine < from {
+			return hunkLine
 		}
 	}
 	// Wrap or stay at start

@@ -85,9 +85,9 @@ func parseCommitOverview(output string) *CommitOverview {
 // parseStat parses --stat output (without a header line) into a CommitOverview.
 func parseStat(output string) *CommitOverview {
 	overview := &CommitOverview{}
-	lines := strings.Split(output, "\n")
+	lines := strings.SplitSeq(output, "\n")
 
-	for _, line := range lines {
+	for line := range lines {
 		// Check for summary line
 		if matches := statSummaryRegex.FindStringSubmatch(line); matches != nil {
 			overview.Summary = strings.TrimSpace(matches[1])
@@ -121,8 +121,8 @@ func parseStat(output string) *CommitOverview {
 func parseSignatureOutput(output string) *CommitSignature {
 	sig := &CommitSignature{Status: "none"}
 
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(output, "\n")
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "[GNUPG:] GOODSIG") {
 			sig.Status = "good"

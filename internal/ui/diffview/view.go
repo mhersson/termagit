@@ -248,10 +248,7 @@ func (m Model) formatFileHeader(diff *git.FileDiff, fileIdx int) string {
 	counterText := fmt.Sprintf("file %d/%d  hunk %d", fileIdx+1, totalFiles, totalHunks)
 
 	// Calculate spacing between path and counter
-	spacing := m.width - len(diff.Path) - len(counterText)
-	if spacing < 2 {
-		spacing = 2
-	}
+	spacing := max(m.width-len(diff.Path)-len(counterText), 2)
 
 	return diff.Path + strings.Repeat(" ", spacing) + counterText
 }
@@ -298,12 +295,9 @@ func (m Model) renderCursorLine(line string) string {
 	}
 
 	runes := []rune(stripped)
-	col := m.cursorCol
-
-	// Clamp col to valid range
-	if col < 0 {
-		col = 0
-	}
+	col := max(
+		// Clamp col to valid range
+		m.cursorCol, 0)
 	if col >= len(runes) {
 		col = len(runes) - 1
 	}

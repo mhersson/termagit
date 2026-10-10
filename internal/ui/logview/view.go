@@ -154,10 +154,7 @@ func (m Model) renderCommitViewOverlay() string {
 
 	// Commit view gets 70% of screen height
 	cvHeight := m.cursor.Height * 70 / 100
-	maxLogLines := m.cursor.Height - cvHeight
-	if maxLogLines < 0 {
-		maxLogLines = 0
-	}
+	maxLogLines := max(m.cursor.Height-cvHeight, 0)
 
 	var b strings.Builder
 
@@ -168,7 +165,7 @@ func (m Model) renderCommitViewOverlay() string {
 	}
 
 	// Render commit view content
-	for i := 0; i < cvHeight; i++ {
+	for i := range cvHeight {
 		if i < len(cvLines) {
 			b.WriteString(cvLines[i])
 		}
@@ -215,11 +212,7 @@ func (m Model) renderCommitRow(c git.LogEntry, isCursor bool, graphCells graph.R
 
 	// Calculate space available for refs + subject
 	rightSideWidth := authorColWidth + timeColWidth
-	middleWidth := m.cursor.Width - hashWidth - graphVisualWidth - rightSideWidth
-
-	if middleWidth < minSubjectWidth {
-		middleWidth = minSubjectWidth
-	}
+	middleWidth := max(m.cursor.Width-hashWidth-graphVisualWidth-rightSideWidth, minSubjectWidth)
 
 	// Refs (branches, tags) - no parentheses, just space-separated
 	refs := ""
@@ -232,10 +225,7 @@ func (m Model) renderCommitRow(c git.LogEntry, isCursor bool, graphCells graph.R
 	if refs != "" {
 		refsWidth = len(ansi.Strip(refs)) + 1 // +1 for space after refs
 	}
-	subjectWidth := middleWidth - refsWidth
-	if subjectWidth < minSubjectWidth {
-		subjectWidth = minSubjectWidth
-	}
+	subjectWidth := max(middleWidth-refsWidth, minSubjectWidth)
 
 	// Truncate subject if needed
 	subject := c.Subject
@@ -430,7 +420,7 @@ func (m Model) renderCommitDetails(c git.LogEntry) string {
 	// Body
 	if c.Body != "" {
 		b.WriteString("\n")
-		for _, line := range strings.Split(c.Body, "\n") {
+		for line := range strings.SplitSeq(c.Body, "\n") {
 			b.WriteString(indent)
 			b.WriteString(line)
 			b.WriteString("\n")

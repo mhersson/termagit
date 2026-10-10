@@ -188,7 +188,7 @@ func TestCommitView_CursorColScrollsViewport(t *testing.T) {
 	model := newM.(Model)
 
 	// Move cursor past viewport width
-	for i := 0; i < 15; i++ {
+	for range 15 {
 		keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}}
 		newM, _ = model.Update(keyMsg)
 		model = newM.(Model)
@@ -671,7 +671,7 @@ func TestScrollUp_MovesViewport(t *testing.T) {
 // testLargeDiffs returns diff data with many lines for scroll testing.
 func testLargeDiffs() []git.FileDiff {
 	var lines []git.DiffLine
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		lines = append(lines, git.DiffLine{Op: git.DiffOpContext, Content: "line content"})
 	}
 	return []git.FileDiff{

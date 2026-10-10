@@ -68,7 +68,7 @@ make build        # binary at bin/termagit
 make install      # copies to $GOPATH/bin/
 ```
 
-Requires Go 1.26+.
+Requires Go 1.27+.
 
 ## Usage
 

@@ -376,10 +376,7 @@ func (m Model) renderTopBar() string {
 	// Calculate center position for the title within the full width
 	titleWidth := len(title)
 	centerPos := (m.width - titleWidth) / 2
-	gapAfterBadge := centerPos - badgeWidth
-	if gapAfterBadge < 1 {
-		gapAfterBadge = 1
-	}
+	gapAfterBadge := max(centerPos-badgeWidth, 1)
 
 	// Title styled with bold + CursorBg background
 	titleStyle := m.tokens.Bold.Background(m.tokens.EditorBar.GetBackground())
@@ -387,10 +384,7 @@ func (m Model) renderTopBar() string {
 
 	// Gap and right fill use CursorBg background explicitly
 	gap := m.tokens.EditorBar.Render(strings.Repeat(" ", gapAfterBadge))
-	rightFill := m.width - badgeWidth - gapAfterBadge - titleWidth
-	if rightFill < 0 {
-		rightFill = 0
-	}
+	rightFill := max(m.width-badgeWidth-gapAfterBadge-titleWidth, 0)
 	fill := m.tokens.EditorBar.Render(strings.Repeat(" ", rightFill))
 
 	return badge + gap + styledTitle + fill
